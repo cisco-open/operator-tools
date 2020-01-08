@@ -1,12 +1,12 @@
 # operator-tools
 
-This is a collection of tools to speed up the implementation of Kubernetes Operators.
+This is a collection of tools to speed up the implementation of Kubernetes Operators with [kubebuilder](https://github.com/kubernetes-sigs/kubebuilder).
 
 ## GenericResourceReconciler
 
 `GenericResourceReconciler` reconciles a single Kubernetes object against the API Server.
 
-It creates the object if it doesn't exist or removes it in case it's desired state is absent.
+It creates the object if it doesn't exist or removes it in case its desired state is absent.
 
 It uses the [ObjectMatcher](https://github.com/banzaicloud/k8s-objectmatcher) library to be able to tell if an already
 existing object needs to be updated or not.
