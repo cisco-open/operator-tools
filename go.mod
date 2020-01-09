@@ -7,6 +7,7 @@ require (
 	github.com/banzaicloud/k8s-objectmatcher v1.0.1
 	github.com/go-logr/logr v0.1.0
 	github.com/goph/emperror v0.17.2
+	github.com/iancoleman/orderedmap v0.0.0-20190318233801-ac98e3ecb4b0 // indirect
 	github.com/onsi/gomega v1.5.0
 	github.com/pborman/uuid v1.2.0
 	github.com/spf13/cast v1.3.0
