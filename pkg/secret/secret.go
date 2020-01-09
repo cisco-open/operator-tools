@@ -35,21 +35,11 @@ type Secret struct {
 // +kubebuilder:object:generate=true
 
 type ValueFrom struct {
-	SecretKeyRef *KubernetesSecret `json:"secretKeyRef,omitempty"`
-}
-
-// +kubebuilder:object:generate=true
-
-type KubernetesSecret struct {
-	// Name of the kubernetes secret
-	Name string `json:"name"`
-	// Secret key for the value
-	Key string `json:"key"`
+	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
 type SecretLoader interface {
 	Load(secret *Secret) (string, error)
-	Mount(secret *Secret) (string, error)
 }
 
 type secretLoader struct {
@@ -60,25 +50,26 @@ type secretLoader struct {
 	secrets   *MountSecrets
 }
 
-type MountSecrets struct {
-	Secrets []MountSecret
+func (m MountSecrets) Append(namespace string, secret *corev1.SecretKeySelector, mappedKey string, value []byte) {
+	m = append(m, MountSecret{
+		Name:      secret.Name,
+		Key:       secret.Key,
+		Namespace: namespace,
+		Value:     value,
+	})
 }
 
-func (m *MountSecrets) Append(secret MountSecret) {
-	m.Secrets = append(m.Secrets, secret)
-}
-
-func (m *MountSecrets) List() []MountSecret {
-	return m.Secrets
-}
+type MountSecrets []MountSecret
 
 type MountSecret struct {
+	Namespace string
 	Name      string
 	Key       string
-	Namespace string
+	MappedKey string
+	Value     []byte
 }
 
-func NewSecretLoader(client client.Client, namespace, mountPath string, secrets *MountSecrets) *secretLoader {
+func NewSecretLoader(client client.Client, namespace, mountPath string, secrets *MountSecrets) SecretLoader {
 	return &secretLoader{
 		client:    client,
 		mountPath: mountPath,
@@ -87,31 +78,26 @@ func NewSecretLoader(client client.Client, namespace, mountPath string, secrets 
 	}
 }
 
-func (k *secretLoader) Mount(secret *Secret) (string, error) {
-	k8sSecret := &corev1.Secret{}
-	err := k.client.Get(context.TODO(), types.NamespacedName{
-		Name:      secret.MountFrom.SecretKeyRef.Name,
-		Namespace: k.namespace}, k8sSecret)
-	if err != nil {
-		return "", errors.WrapIff(err, "failed to get kubernetes secret %s:%s",
-			k.namespace,
-			secret.MountFrom.SecretKeyRef.Name)
-	}
-	secretKey := fmt.Sprintf("%s-%s-%s", k.namespace, secret.MountFrom.SecretKeyRef.Name, secret.MountFrom.SecretKeyRef.Key)
-	k.secrets.Append(MountSecret{
-		Name:      secret.MountFrom.SecretKeyRef.Name,
-		Key:       secret.MountFrom.SecretKeyRef.Key,
-		Namespace: k.namespace,
-	})
-	return k.mountPath + "/" + secretKey, nil
-}
-
 func (k *secretLoader) Load(secret *Secret) (string, error) {
 	if secret.Value != "" {
 		return secret.Value, nil
 	}
 
-	if secret.ValueFrom.SecretKeyRef != nil {
+	if secret.MountFrom != nil && secret.MountFrom.SecretKeyRef != nil {
+		mappedKey := fmt.Sprintf("%s-%s-%s", k.namespace, secret.MountFrom.SecretKeyRef.Name, secret.MountFrom.SecretKeyRef.Key)
+		secretItem := &corev1.Secret{}
+		err := k.client.Get(context.TODO(), types.NamespacedName{
+			Name:      secret.MountFrom.SecretKeyRef.Name,
+			Namespace: k.namespace}, secretItem)
+		if err != nil {
+			return "", errors.WrapIfWithDetails(
+				err, "failed to load secret", "secret", secret.MountFrom.SecretKeyRef.Name, "namespace", k.namespace)
+		}
+		k.secrets.Append(k.namespace, secret.MountFrom.SecretKeyRef, mappedKey, secretItem.Data[secret.MountFrom.SecretKeyRef.Key])
+		return k.mountPath + "/" + mappedKey, nil
+	}
+
+	if secret.ValueFrom != nil && secret.ValueFrom.SecretKeyRef != nil {
 		k8sSecret := &corev1.Secret{}
 		err := k.client.Get(context.TODO(), types.NamespacedName{
 			Name:      secret.ValueFrom.SecretKeyRef.Name,
