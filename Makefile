@@ -41,9 +41,12 @@ license-check: bin/licensei ## Run license check
 	bin/licensei check
 	bin/licensei header
 
+.PHONY: test
+test:
+	go test ./...
 
 .PHONY: check
-check: test lint ## Run tests and linters
+check: test lint license-check ## Run tests and linters
 
 bin/golangci-lint: bin/golangci-lint-${GOLANGCI_VERSION}
 	@ln -sf golangci-lint-${GOLANGCI_VERSION} bin/golangci-lint
