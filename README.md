@@ -69,18 +69,36 @@ It's the callers responsibility to make those secrets available on that given pa
 the referenced secrets and mount it into the container through a secret volume (this is how we use it).
 1. Load the value directly if `Value` is set. (This is only good for testing.)
 
-Once you're done with configuration you can create the `SecretLoader`.
+Once you're done with configuration you can create the `SecretLoader` and load your secrets through it.
 
 ```go
-secretLoader := secret.NewSecretLoader(client, namespace, "/path/to/mount", &secret.MountSecrets{})
+mountSecrets := &secret.MountSecrets{}
+secretLoader := secret.NewSecretLoader(client, namespace, "/path/to/mount", mountSecrets)
 ```
 
-We can then use the `secretLoader` to create a new secret item e.g. to create a fluentd configuration file from a template
-that contains our desired config and secret values.
+Then you can load the secrets. The following steps can be made more dynamic, like it is beeing used in the logging operator:
+https://github.com/banzaicloud/logging-operator/blob/master/pkg/sdk/model/types/stringmaps.go
 
-The other use case is to create a new secret where each item is a `MountFrom` secret and mount it into a container.
+```go
+// get the secretValue and use it as you like in an application configuration template for example
+secretValue, err := secretLoader.Load(yourCustomResourceType.Spec.ExampleSecretField)
 
-For both scenarios please check out the [logging operator](https://github.com/banzaicloud/logging-operator) for examples.
+// get the path to the mount secret and use it as you like in an application configuration template for example
+secretPath, err := secretLoader.Load(yourCustomResourceType.Spec.ExampleMountSecretField)
 
-This feature is currently only covered with tests in the [logging operator](https://github.com/banzaicloud/logging-operator),
+// render the configuration template and create a new secret from it that will be mounted into the container
+appConfigSecret := &corev1.Secret{}
+renderedTemplate := renderTemplate(secretValue, secretPath)
+appConfigSecret.Data["app.conf"] = renderedTemplate
+
+// create the combined secret to be mounted to the container on "/path/to/mount"
+combinedSecret := &corev1.Secret{}
+for _, secret := range *mountSecrets {
+  combinedSecret.Data[secret.MappedKey] = secret.Value
+}
+```
+
+For a full example please check out the [logging operator code](https://github.com/banzaicloud/logging-operator).
+
+Also, this feature is currently only covered with tests in the [logging operator](https://github.com/banzaicloud/logging-operator),
 but this is a subject to change soon.
