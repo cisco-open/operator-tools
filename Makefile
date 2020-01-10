@@ -1,3 +1,6 @@
+LICENSEI_VERSION = 0.2.0
+GOLANGCI_VERSION = 1.21.0
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -25,3 +28,36 @@ CONTROLLER_GEN=$(GOBIN)/controller-gen
 else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif
+
+bin/licensei: bin/licensei-${LICENSEI_VERSION}
+	@ln -sf licensei-${LICENSEI_VERSION} bin/licensei
+bin/licensei-${LICENSEI_VERSION}:
+	@mkdir -p bin
+	curl -sfL https://git.io/licensei | bash -s v${LICENSEI_VERSION}
+	@mv bin/licensei $@
+
+.PHONY: license-check
+license-check: bin/licensei ## Run license check
+	bin/licensei check
+	bin/licensei header
+
+
+.PHONY: check
+check: test lint ## Run tests and linters
+
+bin/golangci-lint: bin/golangci-lint-${GOLANGCI_VERSION}
+	@ln -sf golangci-lint-${GOLANGCI_VERSION} bin/golangci-lint
+bin/golangci-lint-${GOLANGCI_VERSION}:
+	@mkdir -p bin
+	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ./bin/ v${GOLANGCI_VERSION}
+	@mv bin/golangci-lint $@
+
+.PHONY: lint
+lint: export CGO_ENABLED = 1
+lint: bin/golangci-lint ## Run linter
+	bin/golangci-lint run
+
+.PHONY: fix
+fix: export CGO_ENABLED = 1
+fix: bin/golangci-lint ## Fix lint violations
+	bin/golangci-lint run --fix
