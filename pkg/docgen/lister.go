@@ -18,10 +18,12 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
+	"github.com/iancoleman/orderedmap"
 )
 
 type SourceLister struct {
@@ -53,7 +55,9 @@ func NewSourceLister(sources map[string]SourceDir, logger logr.Logger) *SourceLi
 
 func (sl *SourceLister) ListSources() ([]DocItem, error) {
 	sourceList := []DocItem{}
-	for category, p := range sl.Sources {
+
+	for _, key := range orderedMap(sl.Sources).Keys() {
+		p := sl.Sources[key]
 		files, err := ioutil.ReadDir(p.Path)
 		if err != nil {
 			return nil, errors.WrapIff(err, "failed to read files from %s", p.Path)
@@ -67,7 +71,7 @@ func (sl *SourceLister) ListSources() ([]DocItem, error) {
 					SourcePath:                   fullPath,
 					DestPath:                     p.DestPath,
 					DefaultValueFromTagExtractor: sl.DefaultValueFromTagExtractor,
-					Category:                     category,
+					Category:                     key,
 				},
 				)
 			}
@@ -117,4 +121,13 @@ func (lister *SourceLister) Generate() error {
 	}
 
 	return nil
+}
+
+func orderedMap(original map[string]SourceDir) *orderedmap.OrderedMap {
+	o := orderedmap.New()
+	for k, v := range original {
+		o.Set(k, v)
+	}
+	o.SortKeys(sort.Strings)
+	return o
 }
