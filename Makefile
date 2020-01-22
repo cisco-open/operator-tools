@@ -11,6 +11,7 @@ endif
 # Generate code
 generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/secret/...
+	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/storage/...
 
 # find or download controller-gen
 # download controller-gen if necessary
