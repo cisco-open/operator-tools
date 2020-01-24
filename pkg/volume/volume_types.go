@@ -12,15 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package storage
+package volume
 
 import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+// +docName:"Kubernetes volume abstraction"
+// Refers to different types of volumes to be mounted to pods: emptyDir, hostPath, pvc
+//
+// Leverages core types from kubernetes/api/core/v1
+type _docKubernetesVolume interface{}
+
+// +name:"KubernetesVolume"
+// +description:"Kubernetes volume abstraction"
+type _metaKubernetesVolume interface{}
+
 // +kubebuilder:object:generate=true
 
-type KubernetesStorage struct {
+type KubernetesVolume struct {
 	HostPath       *corev1.HostPathVolumeSource `json:"hostPath,omitempty"`
 	EmptyDir       *corev1.EmptyDirVolumeSource `json:"emptyDir,omitempty"`
 	// PersistentVolumeClaim defines the Spec and the Source at the same time.
@@ -35,30 +45,35 @@ type PersistentVolumeClaim struct {
 	PersistentVolumeSource    corev1.PersistentVolumeClaimVolumeSource `json:"source,omitempty"`
 }
 
+// `path` is the path in case the hostPath volume type is used and no path has been defined explicitly
+func (v *KubernetesVolume) WithDefaultHostPath(path string) {
+	if v.HostPath != nil {
+		if v.HostPath.Path == "" {
+			v.HostPath.Path = path
+		}
+	}
+}
+
 // GetVolume returns a default emptydir volume if none configured
 //
 // `name`    will be the name of the volume and the lowest level directory in case a hostPath mount is used
-// `path`    is the path in case the hostPath volume type is used
-func (storage KubernetesStorage) GetVolume(name, path string) corev1.Volume {
+func (v *KubernetesVolume) GetVolume(name string) corev1.Volume {
 	volume := corev1.Volume{
 		Name: name,
 	}
-	if storage.HostPath != nil {
-		if storage.HostPath.Path == "" {
-			storage.HostPath.Path = path
-		}
+	if v.HostPath != nil {
 		volume.VolumeSource = corev1.VolumeSource{
-			HostPath: storage.HostPath,
+			HostPath: v.HostPath,
 		}
 		return volume
-	} else if storage.EmptyDir != nil {
+	} else if v.EmptyDir != nil {
 		volume.VolumeSource = corev1.VolumeSource{
-			EmptyDir: storage.EmptyDir,
+			EmptyDir: v.EmptyDir,
 		}
 		return volume
-	} else if storage.PersistentVolumeClaim != nil {
+	} else if v.PersistentVolumeClaim != nil {
 		volume.VolumeSource = corev1.VolumeSource{
-			PersistentVolumeClaim: &storage.PersistentVolumeClaim.PersistentVolumeSource,
+			PersistentVolumeClaim: &v.PersistentVolumeClaim.PersistentVolumeSource,
 		}
 	}
 	// return a default emptydir volume if none configured
