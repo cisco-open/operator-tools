@@ -15,12 +15,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+//nolint:unused,deadcode
 // +docName:"Secret abstraction"
 // Provides an abstraction to refer to secrets from other types
 // SecretLoader facilitates loading the secrets from an operator.
 // Leverages core types from kubernetes/api/core/v1
 type _docSecret interface{}
 
+//nolint:unused,deadcode
 // +name:"Secret"
 // +description:"Secret referencing abstraction"
 type _metaSecret interface{}

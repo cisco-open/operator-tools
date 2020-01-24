@@ -18,12 +18,15 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+
+//nolint:unused,deadcode
 // +docName:"Kubernetes volume abstraction"
 // Refers to different types of volumes to be mounted to pods: emptyDir, hostPath, pvc
 //
 // Leverages core types from kubernetes/api/core/v1
 type _docKubernetesVolume interface{}
 
+//nolint:unused,deadcode
 // +name:"KubernetesVolume"
 // +description:"Kubernetes volume abstraction"
 type _metaKubernetesVolume interface{}
