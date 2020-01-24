@@ -140,8 +140,11 @@ func (d *Doc) visitNode(n ast.Node) bool {
 				}
 				d.Append("| Variable Name | Type | Required | Default | Description |")
 				d.Append("|---|---|---|---|---|")
-				for _, item := range structure.Fields.List {
-					name, com, def, required := d.getValuesFromItem(item)
+				for i, item := range structure.Fields.List {
+					name, com, def, required, err := d.getValuesFromItem(item)
+					if err != nil {
+						panic(errors.WrapIff(err, "failed to get values for field #%d for type %s", i, typeName.Name.Name))
+					}
 					d.Append(fmt.Sprintf("| %s | %s | %s | %s | %s |", name, d.normaliseType(item.Type), required, def, com))
 				}
 			}
@@ -212,7 +215,7 @@ func formatRequired(r bool) string {
 	return "No"
 }
 
-func (d *Doc) getValuesFromItem(item *ast.Field) (name, comment, def, required string) {
+func (d *Doc) getValuesFromItem(item *ast.Field) (name, comment, def, required string, err error) {
 	commentWithDefault := ""
 	if item.Doc != nil {
 		for _, line := range item.Doc.List {
@@ -223,6 +226,9 @@ func (d *Doc) getValuesFromItem(item *ast.Field) (name, comment, def, required s
 			}
 		}
 	}
+	if item.Tag == nil {
+		return "", "", "", "", errors.Errorf("field has no tag defined: %+v", item)
+	}
 	tag := item.Tag.Value
 	tagResult := ""
 	if d.Item.DefaultValueFromTagExtractor != nil {
@@ -231,14 +237,14 @@ func (d *Doc) getValuesFromItem(item *ast.Field) (name, comment, def, required s
 	nameResult := GetPrefixedValue(tag, `json:\"([^,\"]*).*\"`)
 	required = formatRequired(!strings.Contains(GetPrefixedValue(tag, `json:\"(.*)\"`), "omitempty"))
 	if tagResult != "" {
-		return nameResult, getLink(commentWithDefault), tagResult, required
+		return nameResult, getLink(commentWithDefault), tagResult, required, nil
 	}
 	result := GetPrefixedValue(commentWithDefault, `\(default:(.*)\)`)
 	if result != "" {
 		ignore := fmt.Sprintf("(default:%s)", result)
 		comment = strings.Replace(commentWithDefault, ignore, "", 1)
-		return nameResult, comment, getLink(result), required
+		return nameResult, comment, getLink(result), required, nil
 	}
 
-	return nameResult, getLink(commentWithDefault), "-", required
+	return nameResult, getLink(commentWithDefault), "-", required, nil
 }

@@ -24,20 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// +kubebuilder:object:generate=true
-
-type Secret struct {
-	Value     string     `json:"value,omitempty"`
-	ValueFrom *ValueFrom `json:"valueFrom,omitempty"`
-	MountFrom *ValueFrom `json:"mountFrom,omitempty"`
-}
-
-// +kubebuilder:object:generate=true
-
-type ValueFrom struct {
-	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
-}
-
 type SecretLoader interface {
 	Load(secret *Secret) (string, error)
 }

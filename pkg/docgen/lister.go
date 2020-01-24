@@ -30,6 +30,7 @@ type SourceLister struct {
 	Logger                       logr.Logger
 	Sources                      map[string]SourceDir
 	IgnoredSources               []string
+	IncludeSources               []string
 	DefaultValueFromTagExtractor func(string) string
 	Index                        *Doc
 	DocGeneratedHook             func(doc *Doc) error
@@ -64,8 +65,9 @@ func (sl *SourceLister) ListSources() ([]DocItem, error) {
 		}
 		for _, file := range files {
 			fname := strings.Replace(file.Name(), ".go", "", 1)
-			if filepath.Ext(file.Name()) == ".go" && sl.IsWhiteListed(fname) {
+			if filepath.Ext(file.Name()) == ".go" && (sl.isWhitelisted(fname) || !sl.isBlacklisted(fname)) {
 				fullPath := filepath.Join(p.Path, file.Name())
+				sl.Logger.V(2).Info("included", "source", fname)
 				sourceList = append(sourceList, DocItem{
 					Name:                         fname,
 					SourcePath:                   fullPath,
@@ -81,16 +83,27 @@ func (sl *SourceLister) ListSources() ([]DocItem, error) {
 	return sourceList, nil
 }
 
-func (sl *SourceLister) IsWhiteListed(source string) bool {
+
+func (sl *SourceLister) isBlacklisted(source string) bool {
 	for _, p := range sl.IgnoredSources {
 		r := regexp.MustCompile(p)
 		if r.MatchString(source) {
-			sl.Logger.V(2).Info("ignored source", "source", source)
-			return false
+			sl.Logger.V(2).Info("blacklisted", "source", source)
+			return true
 		}
 	}
-	sl.Logger.V(2).Info("included source", "source", source)
-	return true
+	return false
+}
+
+func (sl *SourceLister) isWhitelisted(source string) bool {
+	for _, p := range sl.IncludeSources {
+		r := regexp.MustCompile(p)
+		if r.MatchString(source) {
+			sl.Logger.V(2).Info("whitelisted", "source", source)
+			return true
+		}
+	}
+	return false
 }
 
 func (lister *SourceLister) Generate() error {
