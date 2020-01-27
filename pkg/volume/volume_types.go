@@ -78,6 +78,7 @@ func (v *KubernetesVolume) GetVolume(name string) corev1.Volume {
 		volume.VolumeSource = corev1.VolumeSource{
 			PersistentVolumeClaim: &v.PersistentVolumeClaim.PersistentVolumeSource,
 		}
+		return volume
 	}
 	// return a default emptydir volume if none configured
 	volume.VolumeSource = corev1.VolumeSource{
