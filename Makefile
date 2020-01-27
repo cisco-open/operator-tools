@@ -13,6 +13,7 @@ generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/secret/...
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/volume/...
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/prometheus/...
+	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/types/...
 
 # find or download controller-gen
 # download controller-gen if necessary
@@ -48,7 +49,7 @@ test:
 	go test ./...
 
 .PHONY: check
-check: test lint license-check ## Run tests and linters
+check: test lint license-check check-diff ## Run tests and linters
 
 bin/golangci-lint: bin/golangci-lint-${GOLANGCI_VERSION}
 	@ln -sf golangci-lint-${GOLANGCI_VERSION} bin/golangci-lint
@@ -66,3 +67,8 @@ lint: bin/golangci-lint ## Run linter
 fix: export CGO_ENABLED = 1
 fix: bin/golangci-lint ## Fix lint violations
 	bin/golangci-lint run --fix
+
+check-diff:
+	go mod tidy
+	$(MAKE) generate docs
+	git diff --exit-code
