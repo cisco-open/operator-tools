@@ -37,6 +37,8 @@ const (
 	StatePresent StaticDesiredState = "Present"
 )
 
+type ResourceBuilder func() (runtime.Object, DesiredState, error)
+
 type DesiredState interface {
 	BeforeUpdate(object runtime.Object) error
 }
