@@ -184,8 +184,8 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 
 func (r *GenericResourceReconciler) createIfNotExists(desired runtime.Object) (bool, runtime.Object, error) {
 	log := r.Log.WithValues("type", reflect.TypeOf(desired))
-	var current = desired.DeepCopyObject()
-	key, err := runtimeClient.ObjectKeyFromObject(current)
+	current := reflect.New(reflect.Indirect(reflect.ValueOf(desired)).Type()).Interface().(runtime.Object)
+	key, err := runtimeClient.ObjectKeyFromObject(desired)
 	if err != nil {
 		return false, nil, emperror.With(err)
 	}
@@ -211,8 +211,8 @@ func (r *GenericResourceReconciler) createIfNotExists(desired runtime.Object) (b
 
 func (r *GenericResourceReconciler) delete(desired runtime.Object) (bool, error) {
 	log := r.Log.WithValues("type", reflect.TypeOf(desired))
-	var current = desired.DeepCopyObject()
-	key, err := runtimeClient.ObjectKeyFromObject(current)
+	current := reflect.New(reflect.Indirect(reflect.ValueOf(desired)).Type()).Interface().(runtime.Object)
+	key, err := runtimeClient.ObjectKeyFromObject(desired)
 	if err != nil {
 		return false, emperror.With(err)
 	}
