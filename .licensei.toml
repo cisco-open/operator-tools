@@ -15,6 +15,7 @@ ignored = [
   "github.com/stretchr/testify",
   "github.com/fatih/structtag", # BSD-3
   "github.com/samuel/go-thrift", # BSD-3
+  "gopkg.in/fsnotify.v1", # BSD-3
   "github.com/uber-go/tally", # MIT
 
   "github.com/davecgh/go-spew", # ISC license
