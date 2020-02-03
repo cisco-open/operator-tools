@@ -37,6 +37,7 @@ const (
 	StatePresent StaticDesiredState = "Present"
 )
 
+type ResourceBuilders func(object interface{}) []ResourceBuilder
 type ResourceBuilder func() (runtime.Object, DesiredState, error)
 
 type DesiredState interface {
