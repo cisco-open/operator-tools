@@ -30,6 +30,7 @@ func init() {
 }
 
 // +kubebuilder:object:root=true
+
 type ServiceMonitor struct {
 	metav1.TypeMeta `json:",inline"`
 	// Standard object’s metadata. More info:
@@ -42,6 +43,7 @@ type ServiceMonitor struct {
 }
 
 // +kubebuilder:object:root=true
+
 type ServiceMonitorList struct {
 	metav1.TypeMeta `json:",inline"`
 	// Standard list metadata
@@ -50,6 +52,8 @@ type ServiceMonitorList struct {
 	// List of ServiceMonitors
 	Items []*ServiceMonitor `json:"items"`
 }
+
+// +kubebuilder:object:generate=true
 
 type ServiceMonitorSpec struct {
 	// The label to use to retrieve the job name from.
@@ -67,6 +71,8 @@ type ServiceMonitorSpec struct {
 	// SampleLimit defines per-scrape limit on number of scraped samples that will be accepted.
 	SampleLimit uint64 `json:"sampleLimit,omitempty"`
 }
+
+// +kubebuilder:object:generate=true
 
 type Endpoint struct {
 	// Name of the service port this endpoint refers to. Mutually exclusive with targetPort.
@@ -101,6 +107,8 @@ type Endpoint struct {
 	ProxyURL *string `json:"proxyUrl,omitempty"`
 }
 
+// +kubebuilder:object:generate=true
+
 type TLSConfig struct {
 	// The CA cert to use for the targets.
 	CAFile string `json:"caFile,omitempty"`
@@ -114,12 +122,16 @@ type TLSConfig struct {
 	InsecureSkipVerify bool `json:"insecureSkipVerify,omitempty"`
 }
 
+// +kubebuilder:object:generate=true
+
 type BasicAuth struct {
 	// The secret that contains the username for authenticate
 	Username v1.SecretKeySelector `json:"username,omitempty"`
 	// The secret that contains the password for authenticate
 	Password v1.SecretKeySelector `json:"password,omitempty"`
 }
+
+// +kubebuilder:object:generate=true
 
 type RelabelConfig struct {
 	//The source labels select values from existing labels. Their content is concatenated
@@ -141,6 +153,8 @@ type RelabelConfig struct {
 	// Action to perform based on regex matching. Default is 'replace'
 	Action string `json:"action,omitempty"`
 }
+
+// +kubebuilder:object:generate=true
 
 type NamespaceSelector struct {
 	// Boolean describing whether all namespaces are selected in contrast to a
