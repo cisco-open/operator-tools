@@ -29,7 +29,6 @@ type MetaBase struct {
 // +kubebuilder:object:generate=true
 
 type PodSpecBase struct {
-	*MetaBase           `json:",inline"`
 	Tolerations        []corev1.Toleration        `json:"tolerations,omitempty"`
 	NodeSelector       map[string]string          `json:"nodeSelector,omitempty"`
 	ServiceAccountName string                     `json:"serviceAccountName,omitempty"`
@@ -74,7 +73,7 @@ func (base *ContainerBase) Override(container corev1.Container) corev1.Container
 	return container
 }
 
-func (base *MetaBase) MergeMeta(meta v1.ObjectMeta) v1.ObjectMeta {
+func (base *MetaBase) Merge(meta v1.ObjectMeta) v1.ObjectMeta {
 	if base == nil {
 		return meta
 	}
