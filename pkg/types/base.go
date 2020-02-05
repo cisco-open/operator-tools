@@ -29,7 +29,7 @@ type MetaBase struct {
 // +kubebuilder:object:generate=true
 
 type PodSpecBase struct {
-	MetaBase           `json:",inline"`
+	*MetaBase           `json:",inline"`
 	Tolerations        []corev1.Toleration        `json:"tolerations,omitempty"`
 	NodeSelector       map[string]string          `json:"nodeSelector,omitempty"`
 	ServiceAccountName string                     `json:"serviceAccountName,omitempty"`
