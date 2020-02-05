@@ -121,16 +121,6 @@ func (rec *NativeReconciler) metaDecorator(object runtime.Object, owner runtime.
 		ownerRefs = append(ownerRefs, ownerRef)
 	}
 	accessor.SetOwnerReferences(ownerRefs)
-	accessor.SetNamespace(ownerAccessor.GetNamespace())
-
-	newLabels := map[string]string{}
-	for key, val := range accessor.GetLabels() {
-		newLabels[key] = val
-	}
-	for key, val := range ownerAccessor.GetLabels() {
-		newLabels[key] = val
-	}
-	accessor.SetLabels(newLabels)
 
 	return nil
 }
