@@ -53,7 +53,6 @@ type HelmReleaseHooks interface {
 // GenericHelmReconciler implements reconciler.ComponentReconciler
 // from github.com/banzaicloud/operator-tools/pkg/reconciler without depending on it explicitly
 type GenericHelmReconciler struct {
-	clientConfig   clientcmd.ClientConfig
 	helmChart      *chart.Chart
 	reconcileHooks HelmReleaseHooks
 	actionConfig   *action.Configuration
@@ -69,7 +68,6 @@ func (n *NonCachedDiscovery) Fresh() bool {
 }
 
 func (n *NonCachedDiscovery) Invalidate() {
-	return
 }
 
 type Initializer struct {

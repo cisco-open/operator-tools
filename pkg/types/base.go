@@ -21,9 +21,15 @@ import (
 
 // +kubebuilder:object:generate=true
 
-type WorkloadBase struct {
-	Annotations        map[string]string          `json:"annotations,omitempty"`
-	Labels             map[string]string          `json:"labels,omitempty"`
+type MetaBase struct {
+	Annotations map[string]string `json:"annotations,omitempty"`
+	Labels      map[string]string `json:"labels,omitempty"`
+}
+
+// +kubebuilder:object:generate=true
+
+type PodSpecBase struct {
+	MetaBase           `json:",inline"`
 	Tolerations        []corev1.Toleration        `json:"tolerations,omitempty"`
 	NodeSelector       map[string]string          `json:"nodeSelector,omitempty"`
 	ServiceAccountName string                     `json:"serviceAccountName,omitempty"`
@@ -68,7 +74,7 @@ func (base *ContainerBase) Override(container corev1.Container) corev1.Container
 	return container
 }
 
-func (base *WorkloadBase) MergeMeta(meta v1.ObjectMeta) v1.ObjectMeta {
+func (base *MetaBase) MergeMeta(meta v1.ObjectMeta) v1.ObjectMeta {
 	if base == nil {
 		return meta
 	}
@@ -85,7 +91,7 @@ func (base *WorkloadBase) MergeMeta(meta v1.ObjectMeta) v1.ObjectMeta {
 	return meta
 }
 
-func (base *WorkloadBase) OverrideSpec(spec corev1.PodSpec) corev1.PodSpec {
+func (base *PodSpecBase) Override(spec corev1.PodSpec) corev1.PodSpec {
 	if base == nil {
 		return spec
 	}
