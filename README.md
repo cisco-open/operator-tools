@@ -161,7 +161,7 @@ func main() {
 	}
 	flag.Parse()
 
-	config, err := clientcmd.BuildConfigFromFlags("", "")
+	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
 	if err != nil {
 		log.Fatal(err)
 	}
