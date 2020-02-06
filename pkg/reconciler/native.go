@@ -45,13 +45,13 @@ func (d *DefaultReconciledComponent) RegisterWatches(b *builder.Builder) {
 }
 
 type NativeReconciler struct {
-	GenericResourceReconciler
+	*GenericResourceReconciler
 	reconciledComponent NativeReconciledComponent
 	configTranslate     func(runtime.Object) interface{}
 }
 
 func NewNativeReconciler(
-	rec GenericResourceReconciler,
+	rec *GenericResourceReconciler,
 	reconciledComponent NativeReconciledComponent,
 	resourceTranslate func(runtime.Object) interface{}) *NativeReconciler {
 	return &NativeReconciler{
