@@ -64,7 +64,7 @@ bin/golangci-lint-${GOLANGCI_VERSION}:
 lint: export CGO_ENABLED = 1
 lint: bin/golangci-lint ## Run linter
 	bin/golangci-lint run
-	cd module/helm && bin/golangci-lint run
+	cd module/helm && ../../bin/golangci-lint run
 
 .PHONY: fix
 fix: export CGO_ENABLED = 1
