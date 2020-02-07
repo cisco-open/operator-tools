@@ -42,6 +42,7 @@ bin/licensei-${LICENSEI_VERSION}:
 .PHONY: license-check
 license-check: bin/licensei ## Run license check
 	bin/licensei check
+	export GITHUB_TOKEN
 	cd module/helm && ../../bin/licensei check --config ../../.licensei.toml
 	bin/licensei header
 
