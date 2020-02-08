@@ -257,6 +257,7 @@ func (hr *GenericHelmReconciler) Reconcile(object runtime.Object) (*reconcile.Re
 			if err != nil {
 				return nil, errors.WrapIff(err, "failed to uninstall chart %s", name)
 			}
+			return nil, nil
 		}
 	}
 
