@@ -245,8 +245,23 @@ func (hr *GenericHelmReconciler) Reconcile(object runtime.Object) (*reconcile.Re
 		namespace = hr.reconcileHooks.GetNamespace()
 	}
 
+	var existingRelease bool
+
+	history := action.NewHistory(hr.actionConfig)
+	history.Max = 1
+	_, err = history.Run(name)
+	if err == nil {
+		existingRelease = true
+	} else if err != driver.ErrReleaseNotFound {
+		return nil, errors.WrapIf(err, "failed to get release history")
+	}
+
 	if hr.reconcileHooks != nil {
 		if hr.reconcileHooks.ShouldUninstall(object) {
+			if !existingRelease {
+				hr.log.Info("release is already removed")
+				return nil, nil
+			}
 			uninstall := action.NewUninstall(hr.actionConfig)
 			uninstall.Timeout = time.Minute * 5
 			uninstall.KeepHistory = true
@@ -261,10 +276,7 @@ func (hr *GenericHelmReconciler) Reconcile(object runtime.Object) (*reconcile.Re
 		}
 	}
 
-	history := action.NewHistory(hr.actionConfig)
-	history.Max = 1
-	_, err = history.Run(name)
-	if err == driver.ErrReleaseNotFound {
+	if !existingRelease {
 		install := action.NewInstall(hr.actionConfig)
 		hr.log.Info(fmt.Sprintf("release %s will be installed", name))
 		install.Timeout = time.Minute * 5
@@ -279,8 +291,6 @@ func (hr *GenericHelmReconciler) Reconcile(object runtime.Object) (*reconcile.Re
 			return nil, errors.WrapIff(err, "failed to install chart %s", name)
 		}
 		hr.log.Info(fmt.Sprintf("release %s has been installed", name))
-	} else if err != nil {
-		return nil, errors.WrapIf(err, "failed to get release history")
 	} else {
 		upgrade := action.NewUpgrade(hr.actionConfig)
 		hr.log.Info(fmt.Sprintf("release %s will be upgraded", name))
