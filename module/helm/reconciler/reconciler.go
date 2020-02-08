@@ -245,6 +245,31 @@ func (hr *GenericHelmReconciler) Reconcile(object runtime.Object) (*reconcile.Re
 		namespace = hr.reconcileHooks.GetNamespace()
 	}
 
+	if hr.reconcileHooks != nil {
+		if hr.reconcileHooks.ShouldUninstall(object) {
+			releases, err := action.NewList(hr.actionConfig).Run()
+			if err != nil {
+				return nil, errors.WrapIf(err, "failed to list releases")
+			}
+			for _, r := range releases {
+				if r.Name == name {
+					uninstall := action.NewUninstall(hr.actionConfig)
+					uninstall.Timeout = time.Minute * 5
+					uninstall.KeepHistory = false
+					if hr.reconcileHooks != nil {
+						hr.reconcileHooks.ConfigureUninstall(uninstall)
+					}
+					_, err := uninstall.Run(name)
+					if err != nil {
+						return nil, errors.WrapIff(err, "failed to uninstall chart %s", name)
+					}
+					return nil, nil
+				}
+			}
+			return nil, nil
+		}
+	}
+
 	var existingRelease bool
 
 	history := action.NewHistory(hr.actionConfig)
@@ -254,26 +279,6 @@ func (hr *GenericHelmReconciler) Reconcile(object runtime.Object) (*reconcile.Re
 		existingRelease = true
 	} else if err != driver.ErrReleaseNotFound {
 		return nil, errors.WrapIf(err, "failed to get release history")
-	}
-
-	if hr.reconcileHooks != nil {
-		if hr.reconcileHooks.ShouldUninstall(object) {
-			if !existingRelease {
-				hr.log.Info("release is already removed")
-				return nil, nil
-			}
-			uninstall := action.NewUninstall(hr.actionConfig)
-			uninstall.Timeout = time.Minute * 5
-			uninstall.KeepHistory = true
-			if hr.reconcileHooks != nil {
-				hr.reconcileHooks.ConfigureUninstall(uninstall)
-			}
-			_, err := uninstall.Run(name)
-			if err != nil {
-				return nil, errors.WrapIff(err, "failed to uninstall chart %s", name)
-			}
-			return nil, nil
-		}
 	}
 
 	if !existingRelease {
