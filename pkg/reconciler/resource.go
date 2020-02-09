@@ -29,7 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -68,10 +70,15 @@ type GenericResourceReconciler struct {
 type ReconcilerOpts struct {
 	EnableRecreateWorkloadOnImmutableFieldChange     bool
 	EnableRecreateWorkloadOnImmutableFieldChangeHelp string
+	Scheme                                           *runtime.Scheme
 }
 
 // NewReconciler returns GenericResourceReconciler
 func NewReconciler(client runtimeClient.Client, log logr.Logger, opts ReconcilerOpts) *GenericResourceReconciler {
+	if opts.Scheme == nil {
+		opts.Scheme = runtime.NewScheme()
+		_ = clientgoscheme.AddToScheme(opts.Scheme)
+	}
 	return &GenericResourceReconciler{
 		Log:     log,
 		Client:  client,
@@ -87,11 +94,10 @@ func (r *GenericResourceReconciler) CreateResource(desired runtime.Object) error
 
 // ReconcileResource reconciles various kubernetes types
 func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, desiredState DesiredState) (*reconcile.Result, error) {
-	key, err := runtimeClient.ObjectKeyFromObject(desired)
+	log, err := r.resourceLog(desired)
 	if err != nil {
-		return nil, emperror.With(err)
+		return nil, errors.WrapIf(err, "failed to prepare resource logger")
 	}
-	log := r.Log.WithValues("name", key, "type", reflect.TypeOf(desired))
 	debugLog := log.V(1)
 	traceLog := log.V(2)
 	switch desiredState {
@@ -184,7 +190,10 @@ func (r *GenericResourceReconciler) createIfNotExists(desired runtime.Object) (b
 	if err != nil {
 		return false, nil, emperror.With(err)
 	}
-	log := r.Log.WithValues("name", key, "type", reflect.TypeOf(desired))
+	log, err := r.resourceLog(desired)
+	if err != nil {
+		return false, nil, errors.WrapIf(err, "failed to prepare resource log")
+	}
 	err = r.Client.Get(context.TODO(), key, current)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return false, nil, emperror.WrapWith(err, "getting resource failed")
@@ -212,7 +221,7 @@ func (r *GenericResourceReconciler) createIfNotExists(desired runtime.Object) (b
 		log.Info("resource created")
 		return true, current, nil
 	}
-	log.V(1).Info("resource already exists")
+	log.V(2).Info("resource already exists")
 	return false, current, nil
 }
 
@@ -255,4 +264,29 @@ func crdReady(crd *v1beta1.CustomResourceDefinition) bool {
 		}
 	}
 	return false
+}
+
+func (r *GenericResourceReconciler) resourceLog(desired runtime.Object) (logr.Logger, error) {
+	key, err := runtimeClient.ObjectKeyFromObject(desired)
+	if err != nil {
+		return nil, emperror.With(err)
+	}
+	logValues := []interface{}{}
+	defaultLogValues := []interface{}{"name", key.String(), "type", reflect.TypeOf(desired).String()}
+	if r.Options.Scheme == nil {
+		return r.Log.WithValues(defaultLogValues...), nil
+	}
+	var versionKinds []schema.GroupVersionKind
+	versionKinds, _, err = r.Options.Scheme.ObjectKinds(desired)
+	if len(versionKinds) == 0 || err != nil {
+		r.Log.Error(err, "failed to get gvk for resource, falling back to type")
+		return r.Log.WithValues(defaultLogValues...), nil
+	}
+	if len(versionKinds) > 0 {
+		logValues = append(logValues,
+			"group", versionKinds[0].Group,
+			"version", versionKinds[0].Version,
+			"kind", versionKinds[0].Kind)
+	}
+	return r.Log.WithValues(logValues...), nil
 }
