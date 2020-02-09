@@ -271,8 +271,11 @@ func (r *GenericResourceReconciler) resourceLog(desired runtime.Object) (logr.Lo
 	if err != nil {
 		return nil, emperror.With(err)
 	}
-	logValues := []interface{}{}
-	defaultLogValues := []interface{}{"name", key.String(), "type", reflect.TypeOf(desired).String()}
+	logValues := []interface{}{"name", key.Name}
+	if key.Namespace != "" {
+		logValues = append(logValues, "namespace", key.Namespace)
+	}
+	defaultLogValues := append(logValues, "type", reflect.TypeOf(desired).String())
 	if r.Options.Scheme == nil {
 		return r.Log.WithValues(defaultLogValues...), nil
 	}
