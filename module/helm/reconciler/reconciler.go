@@ -24,6 +24,7 @@ import (
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/storage/driver"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -245,14 +246,18 @@ func (hr *GenericHelmReconciler) Reconcile(object runtime.Object) (*reconcile.Re
 		namespace = hr.reconcileHooks.GetNamespace()
 	}
 
+	lister := action.NewList(hr.actionConfig)
+	lister.All = true
+	lister.AllNamespaces = true
+	releases, err := lister.Run()
+	if err != nil {
+		return nil, errors.WrapIf(err, "failed to list releases")
+	}
+
 	if hr.reconcileHooks != nil {
 		if hr.reconcileHooks.ShouldUninstall(object) {
-			releases, err := action.NewList(hr.actionConfig).Run()
-			if err != nil {
-				return nil, errors.WrapIf(err, "failed to list releases")
-			}
 			for _, r := range releases {
-				if r.Name == name {
+				if r.Name == name && r.Namespace == namespace {
 					uninstall := action.NewUninstall(hr.actionConfig)
 					uninstall.Timeout = time.Minute * 5
 					uninstall.KeepHistory = false
@@ -297,6 +302,20 @@ func (hr *GenericHelmReconciler) Reconcile(object runtime.Object) (*reconcile.Re
 		}
 		hr.log.Info(fmt.Sprintf("release %s has been installed", name))
 	} else {
+		for _, r := range releases {
+			if r.Name == name && r.Namespace == namespace {
+				if r.Info != nil {
+					if r.Info.Status != release.StatusDeployed &&
+						r.Info.Status != release.StatusFailed &&
+						r.Info.Status != release.StatusUninstalled &&
+						r.Info.Status != release.StatusSuperseded {
+						return nil, errors.Errorf("release %s is in invalid state %s", r.Name, r.Info.Status)
+					}
+				} else {
+					return nil, errors.Errorf("release %s has no release info available", r.Name)
+				}
+			}
+		}
 		upgrade := action.NewUpgrade(hr.actionConfig)
 		hr.log.Info(fmt.Sprintf("release %s will be upgraded", name))
 		upgrade.Namespace = namespace
