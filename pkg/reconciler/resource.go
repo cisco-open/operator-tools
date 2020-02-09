@@ -205,7 +205,7 @@ func (r *GenericResourceReconciler) createIfNotExists(desired runtime.Object) (b
 		if err := r.Client.Create(context.TODO(), desired); err != nil {
 			return false, nil, emperror.WrapWith(err, "creating resource failed")
 		}
-		switch t := current.DeepCopyObject().(type) {
+		switch t := desired.DeepCopyObject().(type) {
 		case *v1beta1.CustomResourceDefinition:
 			err = wait.Poll(time.Second*1, time.Second*10, func() (done bool, err error) {
 				err = r.Client.Get(context.TODO(), runtimeClient.ObjectKey{Namespace: t.Namespace, Name: t.Name}, t)
