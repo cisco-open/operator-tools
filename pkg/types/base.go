@@ -19,6 +19,14 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	NameLabel      = "app.kubernetes.io/name"
+	InstanceLabel  = "app.kubernetes.io/instance"
+	VersionLabel   = "app.kubernetes.io/version"
+	ComponentLabel = "app.kubernetes.io/component"
+	ManagedByLabel = "app.kubernetes.io/managed-by"
+)
+
 // +kubebuilder:object:generate=true
 
 type MetaBase struct {
