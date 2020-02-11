@@ -21,6 +21,8 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/iancoleman/orderedmap"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // MergeLabels merge into map[string]string map
@@ -82,4 +84,8 @@ func Hash32(in string) (string, error) {
 		return "", errors.WrapIf(err, "failed to calculate hash for the configmap data")
 	}
 	return fmt.Sprintf("%x", hasher.Sum32()), nil
+}
+
+func ObjectKeyFromObjectMeta(o v1.Object) types.NamespacedName {
+	return types.NamespacedName{Namespace: o.GetNamespace(), Name: o.GetName()}
 }
