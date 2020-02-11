@@ -22,7 +22,7 @@ func (r *ReconcileRetry) Reconcile(component func() (*reconcile.Result, error)) 
 		if result == nil {
 			return nil
 		}
-		if result.Requeue == false && result.RequeueAfter == 0 {
+		if !result.Requeue && result.RequeueAfter == 0 {
 			break
 		} else {
 			if result.RequeueAfter > 0 {
