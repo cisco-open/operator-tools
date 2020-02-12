@@ -23,7 +23,6 @@ import (
 	"emperror.dev/errors"
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	"github.com/go-logr/logr"
-	"github.com/goph/emperror"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -166,7 +165,7 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 						return nil, errors.New(r.Options.EnableRecreateWorkloadOnImmutableFieldChangeHelp)
 					}
 				}
-				return nil, emperror.WrapWith(err, "updating resource failed",
+				return nil, errors.WrapIfWithDetails(err, "updating resource failed",
 					"resource", desired.GetObjectKind().GroupVersionKind(), "type", reflect.TypeOf(desired))
 			}
 			log.Info("resource updated", "resource", desired.GetObjectKind().GroupVersionKind())
@@ -185,11 +184,11 @@ func (r *GenericResourceReconciler) createIfNotExists(desired runtime.Object) (b
 	var current = desired.DeepCopyObject()
 	key, err := runtimeClient.ObjectKeyFromObject(current)
 	if err != nil {
-		return false, nil, emperror.With(err)
+		return false, nil, errors.WithDetails(err)
 	}
 	err = r.Client.Get(context.TODO(), key, current)
 	if err != nil && !apierrors.IsNotFound(err) {
-		return false, nil, emperror.WrapWith(err, "getting resource failed",
+		return false, nil, errors.WrapIfWithDetails(err, "getting resource failed",
 			"resource", desired.GetObjectKind().GroupVersionKind(), "type", reflect.TypeOf(desired))
 	}
 	if apierrors.IsNotFound(err) {
@@ -197,7 +196,7 @@ func (r *GenericResourceReconciler) createIfNotExists(desired runtime.Object) (b
 			log.Error(err, "Failed to set last applied annotation", "desired", desired)
 		}
 		if err := r.Client.Create(context.TODO(), desired); err != nil {
-			return false, nil, emperror.WrapWith(err, "creating resource failed",
+			return false, nil, errors.WrapIfWithDetails(err, "creating resource failed",
 				"resource", desired.GetObjectKind().GroupVersionKind(), "type", reflect.TypeOf(desired))
 		}
 		log.Info("resource created", "resource", desired.GetObjectKind().GroupVersionKind())
@@ -212,7 +211,7 @@ func (r *GenericResourceReconciler) delete(desired runtime.Object) (bool, error)
 	var current = desired.DeepCopyObject()
 	key, err := runtimeClient.ObjectKeyFromObject(current)
 	if err != nil {
-		return false, emperror.With(err)
+		return false, errors.WithDetails(err)
 	}
 	err = r.Client.Get(context.TODO(), key, current)
 	if err != nil {
@@ -221,7 +220,7 @@ func (r *GenericResourceReconciler) delete(desired runtime.Object) (bool, error)
 			return false, nil
 		}
 		if !apierrors.IsNotFound(err) {
-			return false, emperror.WrapWith(err, "getting resource failed",
+			return false, errors.WrapIfWithDetails(err, "getting resource failed",
 				"resource", desired.GetObjectKind().GroupVersionKind(), "type", reflect.TypeOf(desired))
 		} else {
 			log.V(1).Info("resource not found skipping delete", "resource", current.GetObjectKind().GroupVersionKind())
@@ -230,7 +229,7 @@ func (r *GenericResourceReconciler) delete(desired runtime.Object) (bool, error)
 	}
 	err = r.Client.Delete(context.TODO(), current)
 	if err != nil {
-		return false, emperror.With(err)
+		return false, errors.WithDetails(err)
 	}
 	log.Info("resource deleted", "resource", current.GetObjectKind().GroupVersionKind())
 	return true, nil

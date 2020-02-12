@@ -9,7 +9,6 @@ require (
 	github.com/banzaicloud/k8s-objectmatcher v1.1.0
 	github.com/go-logr/logr v0.1.0
 	github.com/go-logr/zapr v0.1.0
-	github.com/goph/emperror v0.17.2
 	github.com/iancoleman/orderedmap v0.0.0-20190318233801-ac98e3ecb4b0
 	github.com/sergi/go-diff v1.1.0 // indirect
 	go.uber.org/zap v1.9.1
