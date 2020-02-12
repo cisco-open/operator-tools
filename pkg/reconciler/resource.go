@@ -23,7 +23,6 @@ import (
 	"emperror.dev/errors"
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	"github.com/go-logr/logr"
-	"github.com/goph/emperror"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -242,7 +241,7 @@ func (r *GenericResourceReconciler) createIfNotExists(desired runtime.Object) (b
 func (r *GenericResourceReconciler) delete(desired runtime.Object) (bool, error) {
 	key, err := runtimeClient.ObjectKeyFromObject(desired)
 	if err != nil {
-		return false, emperror.With(err)
+		return false, errors.WrapIf(err, "failed to get object key")
 	}
 	resourceDetails, err := r.resourceDetails(desired)
 	if err != nil {
@@ -266,7 +265,7 @@ func (r *GenericResourceReconciler) delete(desired runtime.Object) (bool, error)
 	}
 	err = r.Client.Delete(context.TODO(), current)
 	if err != nil {
-		return false, emperror.With(err)
+		return false, errors.WrapIfWithDetails(err, "failed to delete resource", resourceDetails...)
 	}
 	debugLog.Info("resource deleted")
 	return true, nil
