@@ -37,25 +37,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// HelmReleaseHooks implements a custom helm release strategy that can be used
-// to fine tune the installation and removal of components based on helm charts
-type HelmReleaseHooks interface {
-	GetName() string
-	GetNamespace() string
-	GetValues(runtime.Object) map[string]interface{}
-	IsReady() (bool, error)
-	ShouldUninstall(object runtime.Object) bool
-	ConfigureUpgrade(*action.Upgrade)
-	ConfigureInstall(*action.Install)
-	ConfigureUninstall(*action.Uninstall)
-	RegisterWatches(*builder.Builder)
-}
-
 // GenericHelmReconciler implements reconciler.ComponentReconciler
 // from github.com/banzaicloud/operator-tools/pkg/reconciler without depending on it explicitly
 type GenericHelmReconciler struct {
 	helmChart      *chart.Chart
-	reconcileHooks HelmReleaseHooks
+	reconcileHooks func(runtime.Object, *chart.Chart) (HelmReleaseHooks, error)
+	watchRegister  func(*builder.Builder)
 	actionConfig   *action.Configuration
 	log            logr.Logger
 }
@@ -220,30 +207,42 @@ func Preset(c clientcmd.ClientConfig) InitializerOption {
 	)
 }
 
-func (hr *GenericHelmReconciler) SetReconcileHooks(hooks HelmReleaseHooks) *GenericHelmReconciler {
+func (hr *GenericHelmReconciler) SetReleaseHooks(hooks func(runtime.Object, *chart.Chart) (HelmReleaseHooks, error)) *GenericHelmReconciler {
 	hr.reconcileHooks = hooks
 	return hr
 }
 
-func (hr *GenericHelmReconciler) Reconcile(object runtime.Object) (*reconcile.Result, error) {
-	vals := map[string]interface{}{}
-	if hr.reconcileHooks != nil {
-		vals = hr.reconcileHooks.GetValues(object)
-	}
-
-	name := hr.helmChart.Name()
-	if hr.reconcileHooks != nil {
-		name = hr.reconcileHooks.GetName()
-	}
-
-	meta, err := meta.Accessor(object)
+func (hr *GenericHelmReconciler) defaultReleaseHooks(object runtime.Object) (HelmReleaseHooks, error) {
+	metaObject, err := meta.Accessor(object)
 	if err != nil {
-		return nil, errors.WrapIff(err, "failed to access metadata from object %+v", object)
+		return nil, errors.WrapIf(err, "failed to access object meta")
+	}
+	return &DefaultReleaseHooks{
+		Object: metaObject, Chart: hr.helmChart,
+	}, nil
+}
+
+func (hr *GenericHelmReconciler) Reconcile(object runtime.Object) (*reconcile.Result, error) {
+	var err error
+	var releaseImpl HelmReleaseHooks
+	if hr.reconcileHooks != nil {
+		releaseImpl, err = hr.reconcileHooks(object, hr.helmChart)
+		if err != nil {
+			return nil, errors.WrapIf(err, "failed to create reconcile hook")
+		}
+	} else {
+		releaseImpl, err = hr.defaultReleaseHooks(object)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	namespace := meta.GetNamespace()
-	if hr.reconcileHooks != nil {
-		namespace = hr.reconcileHooks.GetNamespace()
+	namespace := releaseImpl.GetNamespace()
+	name := releaseImpl.GetName()
+
+	vals, err := releaseImpl.GetValues()
+	if err != nil {
+		return nil, errors.WrapIff(err, "failed to get values for release %s/%s", namespace, name)
 	}
 
 	lister := action.NewList(hr.actionConfig)
@@ -255,14 +254,14 @@ func (hr *GenericHelmReconciler) Reconcile(object runtime.Object) (*reconcile.Re
 	}
 
 	if hr.reconcileHooks != nil {
-		if hr.reconcileHooks.ShouldUninstall(object) {
+		if releaseImpl.ShouldUninstall() {
 			for _, r := range releases {
 				if r.Name == name && r.Namespace == namespace {
 					uninstall := action.NewUninstall(hr.actionConfig)
 					uninstall.Timeout = time.Minute * 5
 					uninstall.KeepHistory = false
 					if hr.reconcileHooks != nil {
-						hr.reconcileHooks.ConfigureUninstall(uninstall)
+						releaseImpl.ConfigureUninstall(uninstall)
 					}
 					_, err := uninstall.Run(name)
 					if err != nil {
@@ -294,7 +293,7 @@ func (hr *GenericHelmReconciler) Reconcile(object runtime.Object) (*reconcile.Re
 		install.Namespace = namespace
 		install.ReleaseName = name
 		if hr.reconcileHooks != nil {
-			hr.reconcileHooks.ConfigureInstall(install)
+			releaseImpl.ConfigureInstall(install)
 		}
 		_, err := install.Run(hr.helmChart, vals)
 		if err != nil {
@@ -322,7 +321,7 @@ func (hr *GenericHelmReconciler) Reconcile(object runtime.Object) (*reconcile.Re
 		upgrade.Wait = true
 		upgrade.Timeout = time.Minute * 5
 		if hr.reconcileHooks != nil {
-			hr.reconcileHooks.ConfigureUpgrade(upgrade)
+			releaseImpl.ConfigureUpgrade(upgrade)
 		}
 		_, err := upgrade.Run(name, hr.helmChart, vals)
 		if err != nil {
@@ -331,7 +330,7 @@ func (hr *GenericHelmReconciler) Reconcile(object runtime.Object) (*reconcile.Re
 	}
 
 	if hr.reconcileHooks != nil {
-		ready, err := hr.reconcileHooks.IsReady()
+		ready, err := releaseImpl.IsReady()
 		if err != nil {
 			return nil, errors.WrapIff(err, "failed to detect ready state for chart %s", hr.helmChart.Name())
 		}
@@ -346,7 +345,7 @@ func (hr *GenericHelmReconciler) Reconcile(object runtime.Object) (*reconcile.Re
 }
 
 func (hr *GenericHelmReconciler) RegisterWatches(b *builder.Builder) {
-	if hr.reconcileHooks != nil {
-		hr.reconcileHooks.RegisterWatches(b)
+	if hr.watchRegister != nil {
+		hr.watchRegister(b)
 	}
 }

@@ -25,17 +25,17 @@ import (
 )
 
 type NativeReconciledComponent interface {
-	ResourceBuilders(object interface{}) []ResourceBuilder
-	RegisterWatches(b *builder.Builder)
+	ResourceBuilders(parent metav1.Object, object interface{}) []ResourceBuilder
+	RegisterWatches(*builder.Builder)
 }
 
 type DefaultReconciledComponent struct {
 	Builders ResourceBuilders
-	Watches func(b *builder.Builder)
+	Watches  func(b *builder.Builder)
 }
 
-func (d *DefaultReconciledComponent) ResourceBuilders(object interface{}) []ResourceBuilder {
-	return d.Builders(object)
+func (d *DefaultReconciledComponent) ResourceBuilders(parent metav1.Object, object interface{}) []ResourceBuilder {
+	return d.Builders(parent, object)
 }
 
 func (d *DefaultReconciledComponent) RegisterWatches(b *builder.Builder) {
@@ -47,13 +47,13 @@ func (d *DefaultReconciledComponent) RegisterWatches(b *builder.Builder) {
 type NativeReconciler struct {
 	*GenericResourceReconciler
 	reconciledComponent NativeReconciledComponent
-	configTranslate     func(runtime.Object) interface{}
+	configTranslate     func(runtime.Object) (parent metav1.Object, config interface{})
 }
 
 func NewNativeReconciler(
 	rec *GenericResourceReconciler,
 	reconciledComponent NativeReconciledComponent,
-	resourceTranslate func(runtime.Object) interface{}) *NativeReconciler {
+	resourceTranslate func(runtime.Object) (parent metav1.Object, config interface{})) *NativeReconciler {
 	return &NativeReconciler{
 		GenericResourceReconciler: rec,
 		reconciledComponent:       reconciledComponent,
@@ -68,11 +68,12 @@ func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result,
 		if err != nil {
 			combinedResult.CombineErr(err)
 		} else {
-			err := rec.metaDecorator(o, owner)
+			err := rec.setControllerRef(o, owner)
 			if err != nil {
 				combinedResult.CombineErr(err)
 			} else {
-				combinedResult.Combine(rec.ReconcileResource(o, state))
+				result, err := rec.ReconcileResource(o, state)
+				combinedResult.Combine(result, err)
 			}
 		}
 	}
@@ -83,7 +84,7 @@ func (rec *NativeReconciler) RegisterWatches(b *builder.Builder) {
 	rec.reconciledComponent.RegisterWatches(b)
 }
 
-func (rec *NativeReconciler) metaDecorator(object runtime.Object, owner runtime.Object) error {
+func (rec *NativeReconciler) setControllerRef(object runtime.Object, owner runtime.Object) error {
 	ownerType, err := meta.TypeAccessor(owner)
 	if err != nil {
 		return errors.Wrapf(err, "failed to access type of owner %+v", owner)

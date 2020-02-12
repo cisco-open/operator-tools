@@ -41,7 +41,7 @@ const (
 	StatePresent StaticDesiredState = "Present"
 )
 
-type ResourceBuilders func(object interface{}) []ResourceBuilder
+type ResourceBuilders func(parent metav1.Object, object interface{}) []ResourceBuilder
 type ResourceBuilder func() (runtime.Object, DesiredState, error)
 
 type DesiredState interface {
@@ -94,7 +94,11 @@ func (r *GenericResourceReconciler) CreateResource(desired runtime.Object) error
 
 // ReconcileResource reconciles various kubernetes types
 func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, desiredState DesiredState) (*reconcile.Result, error) {
-	log, err := r.resourceLog(desired)
+	resourceDetails, err := r.resourceDetails(desired)
+	if err != nil {
+		return nil, errors.WrapIf(err, "failed to get resource details")
+	}
+	log := r.resourceLog(desired, resourceDetails...)
 	if err != nil {
 		return nil, errors.WrapIf(err, "failed to prepare resource logger")
 	}
@@ -107,13 +111,13 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 			return nil, nil
 		}
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to create resource %+v", desired)
+			return nil, errors.WrapIfWithDetails(err, "failed to create resource", resourceDetails...)
 		}
 
 		// last chance to hook into the desired state armed with the knowledge of the current state
 		err = desiredState.BeforeUpdate(current)
 		if err != nil {
-			return nil, errors.WrapIf(err, "failed to get desired state dynamically")
+			return nil, errors.WrapIfWithDetails(err, "failed to get desired state dynamically", resourceDetails...)
 		}
 		if err == nil {
 			if metaObject, ok := current.(metav1.Object); ok {
@@ -144,10 +148,10 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 
 			currentResourceVersion, err := metaAccessor.ResourceVersion(current)
 			if err != nil {
-				return nil, errors.Wrap(err, "failed to access resourceVersion from metadata")
+				return nil, errors.WrapIfWithDetails(err, "failed to access resourceVersion from metadata", resourceDetails...)
 			}
 			if err := metaAccessor.SetResourceVersion(desired, currentResourceVersion); err != nil {
-				return nil, errors.Wrap(err, "failed to set resourceVersion in metadata")
+				return nil, errors.WrapIfWithDetails(err, "failed to set resourceVersion in metadata", resourceDetails...)
 			}
 
 			debugLog.Info("Updating resource")
@@ -161,7 +165,7 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 							runtimeClient.PropagationPolicy(metav1.DeletePropagationForeground),
 						)
 						if err != nil {
-							return nil, errors.Wrapf(err, "failed to delete resource %+v", current)
+							return nil, errors.WrapIf(err, "failed to delete current resource")
 						}
 						return &reconcile.Result{
 							Requeue:      true,
@@ -171,14 +175,14 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 						return nil, errors.New(r.Options.EnableRecreateWorkloadOnImmutableFieldChangeHelp)
 					}
 				}
-				return nil, emperror.WrapWith(err, "updating resource failed")
+				return nil, errors.WrapIfWithDetails(err, "updating resource failed", resourceDetails...)
 			}
 			debugLog.Info("resource updated")
 		}
 	case StateAbsent:
 		_, err := r.delete(desired)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to delete resource %+v", desired)
+			return nil, errors.WrapIfWithDetails(err, "failed to delete resource", resourceDetails...)
 		}
 	}
 	return nil, nil
@@ -188,22 +192,23 @@ func (r *GenericResourceReconciler) createIfNotExists(desired runtime.Object) (b
 	current := reflect.New(reflect.Indirect(reflect.ValueOf(desired)).Type()).Interface().(runtime.Object)
 	key, err := runtimeClient.ObjectKeyFromObject(desired)
 	if err != nil {
-		return false, nil, emperror.With(err)
+		return false, nil, errors.WrapIf(err, "failed to get object key")
 	}
-	log, err := r.resourceLog(desired)
+	resourceDetails, err := r.resourceDetails(desired)
 	if err != nil {
-		return false, nil, errors.WrapIf(err, "failed to prepare resource log")
+		return false, nil, errors.WrapIf(err, "failed to get resource details")
 	}
+	log := r.resourceLog(desired, resourceDetails)
 	err = r.Client.Get(context.TODO(), key, current)
 	if err != nil && !apierrors.IsNotFound(err) {
-		return false, nil, emperror.WrapWith(err, "getting resource failed")
+		return false, nil, errors.WrapIfWithDetails(err, "getting resource failed", resourceDetails...)
 	}
 	if apierrors.IsNotFound(err) {
 		if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(desired); err != nil {
 			log.Error(err, "Failed to set last applied annotation", "desired", desired)
 		}
 		if err := r.Client.Create(context.TODO(), desired); err != nil {
-			return false, nil, emperror.WrapWith(err, "creating resource failed")
+			return false, nil, errors.WrapIfWithDetails(err, "creating resource failed", resourceDetails...)
 		}
 		switch t := desired.DeepCopyObject().(type) {
 		case *v1beta1.CustomResourceDefinition:
@@ -215,7 +220,7 @@ func (r *GenericResourceReconciler) createIfNotExists(desired runtime.Object) (b
 				return crdReady(t), nil
 			})
 			if err != nil {
-				return false, nil, errors.WrapIf(err, "failed to wait for the crd to get ready")
+				return false, nil, errors.WrapIfWithDetails(err, "failed to wait for the crd to get ready", resourceDetails...)
 			}
 		}
 		log.Info("resource created")
@@ -230,7 +235,11 @@ func (r *GenericResourceReconciler) delete(desired runtime.Object) (bool, error)
 	if err != nil {
 		return false, emperror.With(err)
 	}
-	log := r.Log.WithValues("name", key, "type", reflect.TypeOf(desired))
+	resourceDetails, err := r.resourceDetails(desired)
+	if err != nil {
+		return false, errors.WrapIf(err, "failed to get resource details")
+	}
+	log := r.resourceLog(desired, resourceDetails)
 	debugLog := log.V(1)
 	current := reflect.New(reflect.Indirect(reflect.ValueOf(desired)).Type()).Interface().(runtime.Object)
 	err = r.Client.Get(context.TODO(), key, current)
@@ -240,7 +249,7 @@ func (r *GenericResourceReconciler) delete(desired runtime.Object) (bool, error)
 			return false, nil
 		}
 		if !apierrors.IsNotFound(err) {
-			return false, emperror.WrapWith(err, "getting resource failed")
+			return false, errors.WrapIfWithDetails(err, "getting resource failed", resourceDetails...)
 		} else {
 			debugLog.Info("resource not found skipping delete")
 			return false, nil
@@ -266,30 +275,37 @@ func crdReady(crd *v1beta1.CustomResourceDefinition) bool {
 	return false
 }
 
-func (r *GenericResourceReconciler) resourceLog(desired runtime.Object) (logr.Logger, error) {
+func (r *GenericResourceReconciler) resourceDetails(desired runtime.Object) ([]interface{}, error) {
 	key, err := runtimeClient.ObjectKeyFromObject(desired)
 	if err != nil {
-		return nil, emperror.With(err)
+		return nil, errors.WithStackIf(err)
 	}
-	logValues := []interface{}{"name", key.Name}
+	values := []interface{}{"name", key.Name}
 	if key.Namespace != "" {
-		logValues = append(logValues, "namespace", key.Namespace)
+		values = append(values, "namespace", key.Namespace)
 	}
-	defaultLogValues := append(logValues, "type", reflect.TypeOf(desired).String())
+	defaultValues := append(values, "type", reflect.TypeOf(desired).String())
 	if r.Options.Scheme == nil {
-		return r.Log.WithValues(defaultLogValues...), nil
+		return defaultValues, nil
 	}
 	var versionKinds []schema.GroupVersionKind
 	versionKinds, _, err = r.Options.Scheme.ObjectKinds(desired)
 	if len(versionKinds) == 0 || err != nil {
 		r.Log.Error(err, "failed to get gvk for resource, falling back to type")
-		return r.Log.WithValues(defaultLogValues...), nil
+		return defaultValues, nil
 	}
 	if len(versionKinds) > 0 {
-		logValues = append(logValues,
+		values = append(values,
 			"group", versionKinds[0].Group,
 			"version", versionKinds[0].Version,
 			"kind", versionKinds[0].Kind)
 	}
-	return r.Log.WithValues(logValues...), nil
+	return values, nil
+}
+
+func (r *GenericResourceReconciler) resourceLog(desired runtime.Object, details ...interface{}) logr.Logger {
+	if len(details) > 0 {
+		return r.Log.WithValues(details...)
+	}
+	return r.Log
 }

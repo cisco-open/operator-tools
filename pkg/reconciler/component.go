@@ -24,7 +24,7 @@ import (
 )
 
 type ComponentReconciler interface {
-	Reconcile(runtime.Object) (*reconcile.Result, error)
+	Reconcile(object runtime.Object) (*reconcile.Result, error)
 	RegisterWatches(*builder.Builder)
 }
 
@@ -36,7 +36,7 @@ type Dispatcher struct {
 	Log                  logr.Logger
 	ResourceGetter       func(req ctrl.Request) (runtime.Object, error)
 	ResourceFilter       func(runtime.Object) (bool, error)
-	CompletionHandler    func(runtime.Object, ctrl.Result) ctrl.Result
+	CompletionHandler    func(runtime.Object, ctrl.Result, error) (ctrl.Result, error)
 	ComponentReconcilers []ComponentReconciler
 }
 
@@ -53,11 +53,11 @@ func (r *Dispatcher) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 	}
 	result, err := r.Handle(object)
+	if r.CompletionHandler != nil {
+		return r.CompletionHandler(object, result, err)
+	}
 	if err != nil {
 		return result, err
-	}
-	if r.CompletionHandler != nil {
-		return r.CompletionHandler(object, result), nil
 	}
 	return result, nil
 }
@@ -67,7 +67,8 @@ func (r *Dispatcher) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 func (r *Dispatcher) Handle(object runtime.Object) (ctrl.Result, error) {
 	combinedResult := &CombinedResult{}
 	for _, cr := range r.ComponentReconcilers {
-		combinedResult.Combine(cr.Reconcile(object))
+		result, err := cr.Reconcile(object)
+		combinedResult.Combine(result, err)
 	}
 	return combinedResult.Result, combinedResult.Err
 }
