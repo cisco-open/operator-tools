@@ -198,7 +198,7 @@ func (r *GenericResourceReconciler) createIfNotExists(desired runtime.Object) (b
 	if err != nil {
 		return false, nil, errors.WrapIf(err, "failed to get resource details")
 	}
-	log := r.resourceLog(desired, resourceDetails)
+	log := r.resourceLog(desired, resourceDetails...)
 	err = r.Client.Get(context.TODO(), key, current)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return false, nil, errors.WrapIfWithDetails(err, "getting resource failed", resourceDetails...)
@@ -239,7 +239,7 @@ func (r *GenericResourceReconciler) delete(desired runtime.Object) (bool, error)
 	if err != nil {
 		return false, errors.WrapIf(err, "failed to get resource details")
 	}
-	log := r.resourceLog(desired, resourceDetails)
+	log := r.resourceLog(desired, resourceDetails...)
 	debugLog := log.V(1)
 	current := reflect.New(reflect.Indirect(reflect.ValueOf(desired)).Type()).Interface().(runtime.Object)
 	err = r.Client.Get(context.TODO(), key, current)
