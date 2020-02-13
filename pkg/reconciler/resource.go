@@ -41,7 +41,16 @@ const (
 	StatePresent StaticDesiredState = "Present"
 )
 
-type ResourceBuilders func(parent metav1.Object, object interface{}) []ResourceBuilder
+type ResourceOwner interface {
+	// to be aware of metadata
+	metav1.Object
+	// to be aware of the owner's type
+	runtime.Object
+	// control namespace dictates where namespaced objects should belong to
+	GetControlNamespace() string
+}
+
+type ResourceBuilders func(parent ResourceOwner, object interface{}) []ResourceBuilder
 type ResourceBuilder func() (runtime.Object, DesiredState, error)
 
 type DesiredState interface {

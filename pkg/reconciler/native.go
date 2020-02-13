@@ -15,14 +15,13 @@
 package reconciler
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type NativeReconciledComponent interface {
-	ResourceBuilders(parent metav1.Object, object interface{}) []ResourceBuilder
+	ResourceBuilders(parent ResourceOwner, object interface{}) []ResourceBuilder
 	RegisterWatches(*builder.Builder)
 }
 
@@ -31,7 +30,7 @@ type DefaultReconciledComponent struct {
 	Watches  func(b *builder.Builder)
 }
 
-func (d *DefaultReconciledComponent) ResourceBuilders(parent metav1.Object, object interface{}) []ResourceBuilder {
+func (d *DefaultReconciledComponent) ResourceBuilders(parent ResourceOwner, object interface{}) []ResourceBuilder {
 	return d.Builders(parent, object)
 }
 
@@ -44,13 +43,13 @@ func (d *DefaultReconciledComponent) RegisterWatches(b *builder.Builder) {
 type NativeReconciler struct {
 	*GenericResourceReconciler
 	reconciledComponent NativeReconciledComponent
-	configTranslate     func(runtime.Object) (parent metav1.Object, config interface{})
+	configTranslate     func(runtime.Object) (parent ResourceOwner, config interface{})
 }
 
 func NewNativeReconciler(
 	rec *GenericResourceReconciler,
 	reconciledComponent NativeReconciledComponent,
-	resourceTranslate func(runtime.Object) (parent metav1.Object, config interface{})) *NativeReconciler {
+	resourceTranslate func(runtime.Object) (parent ResourceOwner, config interface{})) *NativeReconciler {
 	return &NativeReconciler{
 		GenericResourceReconciler: rec,
 		reconciledComponent:       reconciledComponent,
