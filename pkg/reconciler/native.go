@@ -15,9 +15,6 @@
 package reconciler
 
 import (
-	"emperror.dev/errors"
-	"github.com/banzaicloud/operator-tools/pkg/utils"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -68,13 +65,8 @@ func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result,
 		if err != nil {
 			combinedResult.CombineErr(err)
 		} else {
-			err := rec.setControllerRef(o, owner)
-			if err != nil {
-				combinedResult.CombineErr(err)
-			} else {
-				result, err := rec.ReconcileResource(o, state)
-				combinedResult.Combine(result, err)
-			}
+			result, err := rec.ReconcileResource(o, state)
+			combinedResult.Combine(result, err)
 		}
 	}
 	return &combinedResult.Result, combinedResult.Err
@@ -82,46 +74,4 @@ func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result,
 
 func (rec *NativeReconciler) RegisterWatches(b *builder.Builder) {
 	rec.reconciledComponent.RegisterWatches(b)
-}
-
-func (rec *NativeReconciler) setControllerRef(object runtime.Object, owner runtime.Object) error {
-	ownerType, err := meta.TypeAccessor(owner)
-	if err != nil {
-		return errors.Wrapf(err, "failed to access type of owner %+v", owner)
-	}
-
-	ownerAccessor, err := meta.Accessor(owner)
-	if err != nil {
-		return errors.Wrapf(err, "failed to access metadata of owner %+v", owner)
-	}
-
-	accessor, err := meta.Accessor(object)
-	if err != nil {
-		return errors.Wrapf(err, "failed to access meta of object %+v", object)
-	}
-
-	ownerRef := metav1.OwnerReference{
-		APIVersion: ownerType.GetAPIVersion(),
-		Kind:       ownerType.GetKind(),
-		Name:       ownerAccessor.GetName(),
-		UID:        ownerAccessor.GetUID(),
-		Controller: utils.BoolPointer(true),
-	}
-
-	refFound := -1
-	ownerRefs := accessor.GetOwnerReferences()
-	for i, r := range ownerRefs {
-		if ownerAccessor.GetUID() == r.UID {
-			refFound = i
-		}
-	}
-
-	if refFound > -1 {
-		ownerRefs[refFound] = ownerRef
-	} else {
-		ownerRefs = append(ownerRefs, ownerRef)
-	}
-	accessor.SetOwnerReferences(ownerRefs)
-
-	return nil
 }
