@@ -23,11 +23,14 @@ import (
 	"emperror.dev/errors"
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	"github.com/go-logr/logr"
-	"github.com/goph/emperror"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -36,6 +39,18 @@ const (
 	StateAbsent  StaticDesiredState = "Absent"
 	StatePresent StaticDesiredState = "Present"
 )
+
+type ResourceOwner interface {
+	// to be aware of metadata
+	metav1.Object
+	// to be aware of the owner's type
+	runtime.Object
+	// control namespace dictates where namespaced objects should belong to
+	GetControlNamespace() string
+}
+
+type ResourceBuilders func(parent ResourceOwner, object interface{}) []ResourceBuilder
+type ResourceBuilder func() (runtime.Object, DesiredState, error)
 
 type DesiredState interface {
 	BeforeUpdate(object runtime.Object) error
@@ -63,10 +78,15 @@ type GenericResourceReconciler struct {
 type ReconcilerOpts struct {
 	EnableRecreateWorkloadOnImmutableFieldChange     bool
 	EnableRecreateWorkloadOnImmutableFieldChangeHelp string
+	Scheme                                           *runtime.Scheme
 }
 
 // NewReconciler returns GenericResourceReconciler
 func NewReconciler(client runtimeClient.Client, log logr.Logger, opts ReconcilerOpts) *GenericResourceReconciler {
+	if opts.Scheme == nil {
+		opts.Scheme = runtime.NewScheme()
+		_ = clientgoscheme.AddToScheme(opts.Scheme)
+	}
 	return &GenericResourceReconciler{
 		Log:     log,
 		Client:  client,
@@ -82,8 +102,16 @@ func (r *GenericResourceReconciler) CreateResource(desired runtime.Object) error
 
 // ReconcileResource reconciles various kubernetes types
 func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, desiredState DesiredState) (*reconcile.Result, error) {
-	log := r.Log.WithValues("type", reflect.TypeOf(desired))
-
+	resourceDetails, err := r.resourceDetails(desired)
+	if err != nil {
+		return nil, errors.WrapIf(err, "failed to get resource details")
+	}
+	log := r.resourceLog(desired, resourceDetails...)
+	if err != nil {
+		return nil, errors.WrapIf(err, "failed to prepare resource logger")
+	}
+	debugLog := log.V(1)
+	traceLog := log.V(2)
 	switch desiredState {
 	default:
 		created, current, err := r.createIfNotExists(desired)
@@ -91,35 +119,29 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 			return nil, nil
 		}
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to create resource %+v", desired)
+			return nil, errors.WrapIfWithDetails(err, "failed to create resource", resourceDetails...)
 		}
 
 		// last chance to hook into the desired state armed with the knowledge of the current state
 		err = desiredState.BeforeUpdate(current)
 		if err != nil {
-			return nil, errors.WrapIf(err, "failed to get desired state dynamically")
-		}
-		key, err := runtimeClient.ObjectKeyFromObject(current)
-		if err != nil {
-			return nil, errors.Wrapf(err, "meta accessor failed %+v", current)
+			return nil, errors.WrapIfWithDetails(err, "failed to get desired state dynamically", resourceDetails...)
 		}
 		if err == nil {
 			if metaObject, ok := current.(metav1.Object); ok {
 				if metaObject.GetDeletionTimestamp() != nil {
-					r.Log.Info(fmt.Sprintf("object %s is being deleted, backing off", metaObject.GetSelfLink()))
+					log.Info(fmt.Sprintf("object %s is being deleted, backing off", metaObject.GetSelfLink()))
 					return &reconcile.Result{RequeueAfter: time.Second * 2}, nil
 				}
 			}
 			patchResult, err := patch.DefaultPatchMaker.Calculate(current, desired)
 			if err != nil {
-				log.Error(err, "could not match objects",
-					"kind", desired.GetObjectKind().GroupVersionKind(), "name", key.Name)
+				log.Error(err, "could not match objects")
 			} else if patchResult.IsEmpty() {
-				log.V(1).Info("resource is in sync",
-					"kind", desired.GetObjectKind().GroupVersionKind(), "name", key.Name)
+				debugLog.Info("resource is in sync")
 				return nil, nil
 			} else {
-				log.V(1).Info("resource diffs",
+				traceLog.Info("resource diffs",
 					"patch", string(patchResult.Patch),
 					"current", string(patchResult.Current),
 					"modified", string(patchResult.Modified),
@@ -134,29 +156,24 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 
 			currentResourceVersion, err := metaAccessor.ResourceVersion(current)
 			if err != nil {
-				return nil, errors.Wrap(err, "failed to access resourceVersion from metadata")
+				return nil, errors.WrapIfWithDetails(err, "failed to access resourceVersion from metadata", resourceDetails...)
 			}
 			if err := metaAccessor.SetResourceVersion(desired, currentResourceVersion); err != nil {
-				return nil, errors.Wrap(err, "failed to set resourceVersion in metadata")
-			}
-			var name string
-			if name, err = metaAccessor.Name(current); err != nil {
-				return nil, errors.Wrap(err, "failed to access Name from metadata")
+				return nil, errors.WrapIfWithDetails(err, "failed to set resourceVersion in metadata", resourceDetails...)
 			}
 
-			log.V(1).Info("Updating resource",
-				"gvk", desired.GetObjectKind().GroupVersionKind(), "name", name)
+			debugLog.Info("Updating resource")
 			if err := r.Client.Update(context.TODO(), desired); err != nil {
 				sErr, ok := err.(*apierrors.StatusError)
 				if ok && sErr.ErrStatus.Code == 422 && sErr.ErrStatus.Reason == metav1.StatusReasonInvalid {
 					if r.Options.EnableRecreateWorkloadOnImmutableFieldChange {
-						r.Log.Error(err, "failed to update resource, trying to recreate")
+						log.Error(err, "failed to update resource, trying to recreate")
 						err := r.Client.Delete(context.TODO(), current,
 							// wait until all dependent resources gets cleared up
 							runtimeClient.PropagationPolicy(metav1.DeletePropagationForeground),
 						)
 						if err != nil {
-							return nil, errors.Wrapf(err, "failed to delete resource %+v", current)
+							return nil, errors.WrapIf(err, "failed to delete current resource")
 						}
 						return &reconcile.Result{
 							Requeue:      true,
@@ -166,54 +183,73 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 						return nil, errors.New(r.Options.EnableRecreateWorkloadOnImmutableFieldChangeHelp)
 					}
 				}
-				return nil, emperror.WrapWith(err, "updating resource failed",
-					"resource", desired.GetObjectKind().GroupVersionKind(), "type", reflect.TypeOf(desired))
+				return nil, errors.WrapIfWithDetails(err, "updating resource failed", resourceDetails...)
 			}
-			log.Info("resource updated", "resource", desired.GetObjectKind().GroupVersionKind())
+			debugLog.Info("resource updated")
 		}
 	case StateAbsent:
 		_, err := r.delete(desired)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to delete resource %+v", desired)
+			return nil, errors.WrapIfWithDetails(err, "failed to delete resource", resourceDetails...)
 		}
 	}
 	return nil, nil
 }
 
 func (r *GenericResourceReconciler) createIfNotExists(desired runtime.Object) (bool, runtime.Object, error) {
-	log := r.Log.WithValues("type", reflect.TypeOf(desired))
-	var current = desired.DeepCopyObject()
-	key, err := runtimeClient.ObjectKeyFromObject(current)
+	current := reflect.New(reflect.Indirect(reflect.ValueOf(desired)).Type()).Interface().(runtime.Object)
+	key, err := runtimeClient.ObjectKeyFromObject(desired)
 	if err != nil {
-		return false, nil, emperror.With(err)
+		return false, nil, errors.WrapIf(err, "failed to get object key")
 	}
+	resourceDetails, err := r.resourceDetails(desired)
+	if err != nil {
+		return false, nil, errors.WrapIf(err, "failed to get resource details")
+	}
+	log := r.resourceLog(desired, resourceDetails...)
 	err = r.Client.Get(context.TODO(), key, current)
 	if err != nil && !apierrors.IsNotFound(err) {
-		return false, nil, emperror.WrapWith(err, "getting resource failed",
-			"resource", desired.GetObjectKind().GroupVersionKind(), "type", reflect.TypeOf(desired))
+		return false, nil, errors.WrapIfWithDetails(err, "getting resource failed", resourceDetails...)
 	}
 	if apierrors.IsNotFound(err) {
 		if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(desired); err != nil {
 			log.Error(err, "Failed to set last applied annotation", "desired", desired)
 		}
 		if err := r.Client.Create(context.TODO(), desired); err != nil {
-			return false, nil, emperror.WrapWith(err, "creating resource failed",
-				"resource", desired.GetObjectKind().GroupVersionKind(), "type", reflect.TypeOf(desired))
+			return false, nil, errors.WrapIfWithDetails(err, "creating resource failed", resourceDetails...)
 		}
-		log.Info("resource created", "resource", desired.GetObjectKind().GroupVersionKind())
+		switch t := desired.DeepCopyObject().(type) {
+		case *v1beta1.CustomResourceDefinition:
+			err = wait.Poll(time.Second*1, time.Second*10, func() (done bool, err error) {
+				err = r.Client.Get(context.TODO(), runtimeClient.ObjectKey{Namespace: t.Namespace, Name: t.Name}, t)
+				if err != nil {
+					return false, err
+				}
+				return crdReady(t), nil
+			})
+			if err != nil {
+				return false, nil, errors.WrapIfWithDetails(err, "failed to wait for the crd to get ready", resourceDetails...)
+			}
+		}
+		log.Info("resource created")
 		return true, current, nil
 	}
-	log.V(1).Info("resource already exists", "resource", desired.GetObjectKind().GroupVersionKind())
+	log.V(2).Info("resource already exists")
 	return false, current, nil
 }
 
 func (r *GenericResourceReconciler) delete(desired runtime.Object) (bool, error) {
-	log := r.Log.WithValues("type", reflect.TypeOf(desired))
-	var current = desired.DeepCopyObject()
-	key, err := runtimeClient.ObjectKeyFromObject(current)
+	key, err := runtimeClient.ObjectKeyFromObject(desired)
 	if err != nil {
-		return false, emperror.With(err)
+		return false, errors.WrapIf(err, "failed to get object key")
 	}
+	resourceDetails, err := r.resourceDetails(desired)
+	if err != nil {
+		return false, errors.WrapIf(err, "failed to get resource details")
+	}
+	log := r.resourceLog(desired, resourceDetails...)
+	debugLog := log.V(1)
+	current := reflect.New(reflect.Indirect(reflect.ValueOf(desired)).Type()).Interface().(runtime.Object)
 	err = r.Client.Get(context.TODO(), key, current)
 	if err != nil {
 		// If the resource type does not exist we should be ok to move on
@@ -221,17 +257,63 @@ func (r *GenericResourceReconciler) delete(desired runtime.Object) (bool, error)
 			return false, nil
 		}
 		if !apierrors.IsNotFound(err) {
-			return false, emperror.WrapWith(err, "getting resource failed",
-				"resource", desired.GetObjectKind().GroupVersionKind(), "type", reflect.TypeOf(desired))
+			return false, errors.WrapIfWithDetails(err, "getting resource failed", resourceDetails...)
 		} else {
-			log.V(1).Info("resource not found skipping delete", "resource", current.GetObjectKind().GroupVersionKind())
+			debugLog.Info("resource not found skipping delete")
 			return false, nil
 		}
 	}
 	err = r.Client.Delete(context.TODO(), current)
 	if err != nil {
-		return false, emperror.With(err)
+		return false, errors.WrapIfWithDetails(err, "failed to delete resource", resourceDetails...)
 	}
-	log.Info("resource deleted", "resource", current.GetObjectKind().GroupVersionKind())
+	debugLog.Info("resource deleted")
 	return true, nil
+}
+
+func crdReady(crd *v1beta1.CustomResourceDefinition) bool {
+	for _, cond := range crd.Status.Conditions {
+		switch cond.Type {
+		case v1beta1.Established:
+			if cond.Status == v1beta1.ConditionTrue {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (r *GenericResourceReconciler) resourceDetails(desired runtime.Object) ([]interface{}, error) {
+	key, err := runtimeClient.ObjectKeyFromObject(desired)
+	if err != nil {
+		return nil, errors.WithStackIf(err)
+	}
+	values := []interface{}{"name", key.Name}
+	if key.Namespace != "" {
+		values = append(values, "namespace", key.Namespace)
+	}
+	defaultValues := append(values, "type", reflect.TypeOf(desired).String())
+	if r.Options.Scheme == nil {
+		return defaultValues, nil
+	}
+	var versionKinds []schema.GroupVersionKind
+	versionKinds, _, err = r.Options.Scheme.ObjectKinds(desired)
+	if len(versionKinds) == 0 || err != nil {
+		r.Log.Error(err, "failed to get gvk for resource, falling back to type")
+		return defaultValues, nil
+	}
+	if len(versionKinds) > 0 {
+		values = append(values,
+			"group", versionKinds[0].Group,
+			"version", versionKinds[0].Version,
+			"kind", versionKinds[0].Kind)
+	}
+	return values, nil
+}
+
+func (r *GenericResourceReconciler) resourceLog(desired runtime.Object, details ...interface{}) logr.Logger {
+	if len(details) > 0 {
+		return r.Log.WithValues(details...)
+	}
+	return r.Log
 }

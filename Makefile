@@ -13,6 +13,7 @@ generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/secret/...
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/volume/...
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/prometheus/...
+	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/types/...
 
 # find or download controller-gen
 # download controller-gen if necessary
@@ -41,14 +42,16 @@ bin/licensei-${LICENSEI_VERSION}:
 .PHONY: license-check
 license-check: bin/licensei ## Run license check
 	bin/licensei check
+	cd module/helm && ../../bin/licensei check --config ../../.licensei.toml
 	bin/licensei header
 
 .PHONY: test
 test:
 	go test ./...
+	cd module/helm && go test ./...
 
 .PHONY: check
-check: test lint license-check ## Run tests and linters
+check: test lint license-check check-diff ## Run tests and linters
 
 bin/golangci-lint: bin/golangci-lint-${GOLANGCI_VERSION}
 	@ln -sf golangci-lint-${GOLANGCI_VERSION} bin/golangci-lint
@@ -61,8 +64,15 @@ bin/golangci-lint-${GOLANGCI_VERSION}:
 lint: export CGO_ENABLED = 1
 lint: bin/golangci-lint ## Run linter
 	bin/golangci-lint run
+	cd module/helm && ../../bin/golangci-lint run
 
 .PHONY: fix
 fix: export CGO_ENABLED = 1
 fix: bin/golangci-lint ## Fix lint violations
 	bin/golangci-lint run --fix
+	cd module/helm && ../../bin/golangci-lint run --fix
+
+check-diff:
+	go mod tidy
+	$(MAKE) generate docs
+	git diff --exit-code
