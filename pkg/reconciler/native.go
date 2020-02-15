@@ -21,7 +21,7 @@ import (
 	"emperror.dev/errors"
 	"github.com/banzaicloud/operator-tools/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/meta"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -31,6 +31,19 @@ import (
 )
 
 const BanzaiCloudManagedComponent = "banzaicloud.io/managed-component"
+
+type ResourceOwner interface {
+	// to be aware of metadata
+	metav1.Object
+	// to be aware of the owner's type
+	runtime.Object
+	// control namespace dictates where namespaced objects should belong to
+	GetControlNamespace() string
+}
+
+type ResourceBuilders func(parent ResourceOwner, object interface{}) []ResourceBuilder
+type ResourceBuilder func() (runtime.Object, DesiredState, error)
+
 
 type NativeReconciledComponent interface {
 	ResourceBuilders(parent ResourceOwner, object interface{}) []ResourceBuilder
@@ -166,7 +179,7 @@ func (rec *NativeReconciler) purge(excluded map[string]bool, componentId string)
 	return allErr
 }
 
-func (rec *NativeReconciler) annotate(o runtime.Object, componentId string) (v1.Object, error) {
+func (rec *NativeReconciler) annotate(o runtime.Object, componentId string) (metav1.Object, error) {
 	objectMeta, err := meta.Accessor(o)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to access object metadata")
