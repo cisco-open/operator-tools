@@ -10,7 +10,10 @@ require (
 	github.com/go-logr/logr v0.1.0
 	github.com/go-logr/zapr v0.1.0
 	github.com/iancoleman/orderedmap v0.0.0-20190318233801-ac98e3ecb4b0
+	github.com/pborman/uuid v1.2.0
 	github.com/sergi/go-diff v1.1.0 // indirect
+	github.com/spf13/cast v1.3.0
+	github.com/stretchr/testify v1.4.0
 	go.uber.org/zap v1.9.1
 	k8s.io/api v0.16.4
 	k8s.io/apiextensions-apiserver v0.16.4
