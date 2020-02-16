@@ -44,7 +44,6 @@ type ResourceOwner interface {
 type ResourceBuilders func(parent ResourceOwner, object interface{}) []ResourceBuilder
 type ResourceBuilder func() (runtime.Object, DesiredState, error)
 
-
 type NativeReconciledComponent interface {
 	ResourceBuilders(parent ResourceOwner, object interface{}) []ResourceBuilder
 	RegisterWatches(*builder.Builder)

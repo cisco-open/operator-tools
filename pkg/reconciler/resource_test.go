@@ -45,7 +45,9 @@ func TestNewReconcilerWith(t *testing.T) {
 	}
 
 	created := &corev1.ConfigMap{}
-	k8sClient.Get(context.TODO(), utils.ObjectKeyFromObjectMeta(desired), created)
+	if err := k8sClient.Get(context.TODO(), utils.ObjectKeyFromObjectMeta(desired), created); err != nil {
+		t.Fatalf("%+v", err)
+	}
 
 	assert.Equal(t, created.Name, desired.Name)
 	assert.Equal(t, created.Namespace, desired.Namespace)
