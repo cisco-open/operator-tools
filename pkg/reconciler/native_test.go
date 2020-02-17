@@ -29,8 +29,7 @@ import (
 )
 
 type FakeResourceOwner struct {
-	corev1.ConfigMap
-	ComponentConfig int
+	*corev1.ConfigMap
 }
 
 func (e *FakeResourceOwner) GetControlNamespace() string {
@@ -39,7 +38,7 @@ func (e *FakeResourceOwner) GetControlNamespace() string {
 
 func TestNativeReconciler(t *testing.T) {
 	nativeReconciler := reconciler.NewNativeReconciler(
-		"test",
+		"testcomponent",
 		reconciler.NewReconciler(k8sClient, log, reconciler.ReconcilerOpts{}),
 		k8sClient,
 		reconciler.NewReconciledComponent(
@@ -59,7 +58,7 @@ func TestNativeReconciler(t *testing.T) {
 					})
 				}
 				// this is returned with every call, so it shouldn't change
-				rb = append(rb,  func() (object runtime.Object, state reconciler.DesiredState, e error) {
+				rb = append(rb, func() (object runtime.Object, state reconciler.DesiredState, e error) {
 					return &corev1.Secret{
 						ObjectMeta: v1.ObjectMeta{
 							Name:      "keep-the-secret",
@@ -81,14 +80,28 @@ func TestNativeReconciler(t *testing.T) {
 			},
 		),
 		func(object runtime.Object) (reconciler.ResourceOwner, interface{}) {
-			return object.(*FakeResourceOwner), object.(*FakeResourceOwner).ComponentConfig
+			return &FakeResourceOwner{ConfigMap: object.(*corev1.ConfigMap)}, object.(*corev1.ConfigMap).Data["count"]
 		},
 	)
 
+	fakeOwnerObject := &corev1.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "example",
+			Namespace: controlNamespace,
+		},
+	}
+
+	setCount := func (c *corev1.ConfigMap, count int) *corev1.ConfigMap {
+		if c.Data == nil {
+			c.Data = map[string]string{}
+		}
+		c.Data["count"] = cast.ToString(count)
+		return c
+	}
 
 	// in the first iteration we create a single configmap and a secret (keep the secret!)
 
-	_, err := nativeReconciler.Reconcile(&FakeResourceOwner{ComponentConfig: 1})
+	_, err := nativeReconciler.Reconcile(setCount(fakeOwnerObject, 1))
 	if err != nil {
 		t.Fatalf("Expected nil, got: %+v", err)
 	}
@@ -104,7 +117,7 @@ func TestNativeReconciler(t *testing.T) {
 
 	// next round, the count of configmaps increase to 2, keep the secret!
 
-	_, err = nativeReconciler.Reconcile(&FakeResourceOwner{ComponentConfig: 2})
+	_, err = nativeReconciler.Reconcile(setCount(fakeOwnerObject, 2))
 	if err != nil {
 		t.Fatalf("%+v", err)
 	}
@@ -121,7 +134,7 @@ func TestNativeReconciler(t *testing.T) {
 
 	// next round, the count shrinks back to 1, the second configmap should be removed, keep the secret!
 
-	_, err = nativeReconciler.Reconcile(&FakeResourceOwner{ComponentConfig: 1})
+	_, err = nativeReconciler.Reconcile(setCount(fakeOwnerObject, 1))
 	if err != nil {
 		t.Fatalf("Expected nil, got: %+v", err)
 	}
@@ -137,7 +150,7 @@ func TestNativeReconciler(t *testing.T) {
 
 	// next round, scale back to configmaps to 0, keep the secret!
 
-	_, err = nativeReconciler.Reconcile(&FakeResourceOwner{ComponentConfig: 0})
+	_, err = nativeReconciler.Reconcile(setCount(fakeOwnerObject, 0))
 	if err != nil {
 		t.Fatalf("Expected nil, got: %+v", err)
 	}

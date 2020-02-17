@@ -16,7 +16,7 @@ package reconciler
 
 import (
 	"context"
-	"fmt"
+	"strings"
 
 	"emperror.dev/errors"
 	"github.com/banzaicloud/operator-tools/pkg/utils"
@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -55,6 +56,7 @@ type DefaultReconciledComponent struct {
 	watches    func(b *builder.Builder)
 	purgeTypes func() []schema.GroupVersionKind
 }
+
 func NewReconciledComponent(b ResourceBuilders, w func(b *builder.Builder), p func() []schema.GroupVersionKind) NativeReconciledComponent {
 	return &DefaultReconciledComponent{
 		builders:   b,
@@ -77,28 +79,42 @@ func (d *DefaultReconciledComponent) PurgeTypes() []schema.GroupVersionKind {
 	return d.purgeTypes()
 }
 
-
 type NativeReconciler struct {
 	*GenericResourceReconciler
 	client.Client
+	scheme              *runtime.Scheme
 	reconciledComponent NativeReconciledComponent
 	configTranslate     func(runtime.Object) (parent ResourceOwner, config interface{})
 	componentName       string
 }
+
+type NativeReconcilerOpt func(*NativeReconciler)
 
 func NewNativeReconciler(
 	componentName string,
 	rec *GenericResourceReconciler,
 	client client.Client,
 	reconciledComponent NativeReconciledComponent,
-	resourceTranslate func(runtime.Object) (parent ResourceOwner, config interface{})) *NativeReconciler {
-	return &NativeReconciler{
+	resourceTranslate func(runtime.Object) (parent ResourceOwner, config interface{}),
+	opts ...NativeReconcilerOpt) *NativeReconciler {
+	reconciler := &NativeReconciler{
 		GenericResourceReconciler: rec,
 		Client:                    client,
 		reconciledComponent:       reconciledComponent,
 		configTranslate:           resourceTranslate,
 		componentName:             componentName,
 	}
+
+	for _, opt := range opts {
+		opt(reconciler)
+	}
+
+	if reconciler.scheme == nil {
+		reconciler.scheme = runtime.NewScheme()
+		_ = clientgoscheme.AddToScheme(reconciler.scheme)
+	}
+
+	return reconciler
 }
 
 func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result, error) {
@@ -106,13 +122,10 @@ func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result,
 		return nil, errors.New("component name cannot be empty")
 	}
 
-	ownerMeta, err := meta.Accessor(owner)
+	componentID, err := rec.generateComponentID(owner)
 	if err != nil {
-		return nil, errors.WrapIf(err, "failed to access owner object meta")
+		return nil, err
 	}
-
-	// generated componentId will be used to purge unwanted objects
-	componentId := fmt.Sprintf("%s-%s-%s", ownerMeta.GetName(), ownerMeta.GetUID(), rec.componentName)
 	// visited objects wont be purged
 	excludeFromPurge := map[string]bool{}
 
@@ -122,26 +135,102 @@ func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result,
 		if err != nil {
 			combinedResult.CombineErr(err)
 		} else {
-			metaObject, err := rec.annotate(o, componentId)
+			_, err := rec.addAnnotation(o, componentID)
 			if err != nil {
 				combinedResult.CombineErr(err)
-			} else {
-				result, err := rec.ReconcileResource(o, state)
-				if err == nil {
-					excludeFromPurge[utils.ObjectKeyFromObjectMeta(metaObject).String()] = true
-				}
-				combinedResult.Combine(result, err)
+				continue
 			}
+			result, err := rec.ReconcileResource(o, state)
+			if err == nil {
+				resourceID, err := rec.generateResourceID(o)
+				if err != nil {
+					combinedResult.CombineErr(err)
+					continue
+				}
+				excludeFromPurge[resourceID] = true
+			}
+			combinedResult.Combine(result, err)
 		}
 	}
 	if combinedResult.Err == nil {
-		if err := rec.purge(excludeFromPurge, componentId); err != nil {
+		if err := rec.purge(excludeFromPurge, componentID); err != nil {
 			combinedResult.CombineErr(err)
 		}
 	} else {
 		rec.Log.Error(combinedResult.Err, "skip purging results due to previous errors")
 	}
 	return &combinedResult.Result, combinedResult.Err
+}
+
+func (rec *NativeReconciler) generateComponentID(owner runtime.Object) (string, error) {
+	ownerMeta, err := meta.Accessor(owner)
+	if err != nil {
+		return "", errors.WrapIf(err, "failed to access owner object meta")
+	}
+
+	// generated componentId will be used to purge unwanted objects
+	identifiers := []string{}
+	if ownerMeta.GetName() == "" {
+		return "", errors.New("unable to generate component id for resource without a name")
+	}
+	identifiers = append(identifiers, ownerMeta.GetName())
+
+	if ownerMeta.GetNamespace() != "" {
+		identifiers = append(identifiers, ownerMeta.GetNamespace())
+	}
+
+	if rec.componentName == "" {
+		return "", errors.New("unable to generate component id without a component name")
+	}
+	identifiers = append(identifiers, rec.componentName)
+
+	ownerGVK, unversioned, err := rec.scheme.ObjectKinds(owner)
+	if err != nil {
+		return "", errors.WrapIff(err, "failed to get GVK for owner object %s", utils.ObjectKeyFromObjectMeta(ownerMeta).String())
+	}
+	if unversioned {
+		return "", errors.WrapIff(err, "owner object %s cannot be unversioned", utils.ObjectKeyFromObjectMeta(ownerMeta).String())
+	}
+	if len(ownerGVK) == 0 {
+		return "", errors.Errorf("couldn't find a GVK for object %s", utils.ObjectKeyFromObjectMeta(ownerMeta).String())
+	}
+	apiVersion, kind := ownerGVK[0].ToAPIVersionAndKind()
+	identifiers = append(identifiers, apiVersion, strings.ToLower(kind))
+
+	return strings.Join(identifiers, "-"), nil
+}
+
+func (rec *NativeReconciler) generateResourceID(resource runtime.Object) (string, error) {
+	resourceMeta, err := meta.Accessor(resource)
+	if err != nil {
+		return "", errors.WrapIf(err, "failed to access owner object meta")
+	}
+
+	// generated componentId will be used to purge unwanted objects
+	identifiers := []string{}
+	if resourceMeta.GetName() == "" {
+		return "", errors.New("unable to generate component id for resource without a name")
+	}
+	identifiers = append(identifiers, resourceMeta.GetName())
+
+	if resourceMeta.GetNamespace() != "" {
+		identifiers = append(identifiers, resourceMeta.GetNamespace())
+	}
+
+	resourceGVK, unversioned, err := rec.scheme.ObjectKinds(resource)
+	if err != nil {
+		return "", errors.WrapIff(err, "failed to get GVK for owner object %s", utils.ObjectKeyFromObjectMeta(resourceMeta).String())
+	}
+	if unversioned {
+		return "", errors.WrapIff(err, "owner object %s cannot be unversioned", utils.ObjectKeyFromObjectMeta(resourceMeta).String())
+	}
+	if len(resourceGVK) == 0 {
+		return "", errors.Errorf("couldn't find a GVK for object %s", utils.ObjectKeyFromObjectMeta(resourceMeta).String())
+	}
+	apiVersion, kind := resourceGVK[0].ToAPIVersionAndKind()
+	identifiers = append(identifiers, apiVersion, strings.ToLower(kind))
+
+	return strings.Join(identifiers, "-"), nil
 }
 
 func (rec *NativeReconciler) purge(excluded map[string]bool, componentId string) error {
@@ -160,10 +249,15 @@ func (rec *NativeReconciler) purge(excluded map[string]bool, componentId string)
 				allErr = errors.Combine(allErr, errors.WrapIf(err, "failed to get object metadata"))
 				continue
 			}
-			if excluded[utils.ObjectKeyFromObjectMeta(objectMeta).String()] {
+			resourceID, err := rec.generateResourceID(&o)
+			if err != nil {
+				allErr = errors.Combine(allErr, err)
 				continue
 			}
-			if o.GetAnnotations()[BanzaiCloudManagedComponent] == componentId {
+			if excluded[resourceID] {
+				continue
+			}
+			if objectMeta.GetAnnotations() != nil && objectMeta.GetAnnotations()[BanzaiCloudManagedComponent] == componentId {
 				rec.Log.Info("pruning unmmanaged resource",
 					"name", objectMeta.GetName(),
 					"namespace", objectMeta.GetNamespace(),
@@ -179,7 +273,7 @@ func (rec *NativeReconciler) purge(excluded map[string]bool, componentId string)
 	return allErr
 }
 
-func (rec *NativeReconciler) annotate(o runtime.Object, componentId string) (metav1.Object, error) {
+func (rec *NativeReconciler) addAnnotation(o runtime.Object, componentId string) (metav1.Object, error) {
 	objectMeta, err := meta.Accessor(o)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to access object metadata")
