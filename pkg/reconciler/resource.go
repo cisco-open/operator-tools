@@ -244,6 +244,7 @@ func (r *GenericResourceReconciler) CreateIfNotExist(desired runtime.Object) (bo
 		return false, nil, errors.WrapIf(err, "failed to get resource details")
 	}
 	log := r.resourceLog(desired, resourceDetails...)
+	traceLog := log.V(2)
 	err = r.Client.Get(context.TODO(), key, current)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return false, nil, errors.WrapIfWithDetails(err, "getting resource failed", resourceDetails...)
@@ -271,7 +272,7 @@ func (r *GenericResourceReconciler) CreateIfNotExist(desired runtime.Object) (bo
 		log.Info("resource created")
 		return true, current, nil
 	}
-	log.V(2).Info("resource already exists")
+	traceLog.Info("resource already exists")
 	return false, current, nil
 }
 
@@ -286,6 +287,7 @@ func (r *GenericResourceReconciler) delete(desired runtime.Object) (bool, error)
 	}
 	log := r.resourceLog(desired, resourceDetails...)
 	debugLog := log.V(1)
+	traceLog := log.V(2)
 	current := reflect.New(reflect.Indirect(reflect.ValueOf(desired)).Type()).Interface().(runtime.Object)
 	err = r.Client.Get(context.TODO(), key, current)
 	if err != nil {
@@ -296,7 +298,7 @@ func (r *GenericResourceReconciler) delete(desired runtime.Object) (bool, error)
 		if !apierrors.IsNotFound(err) {
 			return false, errors.WrapIfWithDetails(err, "getting resource failed", resourceDetails...)
 		} else {
-			debugLog.Info("resource not found skipping delete")
+			traceLog.Info("resource not found skipping delete")
 			return false, nil
 		}
 	}
