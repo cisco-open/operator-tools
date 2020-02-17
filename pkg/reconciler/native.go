@@ -58,6 +58,14 @@ type DefaultReconciledComponent struct {
 }
 
 func NewReconciledComponent(b ResourceBuilders, w func(b *builder.Builder), p func() []schema.GroupVersionKind) NativeReconciledComponent {
+	if p == nil {
+		p = func() []schema.GroupVersionKind {
+			return nil
+		}
+	}
+	if w == nil {
+		w = func(*builder.Builder) {}
+	}
 	return &DefaultReconciledComponent{
 		builders:   b,
 		watches:    w,
@@ -89,6 +97,12 @@ type NativeReconciler struct {
 }
 
 type NativeReconcilerOpt func(*NativeReconciler)
+
+func NativeReconcilerWithScheme(scheme *runtime.Scheme) NativeReconcilerOpt {
+	return func(r *NativeReconciler) {
+		r.scheme = scheme
+	}
+}
 
 func NewNativeReconciler(
 	componentName string,
