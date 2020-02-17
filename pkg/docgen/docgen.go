@@ -110,7 +110,7 @@ func (d *Doc) visitNode(n ast.Node) bool {
 	generic, ok := n.(*ast.GenDecl)
 	if ok {
 		typeName, ok := generic.Specs[0].(*ast.TypeSpec)
-		if ok {
+		if ok && typeName.Name.IsExported() {
 			_, ok := typeName.Type.(*ast.InterfaceType)
 			if ok && strings.HasPrefix(typeName.Name.Name, "_doc") {
 				d.Append(fmt.Sprintf("# %s", getTypeName(generic, d.Item.Name)))
