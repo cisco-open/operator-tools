@@ -254,7 +254,9 @@ func (rec *NativeReconciler) purge(excluded map[string]bool, componentId string)
 		objects.SetGroupVersionKind(gvk)
 		err := rec.List(context.TODO(), objects)
 		if err != nil {
-			rec.Log.V(1).Info("retrieving resources to prune type %s: %s not found", gvk.String(), err)
+			rec.Log.Error(err, "failed list objects to prune",
+				"groupversion", gvk.GroupVersion().String(),
+				"kind", gvk.Kind)
 			continue
 		}
 		for _, o := range objects.Items {
