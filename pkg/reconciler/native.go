@@ -47,17 +47,19 @@ type ResourceBuilder func() (runtime.Object, DesiredState, error)
 type NativeReconciledComponent interface {
 	ResourceBuilders(parent ResourceOwner, object interface{}) []ResourceBuilder
 	RegisterWatches(*builder.Builder)
+	PurgeTypes() []schema.GroupVersionKind
 }
 
 type DefaultReconciledComponent struct {
-	builders ResourceBuilders
-	watches  func(b *builder.Builder)
+	builders   ResourceBuilders
+	watches    func(b *builder.Builder)
+	purgeTypes func() []schema.GroupVersionKind
 }
-
-func NewReconciledComponent(b ResourceBuilders, w func(b *builder.Builder)) NativeReconciledComponent {
+func NewReconciledComponent(b ResourceBuilders, w func(b *builder.Builder), p func() []schema.GroupVersionKind) NativeReconciledComponent {
 	return &DefaultReconciledComponent{
-		builders: b,
-		watches:  w,
+		builders:   b,
+		watches:    w,
+		purgeTypes: p,
 	}
 }
 
@@ -71,13 +73,17 @@ func (d *DefaultReconciledComponent) RegisterWatches(b *builder.Builder) {
 	}
 }
 
+func (d *DefaultReconciledComponent) PurgeTypes() []schema.GroupVersionKind {
+	return d.purgeTypes()
+}
+
+
 type NativeReconciler struct {
 	*GenericResourceReconciler
 	client.Client
 	reconciledComponent NativeReconciledComponent
 	configTranslate     func(runtime.Object) (parent ResourceOwner, config interface{})
 	componentName       string
-	purgeTypes          []schema.GroupVersionKind
 }
 
 func NewNativeReconciler(
@@ -93,11 +99,6 @@ func NewNativeReconciler(
 		configTranslate:           resourceTranslate,
 		componentName:             componentName,
 	}
-}
-
-func (rec *NativeReconciler) WithPurgeTypes(purgeTypes []schema.GroupVersionKind) *NativeReconciler {
-	rec.purgeTypes = purgeTypes
-	return rec
 }
 
 func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result, error) {
@@ -145,7 +146,7 @@ func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result,
 
 func (rec *NativeReconciler) purge(excluded map[string]bool, componentId string) error {
 	var allErr error
-	for _, gvk := range rec.purgeTypes {
+	for _, gvk := range rec.reconciledComponent.PurgeTypes() {
 		objects := &unstructured.UnstructuredList{}
 		objects.SetGroupVersionKind(gvk)
 		err := rec.List(context.TODO(), objects)

@@ -44,7 +44,6 @@ func TestNativeReconciler(t *testing.T) {
 		k8sClient,
 		reconciler.NewReconciledComponent(
 			func(parent reconciler.ResourceOwner, object interface{}) []reconciler.ResourceBuilder {
-
 				rb := []reconciler.ResourceBuilder{}
 				// depending on the incoming config we return 0 or more items
 				count := cast.ToInt(object)
@@ -71,17 +70,20 @@ func TestNativeReconciler(t *testing.T) {
 				return rb
 			},
 			func(b *builder.Builder) {},
+			func() []schema.GroupVersionKind {
+				return []schema.GroupVersionKind{
+					{
+						Group:   "",
+						Version: "v1",
+						Kind:    "ConfigMap",
+					},
+				}
+			},
 		),
 		func(object runtime.Object) (reconciler.ResourceOwner, interface{}) {
 			return object.(*FakeResourceOwner), object.(*FakeResourceOwner).ComponentConfig
 		},
-	).WithPurgeTypes([]schema.GroupVersionKind{
-		{
-			Group:   "",
-			Version: "v1",
-			Kind:    "ConfigMap",
-		},
-	})
+	)
 
 
 	// in the first iteration we create a single configmap and a secret (keep the secret!)
