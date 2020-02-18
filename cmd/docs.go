@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 package main
 
 import (
@@ -36,6 +35,7 @@ func crds() {
 		map[string]docgen.SourceDir{
 			"secret": {Path: "pkg/secret", DestPath: "docs/types"},
 			"volume": {Path: "pkg/volume", DestPath: "docs/types"},
+			"base":   {Path: "pkg/types", DestPath: "docs/types"},
 		},
 		logger.WithName("lister"))
 
