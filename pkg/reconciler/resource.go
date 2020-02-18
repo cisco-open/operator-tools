@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -40,20 +41,13 @@ const (
 	StatePresent StaticDesiredState = "Present"
 )
 
-type ResourceOwner interface {
-	// to be aware of metadata
-	metav1.Object
-	// to be aware of the owner's type
-	runtime.Object
-	// control namespace dictates where namespaced objects should belong to
-	GetControlNamespace() string
-}
-
-type ResourceBuilders func(parent ResourceOwner, object interface{}) []ResourceBuilder
-type ResourceBuilder func() (runtime.Object, DesiredState, error)
-
 type DesiredState interface {
 	BeforeUpdate(object runtime.Object) error
+}
+
+type ResourceReconciler interface {
+	CreateIfNotExist(runtime.Object) (created bool, object runtime.Object, err error)
+	ReconcileResource(runtime.Object, DesiredState) (*reconcile.Result, error)
 }
 
 type StaticDesiredState string
@@ -75,10 +69,14 @@ type GenericResourceReconciler struct {
 	Options ReconcilerOpts
 }
 
+type ResourceReconcilerOption func(*ReconcilerOpts)
+
+// Recommended to use NewReconcilerWith + ResourceReconcilerOptions
 type ReconcilerOpts struct {
+	Log                                              logr.Logger
+	Scheme                                           *runtime.Scheme
 	EnableRecreateWorkloadOnImmutableFieldChange     bool
 	EnableRecreateWorkloadOnImmutableFieldChangeHelp string
-	Scheme                                           *runtime.Scheme
 }
 
 // NewReconciler returns GenericResourceReconciler
@@ -94,9 +92,48 @@ func NewReconciler(client runtimeClient.Client, log logr.Logger, opts Reconciler
 	}
 }
 
+func WithLog(log logr.Logger) ResourceReconcilerOption {
+	return func(o *ReconcilerOpts) {
+		o.Log = log
+	}
+}
+
+func WithScheme(scheme *runtime.Scheme) ResourceReconcilerOption {
+	return func(o *ReconcilerOpts) {
+		o.Scheme = scheme
+	}
+}
+
+func WithEnableRecreateWorkload() ResourceReconcilerOption {
+	return func(o *ReconcilerOpts) {
+		o.EnableRecreateWorkloadOnImmutableFieldChange = true
+	}
+}
+
+func NewReconcilerWith(client runtimeClient.Client, opts ...func(reconciler *ReconcilerOpts)) ResourceReconciler {
+	rec := &GenericResourceReconciler{
+		Client: client,
+		Options: ReconcilerOpts{
+			EnableRecreateWorkloadOnImmutableFieldChangeHelp: "recreating object on immutable field change has to be enabled explicitly through the reconciler options",
+		},
+		Log: log.NullLogger{},
+	}
+	for _, opt := range opts {
+		opt(&rec.Options)
+	}
+	if rec.Options.Log != nil {
+		rec.Log = rec.Options.Log
+	}
+	if rec.Options.Scheme == nil {
+		rec.Options.Scheme = runtime.NewScheme()
+		_ = clientgoscheme.AddToScheme(rec.Options.Scheme)
+	}
+	return rec
+}
+
 // CreateResource creates a resource if it doesn't exist
 func (r *GenericResourceReconciler) CreateResource(desired runtime.Object) error {
-	_, _, err := r.createIfNotExists(desired)
+	_, _, err := r.CreateIfNotExist(desired)
 	return err
 }
 
@@ -114,7 +151,7 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 	traceLog := log.V(2)
 	switch desiredState {
 	default:
-		created, current, err := r.createIfNotExists(desired)
+		created, current, err := r.CreateIfNotExist(desired)
 		if err == nil && created {
 			return nil, nil
 		}
@@ -180,7 +217,7 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 							RequeueAfter: time.Second * 10,
 						}, nil
 					} else {
-						return nil, errors.New(r.Options.EnableRecreateWorkloadOnImmutableFieldChangeHelp)
+						return nil, errors.WrapIf(sErr, r.Options.EnableRecreateWorkloadOnImmutableFieldChangeHelp)
 					}
 				}
 				return nil, errors.WrapIfWithDetails(err, "updating resource failed", resourceDetails...)
@@ -196,7 +233,7 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 	return nil, nil
 }
 
-func (r *GenericResourceReconciler) createIfNotExists(desired runtime.Object) (bool, runtime.Object, error) {
+func (r *GenericResourceReconciler) CreateIfNotExist(desired runtime.Object) (bool, runtime.Object, error) {
 	current := reflect.New(reflect.Indirect(reflect.ValueOf(desired)).Type()).Interface().(runtime.Object)
 	key, err := runtimeClient.ObjectKeyFromObject(desired)
 	if err != nil {
@@ -207,6 +244,7 @@ func (r *GenericResourceReconciler) createIfNotExists(desired runtime.Object) (b
 		return false, nil, errors.WrapIf(err, "failed to get resource details")
 	}
 	log := r.resourceLog(desired, resourceDetails...)
+	traceLog := log.V(2)
 	err = r.Client.Get(context.TODO(), key, current)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return false, nil, errors.WrapIfWithDetails(err, "getting resource failed", resourceDetails...)
@@ -234,7 +272,7 @@ func (r *GenericResourceReconciler) createIfNotExists(desired runtime.Object) (b
 		log.Info("resource created")
 		return true, current, nil
 	}
-	log.V(2).Info("resource already exists")
+	traceLog.Info("resource already exists")
 	return false, current, nil
 }
 
@@ -249,6 +287,7 @@ func (r *GenericResourceReconciler) delete(desired runtime.Object) (bool, error)
 	}
 	log := r.resourceLog(desired, resourceDetails...)
 	debugLog := log.V(1)
+	traceLog := log.V(2)
 	current := reflect.New(reflect.Indirect(reflect.ValueOf(desired)).Type()).Interface().(runtime.Object)
 	err = r.Client.Get(context.TODO(), key, current)
 	if err != nil {
@@ -259,7 +298,7 @@ func (r *GenericResourceReconciler) delete(desired runtime.Object) (bool, error)
 		if !apierrors.IsNotFound(err) {
 			return false, errors.WrapIfWithDetails(err, "getting resource failed", resourceDetails...)
 		} else {
-			debugLog.Info("resource not found skipping delete")
+			traceLog.Info("resource not found skipping delete")
 			return false, nil
 		}
 	}

@@ -133,7 +133,7 @@ func (d *Doc) visitNode(n ast.Node) bool {
 				d.Append("---")
 			}
 			structure, ok := typeName.Type.(*ast.StructType)
-			if ok {
+			if ok && typeName.Name.IsExported() {
 				d.Append(fmt.Sprintf("### %s", getTypeName(generic, typeName.Name.Name)))
 				if getTypeDocs(generic, true) != "" {
 					d.Append(fmt.Sprintf("#### %s", getTypeDocs(generic, true)))
@@ -191,6 +191,7 @@ func getTypeDocs(generic *ast.GenDecl, trimSpace bool) string {
 				newLine = strings.TrimSpace(newLine)
 			}
 			if !strings.HasPrefix(strings.TrimSpace(newLine), "+kubebuilder") &&
+				!strings.HasPrefix(strings.TrimSpace(newLine), "nolint") &&
 				!strings.HasPrefix(strings.TrimSpace(newLine), "+docName") {
 				comment += newLine + "\n"
 			}
