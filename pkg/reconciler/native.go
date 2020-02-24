@@ -19,7 +19,6 @@ import (
 	"strings"
 
 	"emperror.dev/errors"
-	"github.com/banzaicloud/operator-tools/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -28,6 +27,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -212,17 +212,11 @@ func (rec *NativeReconciler) generateComponentID(owner runtime.Object) (string, 
 	}
 	identifiers = append(identifiers, rec.componentName)
 
-	ownerGVK, unversioned, err := rec.scheme.ObjectKinds(owner)
+	gvk, err := apiutil.GVKForObject(owner, rec.scheme)
 	if err != nil {
-		return "", nil, errors.WrapIff(err, "failed to get GVK for owner object %s", utils.ObjectKeyFromObjectMeta(ownerMeta).String())
+		return "", nil, errors.WrapIf(err, "")
 	}
-	if unversioned {
-		return "", nil, errors.WrapIff(err, "owner object %s cannot be unversioned", utils.ObjectKeyFromObjectMeta(ownerMeta).String())
-	}
-	if len(ownerGVK) == 0 {
-		return "", nil, errors.Errorf("couldn't find a GVK for object %s", utils.ObjectKeyFromObjectMeta(ownerMeta).String())
-	}
-	apiVersion, kind := ownerGVK[0].ToAPIVersionAndKind()
+	apiVersion, kind := gvk.ToAPIVersionAndKind()
 	identifiers = append(identifiers, apiVersion, strings.ToLower(kind))
 
 	return strings.Join(identifiers, "-"), ownerMeta, nil
@@ -245,17 +239,11 @@ func (rec *NativeReconciler) generateResourceID(resource runtime.Object) (string
 		identifiers = append(identifiers, resourceMeta.GetNamespace())
 	}
 
-	resourceGVK, unversioned, err := rec.scheme.ObjectKinds(resource)
+	gvk, err := apiutil.GVKForObject(resource, rec.scheme)
 	if err != nil {
-		return "", errors.WrapIff(err, "failed to get GVK for owner object %s", utils.ObjectKeyFromObjectMeta(resourceMeta).String())
+		return "", errors.WrapIf(err, "")
 	}
-	if unversioned {
-		return "", errors.WrapIff(err, "owner object %s cannot be unversioned", utils.ObjectKeyFromObjectMeta(resourceMeta).String())
-	}
-	if len(resourceGVK) == 0 {
-		return "", errors.Errorf("couldn't find a GVK for object %s", utils.ObjectKeyFromObjectMeta(resourceMeta).String())
-	}
-	apiVersion, kind := resourceGVK[0].ToAPIVersionAndKind()
+	apiVersion, kind := gvk.ToAPIVersionAndKind()
 	identifiers = append(identifiers, apiVersion, strings.ToLower(kind))
 
 	return strings.Join(identifiers, "-"), nil
