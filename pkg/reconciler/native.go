@@ -28,6 +28,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -94,6 +95,7 @@ type NativeReconciler struct {
 	reconciledComponent NativeReconciledComponent
 	configTranslate     func(runtime.Object) (parent ResourceOwner, config interface{})
 	componentName       string
+	setControllerRef    bool
 }
 
 type NativeReconcilerOpt func(*NativeReconciler)
@@ -101,6 +103,12 @@ type NativeReconcilerOpt func(*NativeReconciler)
 func NativeReconcilerWithScheme(scheme *runtime.Scheme) NativeReconcilerOpt {
 	return func(r *NativeReconciler) {
 		r.scheme = scheme
+	}
+}
+
+func NativeReconcilerSetControllerRef() NativeReconcilerOpt {
+	return func(r *NativeReconciler) {
+		r.setControllerRef = true
 	}
 }
 
@@ -136,7 +144,7 @@ func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result,
 		return nil, errors.New("component name cannot be empty")
 	}
 
-	componentID, err := rec.generateComponentID(owner)
+	componentID, ownerMeta, err := rec.generateComponentID(owner)
 	if err != nil {
 		return nil, err
 	}
@@ -149,10 +157,16 @@ func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result,
 		if err != nil {
 			combinedResult.CombineErr(err)
 		} else {
-			_, err := rec.addAnnotation(o, componentID)
+			objectMeta, err := rec.addAnnotation(o, componentID)
 			if err != nil {
 				combinedResult.CombineErr(err)
 				continue
+			}
+			if rec.setControllerRef {
+				if err := controllerutil.SetControllerReference(ownerMeta, objectMeta, rec.scheme); err != nil {
+					combinedResult.CombineErr(err)
+					continue
+				}
 			}
 			result, err := rec.ReconcileResource(o, state)
 			if err == nil {
@@ -176,16 +190,16 @@ func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result,
 	return &combinedResult.Result, combinedResult.Err
 }
 
-func (rec *NativeReconciler) generateComponentID(owner runtime.Object) (string, error) {
+func (rec *NativeReconciler) generateComponentID(owner runtime.Object) (string, metav1.Object, error) {
 	ownerMeta, err := meta.Accessor(owner)
 	if err != nil {
-		return "", errors.WrapIf(err, "failed to access owner object meta")
+		return "", nil, errors.WrapIf(err, "failed to access owner object meta")
 	}
 
 	// generated componentId will be used to purge unwanted objects
 	identifiers := []string{}
 	if ownerMeta.GetName() == "" {
-		return "", errors.New("unable to generate component id for resource without a name")
+		return "", nil, errors.New("unable to generate component id for resource without a name")
 	}
 	identifiers = append(identifiers, ownerMeta.GetName())
 
@@ -194,24 +208,24 @@ func (rec *NativeReconciler) generateComponentID(owner runtime.Object) (string, 
 	}
 
 	if rec.componentName == "" {
-		return "", errors.New("unable to generate component id without a component name")
+		return "", nil, errors.New("unable to generate component id without a component name")
 	}
 	identifiers = append(identifiers, rec.componentName)
 
 	ownerGVK, unversioned, err := rec.scheme.ObjectKinds(owner)
 	if err != nil {
-		return "", errors.WrapIff(err, "failed to get GVK for owner object %s", utils.ObjectKeyFromObjectMeta(ownerMeta).String())
+		return "", nil, errors.WrapIff(err, "failed to get GVK for owner object %s", utils.ObjectKeyFromObjectMeta(ownerMeta).String())
 	}
 	if unversioned {
-		return "", errors.WrapIff(err, "owner object %s cannot be unversioned", utils.ObjectKeyFromObjectMeta(ownerMeta).String())
+		return "", nil, errors.WrapIff(err, "owner object %s cannot be unversioned", utils.ObjectKeyFromObjectMeta(ownerMeta).String())
 	}
 	if len(ownerGVK) == 0 {
-		return "", errors.Errorf("couldn't find a GVK for object %s", utils.ObjectKeyFromObjectMeta(ownerMeta).String())
+		return "", nil, errors.Errorf("couldn't find a GVK for object %s", utils.ObjectKeyFromObjectMeta(ownerMeta).String())
 	}
 	apiVersion, kind := ownerGVK[0].ToAPIVersionAndKind()
 	identifiers = append(identifiers, apiVersion, strings.ToLower(kind))
 
-	return strings.Join(identifiers, "-"), nil
+	return strings.Join(identifiers, "-"), ownerMeta, nil
 }
 
 func (rec *NativeReconciler) generateResourceID(resource runtime.Object) (string, error) {
