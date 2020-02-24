@@ -39,16 +39,18 @@ endif
 
 .PHONY: bin/kubebuilder_$(KUBEBUILDER_VERSION)
 bin/kubebuilder_$(KUBEBUILDER_VERSION):
-	@mkdir -p bin
-	curl -L https://github.com/kubernetes-sigs/kubebuilder/releases/download/v$(KUBEBUILDER_VERSION)/kubebuilder_$(KUBEBUILDER_VERSION)_$(OS)_amd64.tar.gz | tar xvz -C bin
-	@ln -sf kubebuilder_$(KUBEBUILDER_VERSION)_$(OS)_amd64/bin bin/kubebuilder_$(KUBEBUILDER_VERSION)
+	@if ! test -L bin/kubebuilder_$(KUBEBUILDER_VERSION); \
+		then \
+		mkdir -p bin; \
+		curl -L https://github.com/kubernetes-sigs/kubebuilder/releases/download/v$(KUBEBUILDER_VERSION)/kubebuilder_$(KUBEBUILDER_VERSION)_$(OS)_amd64.tar.gz | tar xvz -C bin; \
+		ln -sf kubebuilder_$(KUBEBUILDER_VERSION)_$(OS)_amd64/bin bin/kubebuilder_$(KUBEBUILDER_VERSION); \
+	fi
 
 bin/kubebuilder: bin/kubebuilder_$(KUBEBUILDER_VERSION)
 	@ln -sf kubebuilder_$(KUBEBUILDER_VERSION)/kubebuilder bin/kubebuilder
 	@ln -sf kubebuilder_$(KUBEBUILDER_VERSION)/kube-apiserver bin/kube-apiserver
 	@ln -sf kubebuilder_$(KUBEBUILDER_VERSION)/etcd bin/etcd
 	@ln -sf kubebuilder_$(KUBEBUILDER_VERSION)/kubectl bin/kubectl
-
 
 bin/licensei: bin/licensei-${LICENSEI_VERSION}
 	@ln -sf licensei-${LICENSEI_VERSION} bin/licensei

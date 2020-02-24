@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 )
 
-// FakeResourceOwner object is implements the ResourceOwner interface by piggybacking a ConfigMap (oink-oink)
+// FakeResourceOwner object implements the ResourceOwner interface by piggybacking a ConfigMap (oink-oink)
 type FakeResourceOwner struct {
 	*corev1.ConfigMap
 }
