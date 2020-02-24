@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 )
 
+// FakeResourceOwner object is implements the ResourceOwner interface by piggybacking a ConfigMap (oink-oink)
 type FakeResourceOwner struct {
 	*corev1.ConfigMap
 }
@@ -36,7 +37,8 @@ func (e *FakeResourceOwner) GetControlNamespace() string {
 	return controlNamespace
 }
 
-func TestNativeReconciler(t *testing.T) {
+// Assert that a Secret reconciled together with a purged type (ConfigMap) will not get hurt (not even gets dirty)
+func TestNativeReconcilerKeepsTheSecret(t *testing.T) {
 	nativeReconciler := reconciler.NewNativeReconciler(
 		"testcomponent",
 		reconciler.NewReconciler(k8sClient, log, reconciler.ReconcilerOpts{}),
@@ -91,7 +93,7 @@ func TestNativeReconciler(t *testing.T) {
 		},
 	}
 
-	setCount := func (c *corev1.ConfigMap, count int) *corev1.ConfigMap {
+	setCount := func(c *corev1.ConfigMap, count int) *corev1.ConfigMap {
 		if c.Data == nil {
 			c.Data = map[string]string{}
 		}
@@ -162,4 +164,101 @@ func TestNativeReconciler(t *testing.T) {
 		assert.Len(t, l.Items, 1)
 		assert.Equal(t, l.Items[0].Name, "keep-the-secret")
 	})
+}
+
+func TestNativeReconcilerSetNoControllerRefByDefault(t *testing.T) {
+	nativeReconciler := createReconcilerForRefTests(
+		// without this, controller refs are not going to be applied:
+		// reconciler.NativeReconcilerSetControllerRef()
+	)
+
+	fakeOwnerObject := &corev1.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "example",
+			Namespace: controlNamespace,
+			UID:       "something-fashionable",
+		},
+	}
+
+	_, err := nativeReconciler.Reconcile(fakeOwnerObject)
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+	assertConfigMapList(t, func(l *corev1.ConfigMapList) {
+		assert.Len(t, l.Items, 1)
+		assert.Len(t, l.Items[0].OwnerReferences, 0)
+	})
+}
+
+func TestNativeReconcilerSetControllerRefMultipleTimes(t *testing.T) {
+	nativeReconciler := createReconcilerForRefTests(reconciler.NativeReconcilerSetControllerRef())
+
+	fakeOwnerObject := &corev1.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "example",
+			Namespace: controlNamespace,
+			UID:       "something-fashionable",
+		},
+	}
+
+	for i := 0; i < 2; i++ {
+		_, err := nativeReconciler.Reconcile(fakeOwnerObject)
+		if err != nil {
+			t.Fatalf("%+v", err)
+		}
+		assertConfigMapList(t, func(l *corev1.ConfigMapList) {
+			assert.Len(t, l.Items, 1)
+			assert.Len(t, l.Items[0].OwnerReferences, 1)
+			assert.Equal(t, fakeOwnerObject.UID, l.Items[0].OwnerReferences[0].UID)
+		})
+	}
+}
+
+func TestNativeReconcilerFailToSetCrossNamespaceControllerRef(t *testing.T) {
+	nativeReconciler := createReconcilerForRefTests(reconciler.NativeReconcilerSetControllerRef())
+
+	fakeOwnerObject := &corev1.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "example",
+			Namespace: "another-such-wow-namespace",
+			UID:       "something-fashionable",
+		},
+	}
+
+	expectedErrMsg := "cross-namespace owner references are disallowed"
+
+	_, err := nativeReconciler.Reconcile(fakeOwnerObject)
+	if err != nil {
+		assert.Contains(t, err.Error(), expectedErrMsg)
+	} else {
+		t.Fatalf("expected: %s", "cross-namespace owner references are disallowed")
+	}
+}
+
+func createReconcilerForRefTests(opts ...reconciler.NativeReconcilerOpt) *reconciler.NativeReconciler {
+	return reconciler.NewNativeReconciler(
+		"test",
+		reconciler.NewReconciler(k8sClient, log, reconciler.ReconcilerOpts{}),
+		k8sClient,
+		reconciler.NewReconciledComponent(
+			func(parent reconciler.ResourceOwner, object interface{}) []reconciler.ResourceBuilder {
+				rb := make([]reconciler.ResourceBuilder, 0)
+				rb = append(rb, func() (object runtime.Object, state reconciler.DesiredState, e error) {
+					return &corev1.ConfigMap{
+						ObjectMeta: v1.ObjectMeta{
+							Name:      "test-cm",
+							Namespace: parent.GetControlNamespace(),
+						},
+					}, reconciler.StatePresent, nil
+				})
+				return rb
+			},
+			func(b *builder.Builder) {},
+			func() []schema.GroupVersionKind { return []schema.GroupVersionKind{} },
+		),
+		func(object runtime.Object) (reconciler.ResourceOwner, interface{}) {
+			return &FakeResourceOwner{ConfigMap: object.(*corev1.ConfigMap)}, nil
+		},
+		opts...,
+	)
 }
