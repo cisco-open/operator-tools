@@ -86,11 +86,17 @@ func (base *MetaBase) Merge(meta v1.ObjectMeta) v1.ObjectMeta {
 		return meta
 	}
 	if len(base.Annotations) > 0 {
+		if meta.Annotations == nil {
+			meta.Annotations = make(map[string]string)
+		}
 		for key, val := range base.Annotations {
 			meta.Annotations[key] = val
 		}
 	}
 	if len(base.Labels) > 0 {
+		if meta.Labels == nil {
+			meta.Labels = make(map[string]string)
+		}
 		for key, val := range base.Labels {
 			meta.Labels[key] = val
 		}
