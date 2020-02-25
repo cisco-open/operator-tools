@@ -28,10 +28,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -335,18 +335,14 @@ func (r *GenericResourceReconciler) resourceDetails(desired runtime.Object) ([]i
 	if r.Options.Scheme == nil {
 		return defaultValues, nil
 	}
-	var versionKinds []schema.GroupVersionKind
-	versionKinds, _, err = r.Options.Scheme.ObjectKinds(desired)
-	if len(versionKinds) == 0 || err != nil {
-		r.Log.Error(err, "failed to get gvk for resource, falling back to type")
-		return defaultValues, nil
+	gvk, err := apiutil.GVKForObject(desired, r.Options.Scheme)
+	if err != nil {
+		r.Log.V(2).Info("unable to get gvk for resource, falling back to type")
+		return values, nil
 	}
-	if len(versionKinds) > 0 {
-		values = append(values,
-			"group", versionKinds[0].Group,
-			"version", versionKinds[0].Version,
-			"kind", versionKinds[0].Kind)
-	}
+	values = append(values,
+		"apiVersion", gvk.GroupVersion().String(),
+		"kind", gvk.Kind)
 	return values, nil
 }
 
