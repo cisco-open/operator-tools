@@ -16,9 +16,10 @@ package volume
 
 import (
 	"emperror.dev/errors"
+	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
 
 //nolint:unused,deadcode
 // +docName:"Kubernetes volume abstraction"
@@ -91,4 +92,75 @@ func (v *KubernetesVolume) GetVolume(name string) (corev1.Volume, error) {
 		EmptyDir: &corev1.EmptyDirVolumeSource{},
 	}
 	return volume, nil
+}
+
+func (v *KubernetesVolume) ApplyPVCForStatefulSet(containerName string, path string, spec *v1.StatefulSetSpec, meta func(name string) metav1.ObjectMeta) error {
+	if v.PersistentVolumeClaim == nil {
+		return errors.New("PVC definition is missing, unable to apply on statefulset")
+	}
+	pvc := corev1.PersistentVolumeClaim{
+		ObjectMeta: meta(v.PersistentVolumeClaim.PersistentVolumeSource.ClaimName),
+		Spec:       v.PersistentVolumeClaim.PersistentVolumeClaimSpec,
+		Status: corev1.PersistentVolumeClaimStatus{
+			Phase: corev1.ClaimPending,
+		},
+	}
+
+	if spec.VolumeClaimTemplates == nil {
+		spec.VolumeClaimTemplates = make([]corev1.PersistentVolumeClaim, 0)
+	}
+	spec.VolumeClaimTemplates = append(spec.VolumeClaimTemplates, pvc)
+
+	found := false
+	for i, c := range spec.Template.Spec.Containers {
+		if c.Name == containerName {
+			found = true
+			if c.VolumeMounts == nil {
+				c.VolumeMounts = make([]corev1.VolumeMount, 0)
+			}
+			c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
+				Name:      pvc.Name,
+				MountPath: path,
+			})
+			spec.Template.Spec.Containers[i] = c
+			break
+		}
+	}
+	if !found {
+		return errors.Errorf("failed to find container %s to configure volume mount for the given PVC", containerName)
+	}
+	return nil
+}
+
+func (v *KubernetesVolume) ApplyVolumeForPodSpec(volumeName, containerName string, path string, spec *corev1.PodSpec) error {
+	vol, err := v.GetVolume(volumeName)
+	if err != nil {
+		return errors.WrapIf(err, "failed to create volume definition for statefulset")
+	}
+
+	if spec.Volumes == nil {
+		spec.Volumes = make([]corev1.Volume, 0)
+	}
+
+	spec.Volumes = append(spec.Volumes, vol)
+
+	found := false
+	for i, c := range spec.Containers {
+		if c.Name == containerName {
+			found = true
+			if c.VolumeMounts == nil {
+				c.VolumeMounts = make([]corev1.VolumeMount, 0)
+			}
+			c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
+				Name:      volumeName,
+				MountPath: path,
+			})
+			spec.Containers[i] = c
+			break
+		}
+	}
+	if !found {
+		return errors.Errorf("failed to find container %s to configure volume mount", containerName)
+	}
+	return nil
 }
