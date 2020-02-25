@@ -15,6 +15,7 @@
 package volume
 
 import (
+	"emperror.dev/errors"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -62,29 +63,32 @@ func (v *KubernetesVolume) WithDefaultHostPath(path string) {
 // GetVolume returns a default emptydir volume if none configured
 //
 // `name`    will be the name of the volume and the lowest level directory in case a hostPath mount is used
-func (v *KubernetesVolume) GetVolume(name string) corev1.Volume {
+func (v *KubernetesVolume) GetVolume(name string) (corev1.Volume, error) {
 	volume := corev1.Volume{
 		Name: name,
+	}
+	if v.HostPathLegacy != nil {
+		return volume, errors.New("legacy host_path field is not supported anymore, please migrate to hostPath")
 	}
 	if v.HostPath != nil {
 		volume.VolumeSource = corev1.VolumeSource{
 			HostPath: v.HostPath,
 		}
-		return volume
+		return volume, nil
 	} else if v.EmptyDir != nil {
 		volume.VolumeSource = corev1.VolumeSource{
 			EmptyDir: v.EmptyDir,
 		}
-		return volume
+		return volume, nil
 	} else if v.PersistentVolumeClaim != nil {
 		volume.VolumeSource = corev1.VolumeSource{
 			PersistentVolumeClaim: &v.PersistentVolumeClaim.PersistentVolumeSource,
 		}
-		return volume
+		return volume, nil
 	}
 	// return a default emptydir volume if none configured
 	volume.VolumeSource = corev1.VolumeSource{
 		EmptyDir: &corev1.EmptyDirVolumeSource{},
 	}
-	return volume
+	return volume, nil
 }
