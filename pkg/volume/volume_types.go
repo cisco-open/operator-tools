@@ -34,6 +34,8 @@ type _metaKubernetesVolume interface{}
 // +kubebuilder:object:generate=true
 
 type KubernetesVolume struct {
+	// Deprecated, use hostPath
+	HostPathLegacy *corev1.HostPathVolumeSource `json:"host_path,omitempty"`
 	HostPath       *corev1.HostPathVolumeSource `json:"hostPath,omitempty"`
 	EmptyDir       *corev1.EmptyDirVolumeSource `json:"emptyDir,omitempty"`
 	// PersistentVolumeClaim defines the Spec and the Source at the same time.
