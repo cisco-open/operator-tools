@@ -19,6 +19,8 @@ import (
 	"strings"
 
 	"emperror.dev/errors"
+	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -163,9 +165,18 @@ func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result,
 				continue
 			}
 			if rec.setControllerRef {
-				if err := controllerutil.SetControllerReference(ownerMeta, objectMeta, rec.scheme); err != nil {
-					combinedResult.CombineErr(err)
-					continue
+				isCrd := false
+				switch o.(type) {
+				case *v1beta1.CustomResourceDefinition:
+					isCrd = true
+				case *v1.CustomResourceDefinition:
+					isCrd = true
+				}
+				if !isCrd {
+					if err := controllerutil.SetControllerReference(ownerMeta, objectMeta, rec.scheme); err != nil {
+						combinedResult.CombineErr(err)
+						continue
+					}
 				}
 			}
 			result, err := rec.ReconcileResource(o, state)

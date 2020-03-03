@@ -190,6 +190,31 @@ func TestNativeReconcilerSetNoControllerRefByDefault(t *testing.T) {
 	})
 }
 
+
+func TestNativeReconcilerSetControllerRef(t *testing.T) {
+	nativeReconciler := createReconcilerForRefTests(
+		// without this, controller refs are not going to be applied:
+		reconciler.NativeReconcilerSetControllerRef(),
+	)
+
+	fakeOwnerObject := &corev1.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "example",
+			Namespace: controlNamespace,
+			UID:       "something-fashionable",
+		},
+	}
+
+	_, err := nativeReconciler.Reconcile(fakeOwnerObject)
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+	assertConfigMapList(t, func(l *corev1.ConfigMapList) {
+		assert.Len(t, l.Items, 1)
+		assert.Len(t, l.Items[0].OwnerReferences, 1)
+	})
+}
+
 func TestNativeReconcilerSetControllerRefMultipleTimes(t *testing.T) {
 	nativeReconciler := createReconcilerForRefTests(reconciler.NativeReconcilerSetControllerRef())
 
