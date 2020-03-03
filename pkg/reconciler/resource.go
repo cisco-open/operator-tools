@@ -27,6 +27,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -233,8 +234,25 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 	return nil, nil
 }
 
+func (r *GenericResourceReconciler) fromDesired(desired runtime.Object) (runtime.Object, error) {
+	if r.Options.Scheme == nil {
+		return r.Options.Scheme.New(desired.GetObjectKind().GroupVersionKind())
+	}
+	if _, ok := desired.(*unstructured.Unstructured); ok {
+		current := &unstructured.Unstructured{}
+		desiredGVK := desired.GetObjectKind()
+		current.SetKind(desiredGVK.GroupVersionKind().Kind)
+		current.SetAPIVersion(desiredGVK.GroupVersionKind().GroupVersion().String())
+		return current, nil
+	}
+	return reflect.New(reflect.Indirect(reflect.ValueOf(desired)).Type()).Interface().(runtime.Object), nil
+}
+
 func (r *GenericResourceReconciler) CreateIfNotExist(desired runtime.Object) (bool, runtime.Object, error) {
-	current := reflect.New(reflect.Indirect(reflect.ValueOf(desired)).Type()).Interface().(runtime.Object)
+	current, err := r.fromDesired(desired)
+	if err != nil {
+		return false, nil, errors.WrapIf(err, "failed to create new object based on desired")
+	}
 	key, err := runtimeClient.ObjectKeyFromObject(desired)
 	if err != nil {
 		return false, nil, errors.WrapIf(err, "failed to get object key")
@@ -277,6 +295,10 @@ func (r *GenericResourceReconciler) CreateIfNotExist(desired runtime.Object) (bo
 }
 
 func (r *GenericResourceReconciler) delete(desired runtime.Object) (bool, error) {
+	current, err := r.fromDesired(desired)
+	if err != nil {
+		return false, errors.WrapIf(err, "failed to create new object based on desired")
+	}
 	key, err := runtimeClient.ObjectKeyFromObject(desired)
 	if err != nil {
 		return false, errors.WrapIf(err, "failed to get object key")
@@ -288,7 +310,6 @@ func (r *GenericResourceReconciler) delete(desired runtime.Object) (bool, error)
 	log := r.resourceLog(desired, resourceDetails...)
 	debugLog := log.V(1)
 	traceLog := log.V(2)
-	current := reflect.New(reflect.Indirect(reflect.ValueOf(desired)).Type()).Interface().(runtime.Object)
 	err = r.Client.Get(context.TODO(), key, current)
 	if err != nil {
 		// If the resource type does not exist we should be ok to move on
