@@ -6,7 +6,7 @@ require (
 	emperror.dev/errors v0.4.2
 	github.com/MakeNowJust/heredoc v1.0.0
 	github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883
-	github.com/banzaicloud/k8s-objectmatcher v1.2.1
+	github.com/banzaicloud/k8s-objectmatcher v1.2.2
 	github.com/go-logr/logr v0.1.0
 	github.com/go-logr/zapr v0.1.0
 	github.com/iancoleman/orderedmap v0.0.0-20190318233801-ac98e3ecb4b0
