@@ -237,7 +237,11 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 func (r *GenericResourceReconciler) fromDesired(desired runtime.Object) (runtime.Object, error) {
 	if _, ok := desired.(*unstructured.Unstructured); ok {
 		if r.Options.Scheme == nil {
-			return r.Options.Scheme.New(desired.GetObjectKind().GroupVersionKind())
+			object, err := r.Options.Scheme.New(desired.GetObjectKind().GroupVersionKind())
+			if err == nil {
+				return object, nil
+			}
+			r.Log.V(2).Info("unable to detect correct type for the resource, falling back to unstructured")
 		}
 		current := &unstructured.Unstructured{}
 		desiredGVK := desired.GetObjectKind()
