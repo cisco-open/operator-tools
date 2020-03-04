@@ -172,7 +172,7 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 					return &reconcile.Result{RequeueAfter: time.Second * 2}, nil
 				}
 			}
-			patchResult, err := patch.DefaultPatchMaker.Calculate(current, desired)
+			patchResult, err := patch.DefaultPatchMaker.Calculate(current, desired, patch.IgnoreStatusFields())
 			if err != nil {
 				log.Error(err, "could not match objects")
 			} else if patchResult.IsEmpty() {
