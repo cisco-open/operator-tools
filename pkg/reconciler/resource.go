@@ -235,10 +235,10 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 }
 
 func (r *GenericResourceReconciler) fromDesired(desired runtime.Object) (runtime.Object, error) {
-	if r.Options.Scheme == nil {
-		return r.Options.Scheme.New(desired.GetObjectKind().GroupVersionKind())
-	}
 	if _, ok := desired.(*unstructured.Unstructured); ok {
+		if r.Options.Scheme == nil {
+			return r.Options.Scheme.New(desired.GetObjectKind().GroupVersionKind())
+		}
 		current := &unstructured.Unstructured{}
 		desiredGVK := desired.GetObjectKind()
 		current.SetKind(desiredGVK.GroupVersionKind().Kind)
