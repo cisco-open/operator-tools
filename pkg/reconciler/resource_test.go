@@ -68,7 +68,7 @@ func TestNewReconcilerWithUnstructured(t *testing.T) {
 	}
 	desired.SetAPIVersion("v1")
 	desired.SetKind("ConfigMap")
-	r := reconciler.NewReconcilerWith(k8sClient, reconciler.WithEnableRecreateWorkload())
+	r := reconciler.NewReconcilerWith(k8sClient, reconciler.WithEnableRecreateWorkload(), reconciler.WithLog(utils.Log))
 	result, err := r.ReconcileResource(desired, reconciler.StatePresent)
 	if result != nil {
 		t.Fatalf("result expected to be nil if everything went smooth")
