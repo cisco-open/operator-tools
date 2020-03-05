@@ -236,7 +236,7 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 
 func (r *GenericResourceReconciler) fromDesired(desired runtime.Object) (runtime.Object, error) {
 	if _, ok := desired.(*unstructured.Unstructured); ok {
-		if r.Options.Scheme == nil {
+		if r.Options.Scheme != nil {
 			object, err := r.Options.Scheme.New(desired.GetObjectKind().GroupVersionKind())
 			if err == nil {
 				return object, nil
