@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func TestNewReconcilerWith(t *testing.T) {
@@ -51,4 +52,36 @@ func TestNewReconcilerWith(t *testing.T) {
 
 	assert.Equal(t, created.Name, desired.Name)
 	assert.Equal(t, created.Namespace, desired.Namespace)
+}
+
+func TestNewReconcilerWithUnstructured(t *testing.T) {
+	desired := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name":      "test",
+				"namespace": controlNamespace,
+			},
+			"data": map[string]string{
+				"a": "b",
+			},
+		},
+	}
+	desired.SetAPIVersion("v1")
+	desired.SetKind("ConfigMap")
+	r := reconciler.NewReconcilerWith(k8sClient, reconciler.WithEnableRecreateWorkload())
+	result, err := r.ReconcileResource(desired, reconciler.StatePresent)
+	if result != nil {
+		t.Fatalf("result expected to be nil if everything went smooth")
+	}
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+
+	created := &corev1.ConfigMap{}
+	if err := k8sClient.Get(context.TODO(), utils.ObjectKeyFromObjectMeta(desired), created); err != nil {
+		t.Fatalf("%+v", err)
+	}
+
+	assert.Equal(t, created.Name, "test")
+	assert.Equal(t, created.Namespace, controlNamespace)
 }
