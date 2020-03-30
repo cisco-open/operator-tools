@@ -112,6 +112,12 @@ func (d *Doc) visitNode(n ast.Node) bool {
 		typeName, ok := generic.Specs[0].(*ast.TypeSpec)
 		if ok {
 			_, ok := typeName.Type.(*ast.InterfaceType)
+			if ok && strings.HasPrefix(typeName.Name.Name, "_hugo") {
+				d.Append("---")
+				d.Append(fmt.Sprintf("title: %s", GetPrefixedValue(getTypeDocs(generic, true), `\+name:\"(.*)\"`)))
+				d.Append(fmt.Sprintf("weight: %s", GetPrefixedValue(getTypeDocs(generic, true), `\+weight:\"(.*)\"`)))
+				d.Append("---\n")
+			}
 			if ok && strings.HasPrefix(typeName.Name.Name, "_doc") {
 				d.Append(fmt.Sprintf("# %s", getTypeName(generic, d.Item.Name)))
 				d.Append("## Overview")
