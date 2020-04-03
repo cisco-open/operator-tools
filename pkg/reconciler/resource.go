@@ -145,9 +145,6 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 		return nil, errors.WrapIf(err, "failed to get resource details")
 	}
 	log := r.resourceLog(desired, resourceDetails...)
-	if err != nil {
-		return nil, errors.WrapIf(err, "failed to prepare resource logger")
-	}
 	debugLog := log.V(1)
 	traceLog := log.V(2)
 	switch desiredState {
@@ -165,66 +162,66 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 		if err != nil {
 			return nil, errors.WrapIfWithDetails(err, "failed to get desired state dynamically", resourceDetails...)
 		}
-		if err == nil {
-			if metaObject, ok := current.(metav1.Object); ok {
-				if metaObject.GetDeletionTimestamp() != nil {
-					log.Info(fmt.Sprintf("object %s is being deleted, backing off", metaObject.GetSelfLink()))
-					return &reconcile.Result{RequeueAfter: time.Second * 2}, nil
-				}
-			}
-			patchResult, err := patch.DefaultPatchMaker.Calculate(current, desired, patch.IgnoreStatusFields())
-			if err != nil {
-				log.Error(err, "could not match objects")
-			} else if patchResult.IsEmpty() {
-				debugLog.Info("resource is in sync")
-				return nil, nil
-			} else {
-				traceLog.Info("resource diffs",
-					"patch", string(patchResult.Patch),
-					"current", string(patchResult.Current),
-					"modified", string(patchResult.Modified),
-					"original", string(patchResult.Original))
-			}
 
-			if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(desired); err != nil {
-				log.Error(err, "Failed to set last applied annotation", "desired", desired)
+		if metaObject, ok := current.(metav1.Object); ok {
+			if metaObject.GetDeletionTimestamp() != nil {
+				log.Info(fmt.Sprintf("object %s is being deleted, backing off", metaObject.GetSelfLink()))
+				return &reconcile.Result{RequeueAfter: time.Second * 2}, nil
 			}
-
-			metaAccessor := meta.NewAccessor()
-
-			currentResourceVersion, err := metaAccessor.ResourceVersion(current)
-			if err != nil {
-				return nil, errors.WrapIfWithDetails(err, "failed to access resourceVersion from metadata", resourceDetails...)
-			}
-			if err := metaAccessor.SetResourceVersion(desired, currentResourceVersion); err != nil {
-				return nil, errors.WrapIfWithDetails(err, "failed to set resourceVersion in metadata", resourceDetails...)
-			}
-
-			debugLog.Info("Updating resource")
-			if err := r.Client.Update(context.TODO(), desired); err != nil {
-				sErr, ok := err.(*apierrors.StatusError)
-				if ok && sErr.ErrStatus.Code == 422 && sErr.ErrStatus.Reason == metav1.StatusReasonInvalid {
-					if r.Options.EnableRecreateWorkloadOnImmutableFieldChange {
-						log.Error(err, "failed to update resource, trying to recreate")
-						err := r.Client.Delete(context.TODO(), current,
-							// wait until all dependent resources gets cleared up
-							runtimeClient.PropagationPolicy(metav1.DeletePropagationForeground),
-						)
-						if err != nil {
-							return nil, errors.WrapIf(err, "failed to delete current resource")
-						}
-						return &reconcile.Result{
-							Requeue:      true,
-							RequeueAfter: time.Second * 10,
-						}, nil
-					} else {
-						return nil, errors.WrapIf(sErr, r.Options.EnableRecreateWorkloadOnImmutableFieldChangeHelp)
-					}
-				}
-				return nil, errors.WrapIfWithDetails(err, "updating resource failed", resourceDetails...)
-			}
-			debugLog.Info("resource updated")
 		}
+		patchResult, err := patch.DefaultPatchMaker.Calculate(current, desired, patch.IgnoreStatusFields())
+		if err != nil {
+			log.Error(err, "could not match objects")
+		} else if patchResult.IsEmpty() {
+			debugLog.Info("resource is in sync")
+			return nil, nil
+		} else {
+			traceLog.Info("resource diffs",
+				"patch", string(patchResult.Patch),
+				"current", string(patchResult.Current),
+				"modified", string(patchResult.Modified),
+				"original", string(patchResult.Original))
+		}
+
+		if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(desired); err != nil {
+			log.Error(err, "Failed to set last applied annotation", "desired", desired)
+		}
+
+		metaAccessor := meta.NewAccessor()
+
+		currentResourceVersion, err := metaAccessor.ResourceVersion(current)
+		if err != nil {
+			return nil, errors.WrapIfWithDetails(err, "failed to access resourceVersion from metadata", resourceDetails...)
+		}
+		if err := metaAccessor.SetResourceVersion(desired, currentResourceVersion); err != nil {
+			return nil, errors.WrapIfWithDetails(err, "failed to set resourceVersion in metadata", resourceDetails...)
+		}
+
+		debugLog.Info("Updating resource")
+		if err := r.Client.Update(context.TODO(), desired); err != nil {
+			sErr, ok := err.(*apierrors.StatusError)
+			if ok && sErr.ErrStatus.Code == 422 && sErr.ErrStatus.Reason == metav1.StatusReasonInvalid {
+				if r.Options.EnableRecreateWorkloadOnImmutableFieldChange {
+					log.Error(err, "failed to update resource, trying to recreate")
+					err := r.Client.Delete(context.TODO(), current,
+						// wait until all dependent resources gets cleared up
+						runtimeClient.PropagationPolicy(metav1.DeletePropagationForeground),
+					)
+					if err != nil {
+						return nil, errors.WrapIf(err, "failed to delete current resource")
+					}
+					return &reconcile.Result{
+						Requeue:      true,
+						RequeueAfter: time.Second * 10,
+					}, nil
+				} else {
+					return nil, errors.WrapIf(sErr, r.Options.EnableRecreateWorkloadOnImmutableFieldChangeHelp)
+				}
+			}
+			return nil, errors.WrapIfWithDetails(err, "updating resource failed", resourceDetails...)
+		}
+		debugLog.Info("resource updated")
+
 	case StateAbsent:
 		_, err := r.delete(desired)
 		if err != nil {

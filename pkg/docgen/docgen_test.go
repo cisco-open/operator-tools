@@ -92,9 +92,5 @@ func TestGenParse(t *testing.T) {
 		if a, e := diff.TrimLinesInString(string(bytes)), diff.TrimLinesInString(item.expected); a != e {
 			t.Errorf("Result does not match (-actual vs +expected):\n%v\nActual: %s", diff.LineDiff(a, e), string(bytes))
 		}
-
-		if err != nil {
-			t.Fatalf("%+v", err)
-		}
 	}
 }
