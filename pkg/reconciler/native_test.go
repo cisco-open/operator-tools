@@ -150,7 +150,7 @@ func TestNativeReconcilerKeepsTheSecret(t *testing.T) {
 		assert.Equal(t, l.Items[0].Name, "keep-the-secret")
 	})
 
-	// next round, scale back to configmaps to 0, keep the secret!
+	// next round, scale back the configmaps to 0, keep the secret!
 
 	_, err = nativeReconciler.Reconcile(setCount(fakeOwnerObject, 0))
 	if err != nil {

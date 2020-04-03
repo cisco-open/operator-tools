@@ -3,7 +3,7 @@
 
 `Secret` is a type to be used in CRDs to abstract the concept of loading a secret item instead of defining it with it's value directly.
 
-Currently it support Kubernetes secrets only, but it can be extended to refer to secrets in custom secret stores as well.
+Currently it supports Kubernetes secrets only, but it can be extended to refer to secrets in custom secret stores as well.
 
 There are two main approaches to load secrets and one for testing. 
  
