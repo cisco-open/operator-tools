@@ -92,7 +92,10 @@ fix: bin/golangci-lint ## Fix lint violations
 	bin/golangci-lint run --fix
 	cd module/helm && ../../bin/golangci-lint run --fix
 
-check-diff:
+check-diff: generate-type-docs
 	go mod tidy
 	$(MAKE) generate docs
 	git diff --exit-code
+
+generate-type-docs:
+	go run cmd/docs.go

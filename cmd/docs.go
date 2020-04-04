@@ -40,7 +40,7 @@ func crds() {
 		logger.WithName("lister"))
 
 	lister.IncludeSources = []string{
-		".*types",
+		".*types$",
 	}
 	lister.IgnoredSources = []string{
 		".*",

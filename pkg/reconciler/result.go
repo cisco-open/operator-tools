@@ -19,7 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// Collects results and errors of all subcomponent instead of failing and bailing out immediately
+// Collects results and errors of all subcomponents instead of failing and bailing out immediately
 type CombinedResult struct {
 	Result reconcile.Result
 	Err error
