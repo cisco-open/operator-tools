@@ -25,7 +25,40 @@ const (
 	VersionLabel   = "app.kubernetes.io/version"
 	ComponentLabel = "app.kubernetes.io/component"
 	ManagedByLabel = "app.kubernetes.io/managed-by"
+
+	BanzaiCloudManagedComponent = "banzaicloud.io/managed-component"
+	BanzaiCloudOwnedBy          = "banzaicloud.io/owned-by"
+	BanzaiCloudRelatedTo        = "banzaicloud.io/related-to"
 )
+
+type ObjectKey struct {
+	Name      string `json:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+}
+
+type ReconcileStatus string
+
+const (
+	ReconcileStatusCreated     ReconcileStatus = "Created"
+	ReconcileStatusPending     ReconcileStatus = "Pending"
+	ReconcileStatusFailed      ReconcileStatus = "Failed"
+	ReconcileStatusReconciling ReconcileStatus = "Reconciling"
+	ReconcileStatusAvailable   ReconcileStatus = "Available"
+	ReconcileStatusSucceeded   ReconcileStatus = "Succeeded"
+	ReconcileStatusUnmanaged   ReconcileStatus = "Unmanaged"
+)
+
+func (s ReconcileStatus) Available() bool {
+	return s == ReconcileStatusAvailable || s == ReconcileStatusSucceeded
+}
+
+func (s ReconcileStatus) Failed() bool {
+	return s == ReconcileStatusFailed
+}
+
+func (s ReconcileStatus) Pending() bool {
+	return s == ReconcileStatusCreated || s == ReconcileStatusReconciling || s == ReconcileStatusPending
+}
 
 // +kubebuilder:object:generate=true
 
