@@ -43,8 +43,12 @@ type ResourceOwner interface {
 	metav1.Object
 	// to be aware of the owner's type
 	runtime.Object
-	// // control namespace dictates where namespaced objects should belong to
-	// GetControlNamespace() string
+}
+
+type ResourceOwnerWithControlNamespace interface {
+	ResourceOwner
+	// control namespace dictates where namespaced objects should belong to
+	GetControlNamespace() string
 }
 
 type ResourceBuilders func(parent ResourceOwner, object interface{}) []ResourceBuilder
