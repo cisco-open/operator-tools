@@ -1,3 +1,8 @@
+### ObjectKey
+| Variable Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+| name | string | No | - |  |
+| namespace | string | No | - |  |
 ### MetaBase
 | Variable Name | Type | Required | Default | Description |
 |---|---|---|---|---|
