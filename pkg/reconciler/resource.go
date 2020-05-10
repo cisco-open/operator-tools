@@ -40,6 +40,7 @@ import (
 )
 
 const (
+	StateCreated StaticDesiredState = "Created"
 	StateAbsent  StaticDesiredState = "Absent"
 	StatePresent StaticDesiredState = "Present"
 )
@@ -150,6 +151,14 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 	debugLog := log.V(1)
 	traceLog := log.V(2)
 	switch desiredState {
+	case StateCreated:
+		created, _, err := r.CreateIfNotExist(desired)
+		if err == nil && created {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, errors.WrapIfWithDetails(err, "failed to create resource", resourceDetails...)
+		}
 	default:
 		created, current, err := r.CreateIfNotExist(desired)
 		if err == nil && created {
@@ -202,6 +211,7 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 			debugLog.Info("resource is in sync")
 			return nil, nil
 		} else {
+			debugLog.Info("resource diff", "patch", string(patchResult.Patch))
 			traceLog.Info("resource diffs",
 				"patch", string(patchResult.Patch),
 				"current", string(patchResult.Current),
