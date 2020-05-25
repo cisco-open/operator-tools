@@ -16,6 +16,7 @@ package reconciler
 
 import (
 	"context"
+	"reflect"
 	"strings"
 
 	"emperror.dev/errors"
@@ -102,6 +103,7 @@ type NativeReconciler struct {
 	*GenericResourceReconciler
 	client.Client
 	scheme                 *runtime.Scheme
+	restMapper             meta.RESTMapper
 	reconciledComponent    NativeReconciledComponent
 	configTranslate        func(runtime.Object) (parent ResourceOwner, config interface{})
 	componentName          string
@@ -120,6 +122,12 @@ func NativeReconcilerWithScheme(scheme *runtime.Scheme) NativeReconcilerOpt {
 func NativeReconcilerSetControllerRef() NativeReconcilerOpt {
 	return func(r *NativeReconciler) {
 		r.setControllerRef = true
+	}
+}
+
+func NativeReconcilerSetRESTMapper(mapper meta.RESTMapper) NativeReconcilerOpt {
+	return func(r *NativeReconciler) {
+		r.restMapper = mapper
 	}
 }
 
@@ -279,9 +287,35 @@ func (rec *NativeReconciler) generateResourceID(resource runtime.Object) (string
 	return strings.Join(identifiers, "-"), nil
 }
 
+func (rec *NativeReconciler) isGVKExists(gvk schema.GroupVersionKind) bool {
+	if rec.restMapper == nil {
+		return true
+	}
+
+	mappings, err := rec.restMapper.RESTMappings(gvk.GroupKind(), gvk.Version)
+	if apimeta.IsNoMatchError(err) {
+		return false
+	}
+	if err != nil {
+		return true
+	}
+
+	for _, m := range mappings {
+		if reflect.DeepEqual(gvk, m.GroupVersionKind) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (rec *NativeReconciler) purge(excluded map[string]bool, componentId string) error {
 	var allErr error
 	for _, gvk := range rec.reconciledComponent.PurgeTypes() {
+		rec.Log.V(2).Info("purging GVK", "gvk", gvk)
+		if !rec.isGVKExists(gvk) {
+			continue
+		}
 		objects := &unstructured.UnstructuredList{}
 		objects.SetGroupVersionKind(gvk)
 		err := rec.List(context.TODO(), objects)
