@@ -36,7 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
-	"github.com/banzaicloud/operator-tools/pkg/types"
 )
 
 const (
@@ -46,24 +45,58 @@ const (
 )
 
 type DesiredState interface {
-	BeforeUpdate(object runtime.Object) error
+	BeforeUpdate(current, desired runtime.Object) error
+	BeforeCreate(desired runtime.Object) error
+	BeforeDelete(current runtime.Object) error
+}
+
+type DesiredStateWithDeleteOptions interface {
+	GetDeleteOptions() []runtimeClient.DeleteOption
+}
+
+type DesiredStateWithCreateOptions interface {
+	GetCreateOptions() []runtimeClient.CreateOption
+}
+
+type DesiredStateWithUpdateOptions interface {
+	GetUpdateOptions() []runtimeClient.UpdateOption
+}
+
+type DesiredStateWithStaticState interface {
+	DesiredState() StaticDesiredState
 }
 
 type ResourceReconciler interface {
-	CreateIfNotExist(runtime.Object) (created bool, object runtime.Object, err error)
+	CreateIfNotExist(runtime.Object, DesiredState) (created bool, object runtime.Object, err error)
 	ReconcileResource(runtime.Object, DesiredState) (*reconcile.Result, error)
 }
 
 type StaticDesiredState string
 
-func (s StaticDesiredState) BeforeUpdate(object runtime.Object) error {
+func (s StaticDesiredState) BeforeUpdate(current, desired runtime.Object) error {
+	return nil
+}
+
+func (s StaticDesiredState) BeforeCreate(desired runtime.Object) error {
+	return nil
+}
+
+func (s StaticDesiredState) BeforeDelete(current runtime.Object) error {
 	return nil
 }
 
 type DesiredStateHook func(object runtime.Object) error
 
-func (d DesiredStateHook) BeforeUpdate(object runtime.Object) error {
-	return d(object)
+func (d DesiredStateHook) BeforeUpdate(current, desired runtime.Object) error {
+	return d(current)
+}
+
+func (d DesiredStateHook) BeforeCreate(desired runtime.Object) error {
+	return d(desired)
+}
+
+func (d DesiredStateHook) BeforeDelete(current runtime.Object) error {
+	return d(current)
 }
 
 // GenericResourceReconciler generic resource reconciler
@@ -137,7 +170,7 @@ func NewReconcilerWith(client runtimeClient.Client, opts ...func(reconciler *Rec
 
 // CreateResource creates a resource if it doesn't exist
 func (r *GenericResourceReconciler) CreateResource(desired runtime.Object) error {
-	_, _, err := r.CreateIfNotExist(desired)
+	_, _, err := r.CreateIfNotExist(desired, nil)
 	return err
 }
 
@@ -150,9 +183,13 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 	log := r.resourceLog(desired, resourceDetails...)
 	debugLog := log.V(1)
 	traceLog := log.V(2)
-	switch desiredState {
+	state := desiredState
+	if ds, ok := desiredState.(DesiredStateWithStaticState); ok {
+		state = ds.DesiredState()
+	}
+	switch state {
 	case StateCreated:
-		created, _, err := r.CreateIfNotExist(desired)
+		created, _, err := r.CreateIfNotExist(desired, desiredState)
 		if err == nil && created {
 			return nil, nil
 		}
@@ -160,7 +197,7 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 			return nil, errors.WrapIfWithDetails(err, "failed to create resource", resourceDetails...)
 		}
 	default:
-		created, current, err := r.CreateIfNotExist(desired)
+		created, current, err := r.CreateIfNotExist(desired, desiredState)
 		if err == nil && created {
 			return nil, nil
 		}
@@ -168,42 +205,19 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 			return nil, errors.WrapIfWithDetails(err, "failed to create resource", resourceDetails...)
 		}
 
-		// last chance to hook into the desired state armed with the knowledge of the current state
-		err = desiredState.BeforeUpdate(current)
-		if err != nil {
-			return nil, errors.WrapIfWithDetails(err, "failed to get desired state dynamically", resourceDetails...)
-		}
-
 		if metaObject, ok := current.(metav1.Object); ok {
 			if metaObject.GetDeletionTimestamp() != nil {
 				log.Info(fmt.Sprintf("object %s is being deleted, backing off", metaObject.GetSelfLink()))
 				return &reconcile.Result{RequeueAfter: time.Second * 2}, nil
 			}
-			if !created {
-				if desiredMetaObject, ok := desired.(metav1.Object); ok {
-					base := types.MetaBase{
-						Annotations: desiredMetaObject.GetAnnotations(),
-						Labels:      desiredMetaObject.GetLabels(),
-					}
-					if metaObject, ok := current.DeepCopyObject().(metav1.Object); ok {
-						merged := base.Merge(metav1.ObjectMeta{
-							Labels:      metaObject.GetLabels(),
-							Annotations: metaObject.GetAnnotations(),
-						})
-						desiredMetaObject.SetAnnotations(merged.Annotations)
-						desiredMetaObject.SetLabels(merged.Labels)
-					}
-				}
-
-				if _, ok := metaObject.GetAnnotations()[types.BanzaiCloudManagedComponent]; !ok {
-					if desiredMetaObject, ok := desired.(metav1.Object); ok {
-						a := desiredMetaObject.GetAnnotations()
-						delete(a, types.BanzaiCloudManagedComponent)
-						desiredMetaObject.SetAnnotations(a)
-					}
-				}
-			}
 		}
+
+		// last chance to hook into the desired state armed with the knowledge of the current state
+		err = desiredState.BeforeUpdate(current, desired)
+		if err != nil {
+			return nil, errors.WrapIfWithDetails(err, "failed to get desired state dynamically", resourceDetails...)
+		}
+
 		patchResult, err := patch.DefaultPatchMaker.Calculate(current, desired, patch.IgnoreStatusFields())
 		if err != nil {
 			log.Error(err, "could not match objects")
@@ -234,7 +248,11 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 		}
 
 		debugLog.Info("Updating resource")
-		if err := r.Client.Update(context.TODO(), desired); err != nil {
+		updateOptions := make([]runtimeClient.UpdateOption, 0)
+		if ds, ok := desiredState.(DesiredStateWithUpdateOptions); ok {
+			updateOptions = append(updateOptions, ds.GetUpdateOptions()...)
+		}
+		if err := r.Client.Update(context.TODO(), desired, updateOptions...); err != nil {
 			sErr, ok := err.(*apierrors.StatusError)
 			if ok && sErr.ErrStatus.Code == 422 && sErr.ErrStatus.Reason == metav1.StatusReasonInvalid {
 				if r.Options.EnableRecreateWorkloadOnImmutableFieldChange {
@@ -259,7 +277,7 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 		debugLog.Info("resource updated")
 
 	case StateAbsent:
-		_, err := r.delete(desired)
+		_, err := r.delete(desired, desiredState)
 		if err != nil {
 			return nil, errors.WrapIfWithDetails(err, "failed to delete resource", resourceDetails...)
 		}
@@ -285,7 +303,7 @@ func (r *GenericResourceReconciler) fromDesired(desired runtime.Object) (runtime
 	return reflect.New(reflect.Indirect(reflect.ValueOf(desired)).Type()).Interface().(runtime.Object), nil
 }
 
-func (r *GenericResourceReconciler) CreateIfNotExist(desired runtime.Object) (bool, runtime.Object, error) {
+func (r *GenericResourceReconciler) CreateIfNotExist(desired runtime.Object, desiredState DesiredState) (bool, runtime.Object, error) {
 	current, err := r.fromDesired(desired)
 	if err != nil {
 		return false, nil, errors.WrapIf(err, "failed to create new object based on desired")
@@ -308,7 +326,17 @@ func (r *GenericResourceReconciler) CreateIfNotExist(desired runtime.Object) (bo
 		if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(desired); err != nil {
 			log.Error(err, "Failed to set last applied annotation", "desired", desired)
 		}
-		if err := r.Client.Create(context.TODO(), desired); err != nil {
+		if desiredState != nil {
+			err = desiredState.BeforeCreate(desired)
+			if err != nil {
+				return false, nil, errors.WrapIfWithDetails(err, "failed to prepare desired state before creation", resourceDetails...)
+			}
+		}
+		createOptions := make([]runtimeClient.CreateOption, 0)
+		if ds, ok := desiredState.(DesiredStateWithCreateOptions); ok {
+			createOptions = append(createOptions, ds.GetCreateOptions()...)
+		}
+		if err := r.Client.Create(context.TODO(), desired, createOptions...); err != nil {
 			return false, nil, errors.WrapIfWithDetails(err, "creating resource failed", resourceDetails...)
 		}
 		switch t := desired.DeepCopyObject().(type) {
@@ -331,7 +359,7 @@ func (r *GenericResourceReconciler) CreateIfNotExist(desired runtime.Object) (bo
 	return false, current, nil
 }
 
-func (r *GenericResourceReconciler) delete(desired runtime.Object) (bool, error) {
+func (r *GenericResourceReconciler) delete(desired runtime.Object, desiredState DesiredState) (bool, error) {
 	current, err := r.fromDesired(desired)
 	if err != nil {
 		return false, errors.WrapIf(err, "failed to create new object based on desired")
@@ -360,7 +388,17 @@ func (r *GenericResourceReconciler) delete(desired runtime.Object) (bool, error)
 			return false, nil
 		}
 	}
-	err = r.Client.Delete(context.TODO(), current)
+	if desiredState != nil {
+		err = desiredState.BeforeDelete(current)
+		if err != nil {
+			return false, errors.WrapIfWithDetails(err, "failed to prepare desired state before deletion", resourceDetails...)
+		}
+	}
+	deleteOptions := make([]runtimeClient.DeleteOption, 0)
+	if ds, ok := desiredState.(DesiredStateWithDeleteOptions); ok {
+		deleteOptions = append(deleteOptions, ds.GetDeleteOptions()...)
+	}
+	err = r.Client.Delete(context.TODO(), current, deleteOptions...)
 	if err != nil {
 		return false, errors.WrapIfWithDetails(err, "failed to delete resource", resourceDetails...)
 	}
