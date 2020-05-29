@@ -31,7 +31,7 @@ type SkipUpdatePredicate struct {
 	predicate.Funcs
 }
 
-func (SkipCreatePredicate) Update(e event.UpdateEvent) bool {
+func (SkipUpdatePredicate) Update(e event.UpdateEvent) bool {
 	return false
 }
 
@@ -39,6 +39,6 @@ type SkipDeletePredicate struct {
 	predicate.Funcs
 }
 
-func (SkipCreatePredicate) Delete(e event.DeleteEvent) bool {
+func (SkipDeletePredicate) Delete(e event.DeleteEvent) bool {
 	return false
 }
