@@ -22,6 +22,7 @@ import (
 	"emperror.dev/errors"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -350,7 +351,7 @@ func (rec *NativeReconciler) purge(excluded map[string]bool, componentId string)
 					"group", gvk.Group,
 					"version", gvk.Version,
 					"listKind", gvk.Kind)
-				if err := rec.Client.Delete(context.TODO(), &o); err != nil {
+				if err := rec.Client.Delete(context.TODO(), &o); err != nil && !k8serrors.IsNotFound(err) {
 					allErr = errors.Combine(allErr, err)
 				} else {
 					rec.addReconciledObjectState(ReconciledObjectStatePurged, o.DeepCopy())
