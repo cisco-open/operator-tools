@@ -194,6 +194,10 @@ func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result,
 					isCrd = true
 				}
 				if !isCrd {
+					// namespaced resource can only own resources in the same namespace
+					if ownerMeta.GetNamespace() != "" && ownerMeta.GetNamespace() != objectMeta.GetNamespace() {
+						continue
+					}
 					if err := controllerutil.SetControllerReference(ownerMeta, objectMeta, rec.scheme); err != nil {
 						combinedResult.CombineErr(err)
 						continue
