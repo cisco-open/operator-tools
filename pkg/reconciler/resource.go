@@ -50,6 +50,18 @@ type DesiredState interface {
 	BeforeDelete(current runtime.Object) error
 }
 
+type DesiredStateShouldCreate interface {
+	ShouldCreate(desired runtime.Object) (bool, error)
+}
+
+type DesiredStateShouldUpdate interface {
+	ShouldUpdate(current, desired runtime.Object) (bool, error)
+}
+
+type DesiredStateShouldDelete interface {
+	ShouldDelete(desired runtime.Object) (bool, error)
+}
+
 type DesiredStateWithDeleteOptions interface {
 	GetDeleteOptions() []runtimeClient.DeleteOption
 }
@@ -212,6 +224,16 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 			}
 		}
 
+		if ds, ok := desiredState.(DesiredStateShouldUpdate); ok {
+			should, err := ds.ShouldUpdate(current.DeepCopyObject(), desired.DeepCopyObject())
+			if err != nil {
+				return nil, err
+			}
+			if !should {
+				return nil, nil
+			}
+		}
+
 		// last chance to hook into the desired state armed with the knowledge of the current state
 		err = desiredState.BeforeUpdate(current, desired)
 		if err != nil {
@@ -331,6 +353,15 @@ func (r *GenericResourceReconciler) CreateIfNotExist(desired runtime.Object, des
 			if err != nil {
 				return false, nil, errors.WrapIfWithDetails(err, "failed to prepare desired state before creation", resourceDetails...)
 			}
+			if ds, ok := desiredState.(DesiredStateShouldCreate); ok {
+				should, err := ds.ShouldCreate(desired)
+				if err != nil {
+					return false, desired, err
+				}
+				if !should {
+					return false, desired, nil
+				}
+			}
 		}
 		createOptions := make([]runtimeClient.CreateOption, 0)
 		if ds, ok := desiredState.(DesiredStateWithCreateOptions); ok {
@@ -392,6 +423,15 @@ func (r *GenericResourceReconciler) delete(desired runtime.Object, desiredState 
 		err = desiredState.BeforeDelete(current)
 		if err != nil {
 			return false, errors.WrapIfWithDetails(err, "failed to prepare desired state before deletion", resourceDetails...)
+		}
+		if ds, ok := desiredState.(DesiredStateShouldDelete); ok {
+			should, err := ds.ShouldDelete(desired)
+			if err != nil {
+				return false, err
+			}
+			if !should {
+				return false, nil
+			}
 		}
 	}
 	deleteOptions := make([]runtimeClient.DeleteOption, 0)
