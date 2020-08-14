@@ -290,7 +290,7 @@ func (rec *NativeReconciler) generateResourceID(resource runtime.Object) (string
 	return strings.Join(identifiers, "-"), nil
 }
 
-func (rec *NativeReconciler) isGVKExists(gvk schema.GroupVersionKind) bool {
+func (rec *NativeReconciler) gvkExists(gvk schema.GroupVersionKind) bool {
 	if rec.restMapper == nil {
 		return true
 	}
