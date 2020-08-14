@@ -101,6 +101,8 @@ func (os RuntimeObjects) InstallObjectOrder() func(o runtime.Object) int {
 		"CronJob",
 		"Ingress",
 		"APIService",
+		"ValidatingWebhookConfiguration",
+		"MutatingWebhookConfiguration",
 	}
 
 	order := make(map[string]int, len(Order))
