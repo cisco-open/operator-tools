@@ -212,12 +212,11 @@ func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result,
 				}
 				excludeFromPurge[resourceID] = true
 
-				switch state {
-				case StateAbsent:
-					rec.addReconciledObjectState(reconciledObjectState(ReconciledObjectStateAbsent), o.DeepCopyObject())
-				default:
-					rec.addReconciledObjectState(reconciledObjectState(ReconciledObjectStatePresent), o.DeepCopyObject())
+				s := ReconciledObjectStatePresent
+				if state == StateAbsent {
+					s = ReconciledObjectStateAbsent
 				}
+				rec.addReconciledObjectState(s, o.DeepCopyObject())
 			}
 			combinedResult.Combine(result, err)
 		}
