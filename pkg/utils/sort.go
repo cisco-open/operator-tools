@@ -120,6 +120,8 @@ func (os RuntimeObjects) InstallObjectOrder() func(o runtime.Object) int {
 
 func (os RuntimeObjects) UninstallObjectOrder() func(o runtime.Object) int {
 	var Order = []string{
+		"MutatingWebhookConfiguration",
+		"ValidatingWebhookConfiguration",
 		"Policy",
 		"Gateway",
 		"VirtualService",
