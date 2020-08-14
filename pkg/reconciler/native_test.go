@@ -251,13 +251,9 @@ func TestNativeReconcilerFailToSetCrossNamespaceControllerRef(t *testing.T) {
 		},
 	}
 
-	expectedErrMsg := "cross-namespace owner references are disallowed"
-
 	_, err := nativeReconciler.Reconcile(fakeOwnerObject)
 	if err != nil {
-		assert.Contains(t, err.Error(), expectedErrMsg)
-	} else {
-		t.Fatalf("expected: %s", "cross-namespace owner references are disallowed")
+		t.Fatalf("got error: %s", err.Error())
 	}
 }
 

@@ -116,6 +116,7 @@ func (d *Doc) visitNode(n ast.Node) bool {
 				d.Append("---")
 				d.Append(fmt.Sprintf("title: %s", GetPrefixedValue(getTypeDocs(generic, true), `\+name:\"(.*)\"`)))
 				d.Append(fmt.Sprintf("weight: %s", GetPrefixedValue(getTypeDocs(generic, true), `\+weight:\"(.*)\"`)))
+				d.Append("generated_file: true")
 				d.Append("---\n")
 			}
 			if ok && strings.HasPrefix(typeName.Name.Name, "_doc") {

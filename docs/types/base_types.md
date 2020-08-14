@@ -17,6 +17,7 @@
 | affinity | *corev1.Affinity | No | - |  |
 | securityContext | *corev1.PodSecurityContext | No | - |  |
 | volumes | []corev1.Volume | No | - |  |
+| priorityClassName | string | No | - |  |
 ### ContainerBase
 | Variable Name | Type | Required | Default | Description |
 |---|---|---|---|---|
