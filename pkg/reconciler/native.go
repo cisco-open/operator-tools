@@ -16,7 +16,6 @@ package reconciler
 
 import (
 	"context"
-	"reflect"
 	"strings"
 
 	"emperror.dev/errors"
@@ -316,7 +315,7 @@ func (rec *NativeReconciler) purge(excluded map[string]bool, componentId string)
 	var allErr error
 	for _, gvk := range rec.reconciledComponent.PurgeTypes() {
 		rec.Log.V(2).Info("purging GVK", "gvk", gvk)
-		if !rec.isGVKExists(gvk) {
+		if !rec.gvkExists(gvk) {
 			continue
 		}
 		objects := &unstructured.UnstructuredList{}
