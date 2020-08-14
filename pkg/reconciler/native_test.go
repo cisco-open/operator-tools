@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/spf13/cast"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -26,6 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
+
+	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 )
 
 // FakeResourceOwner object implements the ResourceOwner interface by piggybacking a ConfigMap (oink-oink)
@@ -45,6 +46,7 @@ func TestNativeReconcilerKeepsTheSecret(t *testing.T) {
 		k8sClient,
 		reconciler.NewReconciledComponent(
 			func(parent reconciler.ResourceOwner, object interface{}) []reconciler.ResourceBuilder {
+				parentWithControlNamespace := parent.(reconciler.ResourceOwnerWithControlNamespace)
 				rb := []reconciler.ResourceBuilder{}
 				// depending on the incoming config we return 0 or more items
 				count := cast.ToInt(object)
@@ -54,7 +56,7 @@ func TestNativeReconcilerKeepsTheSecret(t *testing.T) {
 						return &corev1.ConfigMap{
 							ObjectMeta: v1.ObjectMeta{
 								Name:      name,
-								Namespace: parent.GetControlNamespace(),
+								Namespace: parentWithControlNamespace.GetControlNamespace(),
 							},
 						}, reconciler.StatePresent, nil
 					})
@@ -64,7 +66,7 @@ func TestNativeReconcilerKeepsTheSecret(t *testing.T) {
 					return &corev1.Secret{
 						ObjectMeta: v1.ObjectMeta{
 							Name:      "keep-the-secret",
-							Namespace: parent.GetControlNamespace(),
+							Namespace: parentWithControlNamespace.GetControlNamespace(),
 						},
 					}, reconciler.StatePresent, nil
 				})
@@ -168,8 +170,8 @@ func TestNativeReconcilerKeepsTheSecret(t *testing.T) {
 
 func TestNativeReconcilerSetNoControllerRefByDefault(t *testing.T) {
 	nativeReconciler := createReconcilerForRefTests(
-		// without this, controller refs are not going to be applied:
-		// reconciler.NativeReconcilerSetControllerRef()
+	// without this, controller refs are not going to be applied:
+	// reconciler.NativeReconcilerSetControllerRef()
 	)
 
 	fakeOwnerObject := &corev1.ConfigMap{
@@ -189,7 +191,6 @@ func TestNativeReconcilerSetNoControllerRefByDefault(t *testing.T) {
 		assert.Len(t, l.Items[0].OwnerReferences, 0)
 	})
 }
-
 
 func TestNativeReconcilerSetControllerRef(t *testing.T) {
 	nativeReconciler := createReconcilerForRefTests(
@@ -250,13 +251,9 @@ func TestNativeReconcilerFailToSetCrossNamespaceControllerRef(t *testing.T) {
 		},
 	}
 
-	expectedErrMsg := "cross-namespace owner references are disallowed"
-
 	_, err := nativeReconciler.Reconcile(fakeOwnerObject)
 	if err != nil {
-		assert.Contains(t, err.Error(), expectedErrMsg)
-	} else {
-		t.Fatalf("expected: %s", "cross-namespace owner references are disallowed")
+		t.Fatalf("got error: %s", err.Error())
 	}
 }
 
@@ -267,12 +264,13 @@ func createReconcilerForRefTests(opts ...reconciler.NativeReconcilerOpt) *reconc
 		k8sClient,
 		reconciler.NewReconciledComponent(
 			func(parent reconciler.ResourceOwner, object interface{}) []reconciler.ResourceBuilder {
+				parentWithControlNamespace := parent.(reconciler.ResourceOwnerWithControlNamespace)
 				rb := make([]reconciler.ResourceBuilder, 0)
 				rb = append(rb, func() (object runtime.Object, state reconciler.DesiredState, e error) {
 					return &corev1.ConfigMap{
 						ObjectMeta: v1.ObjectMeta{
 							Name:      "test-cm",
-							Namespace: parent.GetControlNamespace(),
+							Namespace: parentWithControlNamespace.GetControlNamespace(),
 						},
 					}, reconciler.StatePresent, nil
 				})

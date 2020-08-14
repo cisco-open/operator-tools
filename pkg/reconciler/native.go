@@ -21,7 +21,9 @@ import (
 	"emperror.dev/errors"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,21 +34,28 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-)
 
-const BanzaiCloudManagedComponent = "banzaicloud.io/managed-component"
+	"github.com/banzaicloud/operator-tools/pkg/types"
+	"github.com/banzaicloud/operator-tools/pkg/utils"
+)
 
 type ResourceOwner interface {
 	// to be aware of metadata
 	metav1.Object
 	// to be aware of the owner's type
 	runtime.Object
+}
+
+type ResourceOwnerWithControlNamespace interface {
+	ResourceOwner
 	// control namespace dictates where namespaced objects should belong to
 	GetControlNamespace() string
 }
 
 type ResourceBuilders func(parent ResourceOwner, object interface{}) []ResourceBuilder
 type ResourceBuilder func() (runtime.Object, DesiredState, error)
+type ResourceTranslate func(runtime.Object) (parent ResourceOwner, config interface{})
+type PurgeTypesFunc func() []schema.GroupVersionKind
 
 type NativeReconciledComponent interface {
 	ResourceBuilders(parent ResourceOwner, object interface{}) []ResourceBuilder
@@ -93,11 +102,13 @@ func (d *DefaultReconciledComponent) PurgeTypes() []schema.GroupVersionKind {
 type NativeReconciler struct {
 	*GenericResourceReconciler
 	client.Client
-	scheme              *runtime.Scheme
-	reconciledComponent NativeReconciledComponent
-	configTranslate     func(runtime.Object) (parent ResourceOwner, config interface{})
-	componentName       string
-	setControllerRef    bool
+	scheme                 *runtime.Scheme
+	restMapper             meta.RESTMapper
+	reconciledComponent    NativeReconciledComponent
+	configTranslate        ResourceTranslate
+	componentName          string
+	setControllerRef       bool
+	reconciledObjectStates map[reconciledObjectState][]runtime.Object
 }
 
 type NativeReconcilerOpt func(*NativeReconciler)
@@ -111,6 +122,12 @@ func NativeReconcilerWithScheme(scheme *runtime.Scheme) NativeReconcilerOpt {
 func NativeReconcilerSetControllerRef() NativeReconcilerOpt {
 	return func(r *NativeReconciler) {
 		r.setControllerRef = true
+	}
+}
+
+func NativeReconcilerSetRESTMapper(mapper meta.RESTMapper) NativeReconcilerOpt {
+	return func(r *NativeReconciler) {
+		r.restMapper = mapper
 	}
 }
 
@@ -128,6 +145,8 @@ func NewNativeReconciler(
 		configTranslate:           resourceTranslate,
 		componentName:             componentName,
 	}
+
+	reconciler.initReconciledObjectStates()
 
 	for _, opt := range opts {
 		opt(reconciler)
@@ -159,11 +178,12 @@ func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result,
 		if err != nil {
 			combinedResult.CombineErr(err)
 		} else {
-			objectMeta, err := rec.addAnnotation(o, componentID)
+			objectMeta, err := rec.addComponentIDAnnotation(o, componentID)
 			if err != nil {
 				combinedResult.CombineErr(err)
 				continue
 			}
+			rec.addRelatedToAnnotation(objectMeta, ownerMeta)
 			if rec.setControllerRef {
 				isCrd := false
 				switch o.(type) {
@@ -173,9 +193,12 @@ func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result,
 					isCrd = true
 				}
 				if !isCrd {
-					if err := controllerutil.SetControllerReference(ownerMeta, objectMeta, rec.scheme); err != nil {
-						combinedResult.CombineErr(err)
-						continue
+					// namespaced resource can only own resources in the same namespace
+					if ownerMeta.GetNamespace() == "" || ownerMeta.GetNamespace() == objectMeta.GetNamespace() {
+						if err := controllerutil.SetControllerReference(ownerMeta, objectMeta, rec.scheme); err != nil {
+							combinedResult.CombineErr(err)
+							continue
+						}
 					}
 				}
 			}
@@ -187,6 +210,12 @@ func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result,
 					continue
 				}
 				excludeFromPurge[resourceID] = true
+
+				s := ReconciledObjectStatePresent
+				if state == StateAbsent {
+					s = ReconciledObjectStateAbsent
+				}
+				rec.addReconciledObjectState(s, o.DeepCopyObject())
 			}
 			combinedResult.Combine(result, err)
 		}
@@ -260,12 +289,42 @@ func (rec *NativeReconciler) generateResourceID(resource runtime.Object) (string
 	return strings.Join(identifiers, "-"), nil
 }
 
+func (rec *NativeReconciler) gvkExists(gvk schema.GroupVersionKind) bool {
+	if rec.restMapper == nil {
+		return true
+	}
+
+	mappings, err := rec.restMapper.RESTMappings(gvk.GroupKind(), gvk.Version)
+	if apimeta.IsNoMatchError(err) {
+		return false
+	}
+	if err != nil {
+		return true
+	}
+
+	for _, m := range mappings {
+		if gvk == m.GroupVersionKind {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (rec *NativeReconciler) purge(excluded map[string]bool, componentId string) error {
 	var allErr error
 	for _, gvk := range rec.reconciledComponent.PurgeTypes() {
+		rec.Log.V(2).Info("purging GVK", "gvk", gvk)
+		if !rec.gvkExists(gvk) {
+			continue
+		}
 		objects := &unstructured.UnstructuredList{}
 		objects.SetGroupVersionKind(gvk)
 		err := rec.List(context.TODO(), objects)
+		if apimeta.IsNoMatchError(err) {
+			// skip unknown GVKs
+			continue
+		}
 		if err != nil {
 			rec.Log.Error(err, "failed list objects to prune",
 				"groupversion", gvk.GroupVersion().String(),
@@ -286,15 +345,17 @@ func (rec *NativeReconciler) purge(excluded map[string]bool, componentId string)
 			if excluded[resourceID] {
 				continue
 			}
-			if objectMeta.GetAnnotations() != nil && objectMeta.GetAnnotations()[BanzaiCloudManagedComponent] == componentId {
+			if objectMeta.GetAnnotations()[types.BanzaiCloudManagedComponent] == componentId {
 				rec.Log.Info("pruning unmmanaged resource",
 					"name", objectMeta.GetName(),
 					"namespace", objectMeta.GetNamespace(),
 					"group", gvk.Group,
 					"version", gvk.Version,
 					"listKind", gvk.Kind)
-				if err := rec.Client.Delete(context.TODO(), &o); err != nil {
+				if err := rec.Client.Delete(context.TODO(), &o); err != nil && !k8serrors.IsNotFound(err) {
 					allErr = errors.Combine(allErr, err)
+				} else {
+					rec.addReconciledObjectState(ReconciledObjectStatePurged, o.DeepCopy())
 				}
 			}
 		}
@@ -302,7 +363,36 @@ func (rec *NativeReconciler) purge(excluded map[string]bool, componentId string)
 	return allErr
 }
 
-func (rec *NativeReconciler) addAnnotation(o runtime.Object, componentId string) (metav1.Object, error) {
+type reconciledObjectState string
+
+const (
+	ReconciledObjectStateAbsent  reconciledObjectState = "Absent"
+	ReconciledObjectStatePresent reconciledObjectState = "Present"
+	ReconciledObjectStatePurged  reconciledObjectState = "Purged"
+)
+
+func (rec *NativeReconciler) initReconciledObjectStates() {
+	rec.reconciledObjectStates = make(map[reconciledObjectState][]runtime.Object)
+}
+
+func (rec *NativeReconciler) addReconciledObjectState(state reconciledObjectState, o runtime.Object) {
+	rec.reconciledObjectStates[state] = append(rec.reconciledObjectStates[state], o)
+}
+
+func (rec *NativeReconciler) GetReconciledObjectWithState(state reconciledObjectState) []runtime.Object {
+	return rec.reconciledObjectStates[state]
+}
+
+func (rec *NativeReconciler) addRelatedToAnnotation(objectMeta, ownerMeta metav1.Object) {
+	annotations := objectMeta.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	annotations[types.BanzaiCloudRelatedTo] = utils.ObjectKeyFromObjectMeta(ownerMeta).String()
+	objectMeta.SetAnnotations(annotations)
+}
+
+func (rec *NativeReconciler) addComponentIDAnnotation(o runtime.Object, componentId string) (metav1.Object, error) {
 	objectMeta, err := meta.Accessor(o)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to access object metadata")
@@ -311,14 +401,14 @@ func (rec *NativeReconciler) addAnnotation(o runtime.Object, componentId string)
 	if annotations == nil {
 		annotations = make(map[string]string)
 	}
-	if currentComponentId, ok := annotations[BanzaiCloudManagedComponent]; ok {
+	if currentComponentId, ok := annotations[types.BanzaiCloudManagedComponent]; ok {
 		if currentComponentId != componentId {
 			return nil, errors.Errorf(
 				"object actual component id `%s` is different from the one defined by the component `%s`",
 				currentComponentId, componentId)
 		}
 	} else {
-		annotations[BanzaiCloudManagedComponent] = componentId
+		annotations[types.BanzaiCloudManagedComponent] = componentId
 		objectMeta.SetAnnotations(annotations)
 	}
 	return objectMeta, nil

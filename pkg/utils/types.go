@@ -36,6 +36,38 @@ func MergeLabels(labelGroups ...map[string]string) map[string]string {
 	return mergedLabels
 }
 
+func PointerToBool(b *bool) bool {
+	if b == nil {
+		return false
+	}
+
+	return *b
+}
+
+func PointerToUint(i *uint) uint {
+	if i == nil {
+		return 0
+	}
+
+	return *i
+}
+
+func PointerToInt(i *int) int {
+	if i == nil {
+		return 0
+	}
+
+	return *i
+}
+
+func PointerToString(s *string) string {
+	if s == nil {
+		return ""
+	}
+
+	return *s
+}
+
 // IntPointer converts int32 to *int32
 func IntPointer(i int32) *int32 {
 	return &i

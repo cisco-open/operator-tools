@@ -15,17 +15,23 @@
 package reconciler
 
 import (
+	"emperror.dev/errors"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type ComponentReconciler interface {
 	Reconcile(object runtime.Object) (*reconcile.Result, error)
 	RegisterWatches(*builder.Builder)
+}
+
+type Watches interface {
+	SetupAdditionalWatches(c controller.Controller) error
 }
 
 // Dispatcher orchestrates reconciliation of multiple ComponentReconciler objects
@@ -44,20 +50,20 @@ type Dispatcher struct {
 func (r *Dispatcher) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	object, err := r.ResourceGetter(req)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, errors.WithStack(err)
 	}
 	if r.ResourceFilter != nil {
 		shouldReconcile, err := r.ResourceFilter(object)
 		if err != nil || !shouldReconcile {
-			return reconcile.Result{}, err
+			return reconcile.Result{}, errors.WithStack(err)
 		}
 	}
 	result, err := r.Handle(object)
 	if r.CompletionHandler != nil {
-		return r.CompletionHandler(object, result, err)
+		return r.CompletionHandler(object, result, errors.WithStack(err))
 	}
 	if err != nil {
-		return result, err
+		return result, errors.WithStack(err)
 	}
 	return result, nil
 }
@@ -68,7 +74,12 @@ func (r *Dispatcher) Handle(object runtime.Object) (ctrl.Result, error) {
 	combinedResult := &CombinedResult{}
 	for _, cr := range r.ComponentReconcilers {
 		result, err := cr.Reconcile(object)
-		combinedResult.Combine(result, err)
+		combinedResult.Combine(result, errors.WithStack(err))
+		if cr, ok := cr.(interface{ IsOptional() bool }); ok {
+			if err != nil && !cr.IsOptional() {
+				break
+			}
+		}
 	}
 	return combinedResult.Result, combinedResult.Err
 }
@@ -79,4 +90,18 @@ func (r *Dispatcher) RegisterWatches(b *builder.Builder) *builder.Builder {
 		cr.RegisterWatches(b)
 	}
 	return b
+}
+
+// SetupAdditionalWatches dispatches the controller for watch registration to all its components
+func (r *Dispatcher) SetupAdditionalWatches(c controller.Controller) error {
+	for _, cr := range r.ComponentReconcilers {
+		if cr, ok := cr.(Watches); ok {
+			err := cr.SetupAdditionalWatches(c)
+			if err != nil {
+				return errors.WithStack(err)
+			}
+		}
+	}
+
+	return nil
 }
