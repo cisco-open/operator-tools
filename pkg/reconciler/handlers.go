@@ -27,12 +27,7 @@ import (
 
 func EnqueueByOwnerAnnotationMapper() handler.Mapper {
 	return handler.ToRequestsFunc(func(a handler.MapObject) []reconcile.Request {
-		var annotation string
-		var ok bool
-		if annotation, ok = a.Meta.GetAnnotations()[ottypes.BanzaiCloudRelatedTo]; !ok {
-			return []reconcile.Request{}
-		}
-		pieces := strings.SplitN(annotation, string(types.Separator), 2)
+		pieces := strings.SplitN(a.Meta.GetAnnotations()[ottypes.BanzaiCloudRelatedTo], string(types.Separator), 2)
 		if len(pieces) != 2 {
 			return []reconcile.Request{}
 		}
