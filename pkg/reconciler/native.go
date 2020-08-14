@@ -304,7 +304,7 @@ func (rec *NativeReconciler) gvkExists(gvk schema.GroupVersionKind) bool {
 	}
 
 	for _, m := range mappings {
-		if reflect.DeepEqual(gvk, m.GroupVersionKind) {
+		if gvk == m.GroupVersionKind {
 			return true
 		}
 	}
