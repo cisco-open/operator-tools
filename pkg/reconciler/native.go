@@ -106,7 +106,7 @@ type NativeReconciler struct {
 	scheme                 *runtime.Scheme
 	restMapper             meta.RESTMapper
 	reconciledComponent    NativeReconciledComponent
-	configTranslate        func(runtime.Object) (parent ResourceOwner, config interface{})
+	configTranslate        ResourceTranslate
 	componentName          string
 	setControllerRef       bool
 	reconciledObjectStates map[reconciledObjectState][]runtime.Object
