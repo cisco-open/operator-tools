@@ -270,7 +270,7 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 		}
 
 		debugLog.Info("Updating resource")
-		updateOptions := make([]runtimeClient.UpdateOption, 0)
+		var updateOptions []runtimeClient.UpdateOption
 		if ds, ok := desiredState.(DesiredStateWithUpdateOptions); ok {
 			updateOptions = append(updateOptions, ds.GetUpdateOptions()...)
 		}
@@ -363,7 +363,7 @@ func (r *GenericResourceReconciler) CreateIfNotExist(desired runtime.Object, des
 				}
 			}
 		}
-		createOptions := make([]runtimeClient.CreateOption, 0)
+		var createOptions []runtimeClient.CreateOption
 		if ds, ok := desiredState.(DesiredStateWithCreateOptions); ok {
 			createOptions = append(createOptions, ds.GetCreateOptions()...)
 		}
@@ -434,7 +434,7 @@ func (r *GenericResourceReconciler) delete(desired runtime.Object, desiredState 
 			}
 		}
 	}
-	deleteOptions := make([]runtimeClient.DeleteOption, 0)
+	var deleteOptions []runtimeClient.DeleteOption
 	if ds, ok := desiredState.(DesiredStateWithDeleteOptions); ok {
 		deleteOptions = append(deleteOptions, ds.GetDeleteOptions()...)
 	}

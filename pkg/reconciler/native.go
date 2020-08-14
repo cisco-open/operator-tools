@@ -346,7 +346,7 @@ func (rec *NativeReconciler) purge(excluded map[string]bool, componentId string)
 			if excluded[resourceID] {
 				continue
 			}
-			if objectMeta.GetAnnotations() != nil && objectMeta.GetAnnotations()[types.BanzaiCloudManagedComponent] == componentId {
+			if objectMeta.GetAnnotations()[types.BanzaiCloudManagedComponent] == componentId {
 				rec.Log.Info("pruning unmmanaged resource",
 					"name", objectMeta.GetName(),
 					"namespace", objectMeta.GetNamespace(),
@@ -373,11 +373,7 @@ const (
 )
 
 func (rec *NativeReconciler) initReconciledObjectStates() {
-	rec.reconciledObjectStates = map[reconciledObjectState][]runtime.Object{
-		ReconciledObjectStateAbsent:  make([]runtime.Object, 0),
-		ReconciledObjectStatePresent: make([]runtime.Object, 0),
-		ReconciledObjectStatePurged:  make([]runtime.Object, 0),
-	}
+	rec.reconciledObjectStates = make(map[reconciledObjectState][]runtime.Object)
 }
 
 func (rec *NativeReconciler) addReconciledObjectState(state reconciledObjectState, o runtime.Object) {
@@ -390,6 +386,9 @@ func (rec *NativeReconciler) GetReconciledObjectWithState(state reconciledObject
 
 func (rec *NativeReconciler) addRelatedToAnnotation(objectMeta, ownerMeta metav1.Object) {
 	annotations := objectMeta.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
 	annotations[types.BanzaiCloudRelatedTo] = utils.ObjectKeyFromObjectMeta(ownerMeta).String()
 	objectMeta.SetAnnotations(annotations)
 }
