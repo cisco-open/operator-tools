@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
+	"github.com/banzaicloud/operator-tools/pkg/types"
 )
 
 const (
@@ -221,6 +222,30 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 			if metaObject.GetDeletionTimestamp() != nil {
 				log.Info(fmt.Sprintf("object %s is being deleted, backing off", metaObject.GetSelfLink()))
 				return &reconcile.Result{RequeueAfter: time.Second * 2}, nil
+			}
+			if !created {
+				if desiredMetaObject, ok := desired.(metav1.Object); ok {
+					base := types.MetaBase{
+						Annotations: desiredMetaObject.GetAnnotations(),
+						Labels:      desiredMetaObject.GetLabels(),
+					}
+					if metaObject, ok := current.DeepCopyObject().(metav1.Object); ok {
+						merged := base.Merge(metav1.ObjectMeta{
+							Labels:      metaObject.GetLabels(),
+							Annotations: metaObject.GetAnnotations(),
+						})
+						desiredMetaObject.SetAnnotations(merged.Annotations)
+						desiredMetaObject.SetLabels(merged.Labels)
+					}
+				}
+
+				if _, ok := metaObject.GetAnnotations()[types.BanzaiCloudManagedComponent]; !ok {
+					if desiredMetaObject, ok := desired.(metav1.Object); ok {
+						a := desiredMetaObject.GetAnnotations()
+						delete(a, types.BanzaiCloudManagedComponent)
+						desiredMetaObject.SetAnnotations(a)
+					}
+				}
 			}
 		}
 
