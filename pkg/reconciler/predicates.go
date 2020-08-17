@@ -17,7 +17,11 @@ package reconciler
 import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	"github.com/banzaicloud/k8s-objectmatcher/patch"
+	"github.com/banzaicloud/operator-tools/pkg/types"
 )
+
 
 type SkipCreatePredicate struct {
 	predicate.Funcs
@@ -41,4 +45,34 @@ type SkipDeletePredicate struct {
 
 func (SkipDeletePredicate) Delete(e event.DeleteEvent) bool {
 	return false
+}
+
+type PendingStatusPredicate struct {
+	predicate.Funcs
+}
+
+func (PendingStatusPredicate) Update(e event.UpdateEvent) bool {
+	if o, ok := e.ObjectNew.(interface {
+		IsAnyInState(state types.ReconcileStatus) bool
+	}); ok {
+		return o.IsAnyInState(types.ReconcileStatusPending)
+	}
+
+	return false
+}
+
+type SpecChangePredicate struct {
+	predicate.Funcs
+}
+
+func (SpecChangePredicate) Update(e event.UpdateEvent) bool {
+	e.MetaNew.SetResourceVersion(e.MetaOld.GetResourceVersion())
+	patchResult, err := patch.DefaultPatchMaker.Calculate(e.ObjectOld, e.ObjectNew, patch.IgnoreStatusFields(), IgnoreManagedFields())
+	if err != nil {
+		return true
+	} else if patchResult.IsEmpty() {
+		return false
+	}
+
+	return true
 }
