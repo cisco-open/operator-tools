@@ -39,6 +39,7 @@ type EnvironmentVariables struct {
 	EnvConfigMap     []EnvConfigMap     `json:"envConfigMaps,omitempty"`
 }
 
+
 // +kubebuilder:object:generate=true
 type EnvConfigMap struct {
 	Name            string                      `json:"name"`

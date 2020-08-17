@@ -35,9 +35,9 @@ func (os RuntimeObjects) Sort(order ResourceOrder) {
 
 	switch order {
 	case InstallResourceOrder:
-		score = os.InstallObjectOrder()
+		score = InstallObjectOrder()
 	case UninstallResourceOrder:
-		score = os.UninstallObjectOrder()
+		score = UninstallObjectOrder()
 	default:
 		score = func(o runtime.Object) int { return 0 }
 	}
@@ -67,7 +67,7 @@ func (os RuntimeObjects) Sort(order ResourceOrder) {
 	})
 }
 
-func (os RuntimeObjects) InstallObjectOrder() func(o runtime.Object) int {
+func InstallObjectOrder() func(o runtime.Object) int {
 	var Order = []string{
 		"CustomResourceDefinition",
 		"Namespace",
@@ -118,17 +118,10 @@ func (os RuntimeObjects) InstallObjectOrder() func(o runtime.Object) int {
 	}
 }
 
-func (os RuntimeObjects) UninstallObjectOrder() func(o runtime.Object) int {
+func UninstallObjectOrder() func(o runtime.Object) int {
 	var Order = []string{
 		"MutatingWebhookConfiguration",
 		"ValidatingWebhookConfiguration",
-		"Policy",
-		"Gateway",
-		"VirtualService",
-		"DestinationRule",
-		"Handler",
-		"Instance",
-		"Rule",
 		"APIService",
 		"Ingress",
 		"Service",
@@ -159,6 +152,13 @@ func (os RuntimeObjects) UninstallObjectOrder() func(o runtime.Object) int {
 		"PodSecurityPolicy",
 		"LimitRange",
 		"ResourceQuota",
+		"Policy",
+		"Gateway",
+		"VirtualService",
+		"DestinationRule",
+		"Handler",
+		"Instance",
+		"Rule",
 		"Namespace",
 		"CustomResourceDefinition",
 	}
@@ -172,6 +172,6 @@ func (os RuntimeObjects) UninstallObjectOrder() func(o runtime.Object) int {
 		if nr, ok := order[o.GetObjectKind().GroupVersionKind().Kind]; ok {
 			return nr
 		}
-		return 0
+		return 1000
 	}
 }
