@@ -1,4 +1,4 @@
-// Copyright © 2019 Banzai Cloud
+// Copyright © 2020 Banzai Cloud
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -129,8 +129,8 @@ type ReconcilerOpts struct {
 	EnableRecreateWorkloadOnImmutableFieldChangeHelp string
 }
 
-// NewReconciler returns GenericResourceReconciler
-func NewReconciler(client runtimeClient.Client, log logr.Logger, opts ReconcilerOpts) *GenericResourceReconciler {
+// NewGenericReconciler returns GenericResourceReconciler
+func NewGenericReconciler(client runtimeClient.Client, log logr.Logger, opts ReconcilerOpts) *GenericResourceReconciler {
 	if opts.Scheme == nil {
 		opts.Scheme = runtime.NewScheme()
 		_ = clientgoscheme.AddToScheme(opts.Scheme)

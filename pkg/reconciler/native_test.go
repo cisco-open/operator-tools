@@ -42,7 +42,7 @@ func (e *FakeResourceOwner) GetControlNamespace() string {
 func TestNativeReconcilerKeepsTheSecret(t *testing.T) {
 	nativeReconciler := reconciler.NewNativeReconciler(
 		"testcomponent",
-		reconciler.NewReconciler(k8sClient, log, reconciler.ReconcilerOpts{}),
+		reconciler.NewGenericReconciler(k8sClient, log, reconciler.ReconcilerOpts{}),
 		k8sClient,
 		reconciler.NewReconciledComponent(
 			func(parent reconciler.ResourceOwner, object interface{}) []reconciler.ResourceBuilder {
@@ -260,7 +260,7 @@ func TestNativeReconcilerFailToSetCrossNamespaceControllerRef(t *testing.T) {
 func createReconcilerForRefTests(opts ...reconciler.NativeReconcilerOpt) *reconciler.NativeReconciler {
 	return reconciler.NewNativeReconciler(
 		"test",
-		reconciler.NewReconciler(k8sClient, log, reconciler.ReconcilerOpts{}),
+		reconciler.NewGenericReconciler(k8sClient, log, reconciler.ReconcilerOpts{}),
 		k8sClient,
 		reconciler.NewReconciledComponent(
 			func(parent reconciler.ResourceOwner, object interface{}) []reconciler.ResourceBuilder {
