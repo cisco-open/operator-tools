@@ -76,6 +76,7 @@ type PodSpecBase struct {
 	Affinity           *corev1.Affinity           `json:"affinity,omitempty"`
 	SecurityContext    *corev1.PodSecurityContext `json:"securityContext,omitempty"`
 	Volumes            []corev1.Volume            `json:"volumes,omitempty"`
+	PriorityClassName  string                     `json:"priorityClassName,omitempty"`
 }
 
 // +kubebuilder:object:generate=true
@@ -158,6 +159,9 @@ func (base *PodSpecBase) Override(spec corev1.PodSpec) corev1.PodSpec {
 	}
 	if len(base.Volumes) > 0 {
 		spec.Volumes = base.Volumes
+	}
+	if base.PriorityClassName != "" {
+		spec.PriorityClassName = base.PriorityClassName
 	}
 	return spec
 }

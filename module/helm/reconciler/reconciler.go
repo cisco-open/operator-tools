@@ -320,6 +320,7 @@ func (hr *GenericHelmReconciler) Reconcile(object runtime.Object) (*reconcile.Re
 		upgrade.Namespace = namespace
 		upgrade.Wait = true
 		upgrade.Timeout = time.Minute * 5
+		upgrade.MaxHistory = 3
 		if hr.reconcileHooks != nil {
 			releaseImpl.ConfigureUpgrade(upgrade)
 		}

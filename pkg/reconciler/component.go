@@ -77,7 +77,7 @@ func (r *Dispatcher) Handle(object runtime.Object) (ctrl.Result, error) {
 		combinedResult.Combine(result, errors.WithStack(err))
 		if cr, ok := cr.(interface{ IsOptional() bool }); ok {
 			if err != nil && !cr.IsOptional() {
-				return combinedResult.Result, combinedResult.Err
+				break
 			}
 		}
 	}

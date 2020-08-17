@@ -21,6 +21,7 @@ import (
 	"emperror.dev/errors"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -102,8 +103,9 @@ type NativeReconciler struct {
 	*GenericResourceReconciler
 	client.Client
 	scheme                 *runtime.Scheme
+	restMapper             meta.RESTMapper
 	reconciledComponent    NativeReconciledComponent
-	configTranslate        func(runtime.Object) (parent ResourceOwner, config interface{})
+	configTranslate        ResourceTranslate
 	componentName          string
 	setControllerRef       bool
 	reconciledObjectStates map[reconciledObjectState][]runtime.Object
@@ -120,6 +122,12 @@ func NativeReconcilerWithScheme(scheme *runtime.Scheme) NativeReconcilerOpt {
 func NativeReconcilerSetControllerRef() NativeReconcilerOpt {
 	return func(r *NativeReconciler) {
 		r.setControllerRef = true
+	}
+}
+
+func NativeReconcilerSetRESTMapper(mapper meta.RESTMapper) NativeReconcilerOpt {
+	return func(r *NativeReconciler) {
+		r.restMapper = mapper
 	}
 }
 
@@ -185,9 +193,12 @@ func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result,
 					isCrd = true
 				}
 				if !isCrd {
-					if err := controllerutil.SetControllerReference(ownerMeta, objectMeta, rec.scheme); err != nil {
-						combinedResult.CombineErr(err)
-						continue
+					// namespaced resource can only own resources in the same namespace
+					if ownerMeta.GetNamespace() == "" || ownerMeta.GetNamespace() == objectMeta.GetNamespace() {
+						if err := controllerutil.SetControllerReference(ownerMeta, objectMeta, rec.scheme); err != nil {
+							combinedResult.CombineErr(err)
+							continue
+						}
 					}
 				}
 			}
@@ -200,12 +211,11 @@ func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result,
 				}
 				excludeFromPurge[resourceID] = true
 
-				switch state {
-				case StateAbsent:
-					rec.addReconciledObjectState(reconciledObjectState(ReconciledObjectStateAbsent), o.DeepCopyObject())
-				default:
-					rec.addReconciledObjectState(reconciledObjectState(ReconciledObjectStatePresent), o.DeepCopyObject())
+				s := ReconciledObjectStatePresent
+				if state == StateAbsent {
+					s = ReconciledObjectStateAbsent
 				}
+				rec.addReconciledObjectState(s, o.DeepCopyObject())
 			}
 			combinedResult.Combine(result, err)
 		}
@@ -279,9 +289,35 @@ func (rec *NativeReconciler) generateResourceID(resource runtime.Object) (string
 	return strings.Join(identifiers, "-"), nil
 }
 
+func (rec *NativeReconciler) gvkExists(gvk schema.GroupVersionKind) bool {
+	if rec.restMapper == nil {
+		return true
+	}
+
+	mappings, err := rec.restMapper.RESTMappings(gvk.GroupKind(), gvk.Version)
+	if apimeta.IsNoMatchError(err) {
+		return false
+	}
+	if err != nil {
+		return true
+	}
+
+	for _, m := range mappings {
+		if gvk == m.GroupVersionKind {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (rec *NativeReconciler) purge(excluded map[string]bool, componentId string) error {
 	var allErr error
 	for _, gvk := range rec.reconciledComponent.PurgeTypes() {
+		rec.Log.V(2).Info("purging GVK", "gvk", gvk)
+		if !rec.gvkExists(gvk) {
+			continue
+		}
 		objects := &unstructured.UnstructuredList{}
 		objects.SetGroupVersionKind(gvk)
 		err := rec.List(context.TODO(), objects)
@@ -309,14 +345,14 @@ func (rec *NativeReconciler) purge(excluded map[string]bool, componentId string)
 			if excluded[resourceID] {
 				continue
 			}
-			if objectMeta.GetAnnotations() != nil && objectMeta.GetAnnotations()[types.BanzaiCloudManagedComponent] == componentId {
+			if objectMeta.GetAnnotations()[types.BanzaiCloudManagedComponent] == componentId {
 				rec.Log.Info("pruning unmmanaged resource",
 					"name", objectMeta.GetName(),
 					"namespace", objectMeta.GetNamespace(),
 					"group", gvk.Group,
 					"version", gvk.Version,
 					"listKind", gvk.Kind)
-				if err := rec.Client.Delete(context.TODO(), &o); err != nil {
+				if err := rec.Client.Delete(context.TODO(), &o); err != nil && !k8serrors.IsNotFound(err) {
 					allErr = errors.Combine(allErr, err)
 				} else {
 					rec.addReconciledObjectState(ReconciledObjectStatePurged, o.DeepCopy())
@@ -336,11 +372,7 @@ const (
 )
 
 func (rec *NativeReconciler) initReconciledObjectStates() {
-	rec.reconciledObjectStates = map[reconciledObjectState][]runtime.Object{
-		ReconciledObjectStateAbsent:  make([]runtime.Object, 0),
-		ReconciledObjectStatePresent: make([]runtime.Object, 0),
-		ReconciledObjectStatePurged:  make([]runtime.Object, 0),
-	}
+	rec.reconciledObjectStates = make(map[reconciledObjectState][]runtime.Object)
 }
 
 func (rec *NativeReconciler) addReconciledObjectState(state reconciledObjectState, o runtime.Object) {
@@ -353,6 +385,9 @@ func (rec *NativeReconciler) GetReconciledObjectWithState(state reconciledObject
 
 func (rec *NativeReconciler) addRelatedToAnnotation(objectMeta, ownerMeta metav1.Object) {
 	annotations := objectMeta.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
 	annotations[types.BanzaiCloudRelatedTo] = utils.ObjectKeyFromObjectMeta(ownerMeta).String()
 	objectMeta.SetAnnotations(annotations)
 }
