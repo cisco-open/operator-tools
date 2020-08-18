@@ -172,6 +172,6 @@ func UninstallObjectOrder() func(o runtime.Object) int {
 		if nr, ok := order[o.GetObjectKind().GroupVersionKind().Kind]; ok {
 			return nr
 		}
-		return 1000
+		return 0
 	}
 }
