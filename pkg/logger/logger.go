@@ -374,3 +374,11 @@ func (log *logger) getDetailedErr(err error) string {
 	}
 	return fmt.Sprintf("%s (%s)", err.Error(), log.joinAndSeparatePairs(details))
 }
+
+func EnableGroupSession(logger interface{}) func() {
+	if l, ok := logger.(interface{ Grouped(state bool) }); ok {
+		l.Grouped(true)
+		return func() { l.Grouped(false) }
+	}
+	return func() {}
+}
