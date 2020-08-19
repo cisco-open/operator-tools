@@ -313,6 +313,7 @@ func (rec *NativeReconciler) gvkExists(gvk schema.GroupVersionKind) bool {
 
 func (rec *NativeReconciler) purge(excluded map[string]bool, componentId string) error {
 	var allErr error
+	var purgeObjects []runtime.Object
 	for _, gvk := range rec.reconciledComponent.PurgeTypes() {
 		rec.Log.V(2).Info("purging GVK", "gvk", gvk)
 		if !rec.gvkExists(gvk) {
@@ -346,18 +347,23 @@ func (rec *NativeReconciler) purge(excluded map[string]bool, componentId string)
 				continue
 			}
 			if objectMeta.GetAnnotations()[types.BanzaiCloudManagedComponent] == componentId {
-				rec.Log.Info("pruning unmmanaged resource",
+				rec.Log.Info("will prune unmmanaged resource",
 					"name", objectMeta.GetName(),
 					"namespace", objectMeta.GetNamespace(),
 					"group", gvk.Group,
 					"version", gvk.Version,
 					"listKind", gvk.Kind)
-				if err := rec.Client.Delete(context.TODO(), &o); err != nil && !k8serrors.IsNotFound(err) {
-					allErr = errors.Combine(allErr, err)
-				} else {
-					rec.addReconciledObjectState(ReconciledObjectStatePurged, o.DeepCopy())
-				}
+				purgeObjects = append(purgeObjects, o.DeepCopyObject())
 			}
+		}
+	}
+
+	utils.RuntimeObjects(purgeObjects).Sort(utils.UninstallResourceOrder)
+	for _, o := range purgeObjects {
+		if err := rec.Client.Delete(context.TODO(), o); err != nil && !k8serrors.IsNotFound(err) {
+			allErr = errors.Combine(allErr, err)
+		} else {
+			rec.addReconciledObjectState(ReconciledObjectStatePurged, o.DeepCopyObject())
 		}
 	}
 	return allErr

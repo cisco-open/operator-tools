@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -119,6 +120,8 @@ func TestNativeReconcilerKeepsTheSecret(t *testing.T) {
 		assert.Equal(t, l.Items[0].Name, "keep-the-secret")
 	})
 
+	assert.Len(t, nativeReconciler.GetReconciledObjectWithState(reconciler.ReconciledObjectStatePurged), 0)
+
 	// next round, the count of configmaps increase to 2, keep the secret!
 
 	_, err = nativeReconciler.Reconcile(setCount(fakeOwnerObject, 2))
@@ -136,6 +139,8 @@ func TestNativeReconcilerKeepsTheSecret(t *testing.T) {
 		assert.Equal(t, l.Items[0].Name, "keep-the-secret")
 	})
 
+	assert.Len(t, nativeReconciler.GetReconciledObjectWithState(reconciler.ReconciledObjectStatePurged), 0)
+
 	// next round, the count shrinks back to 1, the second configmap should be removed, keep the secret!
 
 	_, err = nativeReconciler.Reconcile(setCount(fakeOwnerObject, 1))
@@ -152,6 +157,10 @@ func TestNativeReconcilerKeepsTheSecret(t *testing.T) {
 		assert.Equal(t, l.Items[0].Name, "keep-the-secret")
 	})
 
+	purged := nativeReconciler.GetReconciledObjectWithState(reconciler.ReconciledObjectStatePurged)
+	assert.Len(t, purged, 1)
+	assert.Equal(t, purged[0].(*unstructured.Unstructured).GetName(), "asd-1")
+
 	// next round, scale back the configmaps to 0, keep the secret!
 
 	_, err = nativeReconciler.Reconcile(setCount(fakeOwnerObject, 0))
@@ -166,6 +175,11 @@ func TestNativeReconcilerKeepsTheSecret(t *testing.T) {
 		assert.Len(t, l.Items, 1)
 		assert.Equal(t, l.Items[0].Name, "keep-the-secret")
 	})
+
+	purged = nativeReconciler.GetReconciledObjectWithState(reconciler.ReconciledObjectStatePurged)
+	assert.Len(t, purged, 2)
+	assert.Equal(t, purged[0].(*unstructured.Unstructured).GetName(), "asd-1")
+	assert.Equal(t, purged[1].(*unstructured.Unstructured).GetName(), "asd-0")
 }
 
 func TestNativeReconcilerSetNoControllerRefByDefault(t *testing.T) {
