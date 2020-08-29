@@ -19,6 +19,10 @@ import (
 	"strings"
 
 	"emperror.dev/errors"
+	"github.com/banzaicloud/operator-tools/pkg/resources"
+	"github.com/banzaicloud/operator-tools/pkg/wait"
+	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -56,6 +60,40 @@ type ResourceBuilders func(parent ResourceOwner, object interface{}) []ResourceB
 type ResourceBuilder func() (runtime.Object, DesiredState, error)
 type ResourceTranslate func(runtime.Object) (parent ResourceOwner, config interface{})
 type PurgeTypesFunc func() []schema.GroupVersionKind
+
+func GetResourceBuildersFromObjects(objects []runtime.Object, state DesiredState, modifierFuncs ...resources.ObjectModifierFunc) ([]ResourceBuilder, error) {
+	resources := []ResourceBuilder{}
+
+	utils.RuntimeObjects(objects).Sort(utils.InstallResourceOrder)
+
+	for _, o := range objects {
+		o := o
+		for _, modifierFunc := range modifierFuncs {
+			var err error
+			o, err = modifierFunc(o)
+			if err != nil {
+				return nil, err
+			}
+		}
+		resources = append(resources, func() (runtime.Object, DesiredState, error) {
+			if desired, ok := o.(*corev1.Service); ok {
+				beforeUpdateHook := DesiredStateHook(func(current runtime.Object) error {
+					if s, ok := current.(*corev1.Service); ok {
+						desired.Spec.ClusterIP = s.Spec.ClusterIP
+					} else {
+						return errors.Errorf("failed to cast service object %+v", current)
+					}
+					return nil
+				})
+				return o, beforeUpdateHook, nil
+			}
+
+			return o, state, nil
+		})
+	}
+
+	return resources, nil
+}
 
 type NativeReconciledComponent interface {
 	ResourceBuilders(parent ResourceOwner, object interface{}) []ResourceBuilder
@@ -109,6 +147,7 @@ type NativeReconciler struct {
 	componentName          string
 	setControllerRef       bool
 	reconciledObjectStates map[reconciledObjectState][]runtime.Object
+	waitBackoff            *wait.Backoff
 }
 
 type NativeReconcilerOpt func(*NativeReconciler)
@@ -129,6 +168,45 @@ func NativeReconcilerSetRESTMapper(mapper meta.RESTMapper) NativeReconcilerOpt {
 	return func(r *NativeReconciler) {
 		r.restMapper = mapper
 	}
+}
+
+func NativeReconcilerWithWait(backoff *wait.Backoff) NativeReconcilerOpt {
+	return func(r *NativeReconciler) {
+		r.waitBackoff = backoff
+	}
+}
+
+func NewNativeReconcilerWithDefaults(
+	component string,
+	client client.Client,
+	scheme *runtime.Scheme,
+	logger logr.Logger,
+	resourceBuilders ResourceBuilders,
+	purgeTypes PurgeTypesFunc,
+	resourceTranslate ResourceTranslate,
+	opts ...NativeReconcilerOpt,
+) *NativeReconciler {
+	reconcilerOpts := &ReconcilerOpts{
+		EnableRecreateWorkloadOnImmutableFieldChange: true,
+		Scheme: scheme,
+	}
+
+	return NewNativeReconciler(
+		component,
+		NewGenericReconciler(
+			client,
+			logger,
+			*reconcilerOpts,
+		),
+		client,
+		NewReconciledComponent(
+			resourceBuilders,
+			nil,
+			purgeTypes,
+		),
+		resourceTranslate,
+		opts...,
+	)
 }
 
 func NewNativeReconciler(
@@ -226,6 +304,9 @@ func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result,
 		}
 	} else {
 		rec.Log.Error(combinedResult.Err, "skip purging results due to previous errors")
+	}
+	if rec.waitBackoff != nil {
+		rec.waitForResources(*rec.waitBackoff)
 	}
 	return &combinedResult.Result, combinedResult.Err
 }
@@ -422,4 +503,23 @@ func (rec *NativeReconciler) addComponentIDAnnotation(o runtime.Object, componen
 
 func (rec *NativeReconciler) RegisterWatches(b *builder.Builder) {
 	rec.reconciledComponent.RegisterWatches(b)
+}
+
+func (rec *NativeReconciler) waitForResources(backoff wait.Backoff) error {
+	rcc := wait.NewResourceConditionChecks(rec.Client, backoff, rec.Log, rec.scheme)
+
+	presentObjects := rec.GetReconciledObjectWithState(ReconciledObjectStatePresent)
+
+	err := rcc.WaitForResources("readiness", presentObjects, wait.ExistsConditionCheck, wait.ReadyReplicasConditionCheck)
+	if err != nil {
+		return err
+	}
+
+	absentObjects := append(rec.GetReconciledObjectWithState(ReconciledObjectStateAbsent), rec.GetReconciledObjectWithState(ReconciledObjectStatePurged)...)
+	err = rcc.WaitForResources("removal", absentObjects, wait.NonExistsConditionCheck)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
