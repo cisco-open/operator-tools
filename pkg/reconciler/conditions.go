@@ -17,6 +17,7 @@ package reconciler
 import (
 	"time"
 
+	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -47,19 +48,33 @@ type ResourceCondition struct {
 	Object       *ObjectKeyWithGVK                   `json:"object,omitempty"`
 }
 
-func (rec *Reconciler) CheckResourceConditions(conditions []ResourceCondition, backoff *wait.Backoff) error {
+type ConditionChecker struct {
+	client client.Client
+	scheme *runtime.Scheme
+	log logr.Logger
+}
+
+func NewConditionChecker(client client.Client, scheme *runtime.Scheme, log logr.Logger) *ConditionChecker {
+	return &ConditionChecker{
+		client: client,
+		scheme: scheme,
+		log: log,
+	}
+}
+
+func (c *ConditionChecker) CheckResourceConditions(conditions []ResourceCondition, backoff *wait.Backoff) error {
 	if backoff == nil {
 		backoff = &DefaultBackoff
 	}
 
-	log := rec.log.WithName("pre-checks")
-	c := wait.NewResourceConditionChecks(rec.mgr.GetClient(), *backoff, log, rec.mgr.GetScheme())
+	log := c.log.WithName("pre-checks")
+	checks := wait.NewResourceConditionChecks(c.client, *backoff, log, c.scheme)
 
 	log.Info("checking resource pre-conditions")
 
 	for _, condition := range conditions {
 		if condition.Object != nil && len(condition.Checks) > 0 {
-			o, err := rec.mgr.GetScheme().New(condition.Object.GVK)
+			o, err := c.scheme.New(condition.Object.GVK)
 			if err != nil {
 				return err
 			}
@@ -67,14 +82,14 @@ func (rec *Reconciler) CheckResourceConditions(conditions []ResourceCondition, b
 				mo.SetName(condition.Object.ObjectKey.Name)
 				mo.SetNamespace(condition.Object.ObjectKey.Namespace)
 			}
-			err = c.WaitForResources(condition.ID, []runtime.Object{o}, condition.Checks...)
+			err = checks.WaitForResources(condition.ID, []runtime.Object{o}, condition.Checks...)
 			if err != nil {
 				return err
 			}
 		}
 
 		if len(condition.CustomChecks) > 0 {
-			err := c.WaitForCustomConditionChecks(condition.ID, condition.CustomChecks...)
+			err := checks.WaitForCustomConditionChecks(condition.ID, condition.CustomChecks...)
 			if err != nil {
 				return err
 			}
