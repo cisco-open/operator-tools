@@ -249,14 +249,14 @@ func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result,
 	}
 	// visited objects wont be purged
 	excludeFromPurge := map[string]bool{}
-
 	combinedResult := &CombinedResult{}
 	for _, r := range rec.reconciledComponent.ResourceBuilders(rec.configTranslate(owner)) {
 		o, state, err := r()
 		if err != nil {
 			combinedResult.CombineErr(err)
 		} else {
-			objectMeta, err := rec.addComponentIDAnnotation(o, componentID)
+			var objectMeta metav1.Object
+			objectMeta, err = rec.addComponentIDAnnotation(o, componentID)
 			if err != nil {
 				combinedResult.CombineErr(err)
 				continue
@@ -280,7 +280,8 @@ func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result,
 					}
 				}
 			}
-			result, err := rec.ReconcileResource(o, state)
+			var result *reconcile.Result
+			result, err = rec.ReconcileResource(o, state)
 			if err == nil {
 				resourceID, err := rec.generateResourceID(o)
 				if err != nil {
