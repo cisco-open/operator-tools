@@ -61,8 +61,6 @@ type Inventory struct {
 
 	// Discovery client to look up API resources
 	discoveryClient discovery.DiscoveryInterface
-	// cache of API resource scope by GroupKind
-	apiResourceScope map[string]bool
 }
 
 func NewInventory(client client.Client, log logr.Logger, clusterResources map[string]struct{}) (*Inventory, error) {
@@ -303,7 +301,7 @@ func (c *Inventory) sanitizeDesiredObjects(desiredObjects []runtime.Object) erro
 		}
 
 		if isClusterScoped && objMeta.GetNamespace() != "" {
-			c.log.V(1).Info("removing namespace field from cluster scoped object", "gvk", desiredObjects[i].GetObjectKind().GroupVersionKind().String(), "name", objMeta.GetName())
+			c.log.V(2).Info("removing namespace field from cluster scoped object", "gvk", desiredObjects[i].GetObjectKind().GroupVersionKind().String(), "name", objMeta.GetName())
 			objMeta.SetNamespace("")
 		}
 	}
@@ -323,54 +321,34 @@ func (c *Inventory) IsClusterScoped(obj runtime.Object) (bool, error) {
 
 	actualGK := obj.GetObjectKind().GroupVersionKind().GroupKind()
 
-	upToDate := false
+	if namespaced, ok := getStaticResourceScope(actualGK); ok {
+		return !namespaced, nil
+	}
 
-	if len(c.apiResourceScope) == 0 {
-		c.log.Info("discovering API resources")
-		if c.discoveryClient == nil {
-			return false, errors.New("unable to get up-to-date list of resources without a discovery client")
-		}
+	var fresh bool
+	var err error
 
-		if err := c.discoverAPIResources(); err != nil {
+	fresh, err = initializeAPIResources(c.discoveryClient)
+	if err != nil {
+		return false, err
+	}
+
+	if namespaced, ok := getDynamicResourceScope(actualGK); ok {
+		return !namespaced, nil
+	}
+
+	if !fresh {
+		c.log.Info("API resource not found for object in the cache, updating resource list", "gk", actualGK.String())
+		if err := discoverAPIResources(c.discoveryClient); err != nil {
 			return false, err
 		}
-
-		upToDate = true
 	}
 
-	if isNamespaced, ok := c.apiResourceScope[actualGK.String()]; ok {
-		return !isNamespaced, nil
-	}
-
-	if !upToDate {
-		c.log.Info("API resource not found for %s in the cache, updating resource list", actualGK.String())
-		if err := c.discoverAPIResources(); err != nil {
-			return false, err
-		}
-		upToDate = true
-	}
-
-	if isNamespaced, ok := c.apiResourceScope[actualGK.String()]; ok {
-		return !isNamespaced, nil
+	if namespaced, ok := getDynamicResourceScope(actualGK); ok {
+		return !namespaced, nil
 	}
 
 	return false, errors.Errorf("unknown resource %s", actualGK.String())
-}
-
-func (c *Inventory) discoverAPIResources() error {
-	_, apiResourcesList, err := c.discoveryClient.ServerGroupsAndResources()
-	if err != nil {
-		return errors.WrapIf(err, "couldn't retrieve the list of resources supported by API server")
-	}
-	for _, apiResources := range apiResourcesList {
-		if apiResources != nil {
-			for _, apiResource := range apiResources.APIResources {
-				gk := schema.GroupKind{Group: apiResource.Group, Kind: apiResource.Kind}
-				c.apiResourceScope[gk.String()] = apiResource.Namespaced
-			}
-		}
-	}
-	return nil
 }
 
 // ensureNamespace sets `namespace` as namespace for namespace scoped objects that have no namespace set
@@ -388,9 +366,19 @@ func (c *Inventory) ensureNamespace(namespace string, objects []runtime.Object) 
 		}
 
 		if !isClusterScoped && objMeta.GetNamespace() == "" {
-			c.log.V(1).Info("setting namespace field for namespace scoped object", "gvk", objects[i].GetObjectKind().GroupVersionKind().String(), "name", objMeta.GetName())
+			c.log.V(2).Info("setting namespace field for namespace scoped object", "gvk", objects[i].GetObjectKind().GroupVersionKind().String(), "name", objMeta.GetName())
 			objMeta.SetNamespace(namespace)
 		}
 	}
 	return nil
+}
+
+func (i *Inventory) Append(namespace, component string, parent reconciler.ResourceOwner, resourceBuilders []reconciler.ResourceBuilder) []reconciler.ResourceBuilder {
+	if objectInventory, err := i.PrepareDesiredObjects(namespace, component, parent, resourceBuilders); err == nil {
+		err := i.PrepareDeletableObjects()
+		resourceBuilders = append(resourceBuilders, func() (runtime.Object, reconciler.DesiredState, error) {
+			return objectInventory, reconciler.StatePresent, err
+		})
+	}
+	return resourceBuilders
 }
