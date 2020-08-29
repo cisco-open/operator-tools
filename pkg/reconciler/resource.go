@@ -22,6 +22,7 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
+	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -407,6 +408,17 @@ func (r *GenericResourceReconciler) CreateIfNotExist(desired runtime.Object, des
 			if err != nil {
 				return false, nil, errors.WrapIfWithDetails(err, "failed to wait for the crd to get ready", resourceDetails...)
 			}
+		case *v1.CustomResourceDefinition:
+			err = wait.Poll(time.Second*1, time.Second*10, func() (done bool, err error) {
+				err = r.Client.Get(context.TODO(), runtimeClient.ObjectKey{Namespace: t.Namespace, Name: t.Name}, t)
+				if err != nil {
+					return false, err
+				}
+				return crdReadyV1(t), nil
+			})
+			if err != nil {
+				return false, nil, errors.WrapIfWithDetails(err, "failed to wait for the crd to get ready", resourceDetails...)
+			}
 		}
 		log.Info("resource created")
 		return true, current, nil
@@ -476,6 +488,18 @@ func crdReady(crd *v1beta1.CustomResourceDefinition) bool {
 		switch cond.Type {
 		case v1beta1.Established:
 			if cond.Status == v1beta1.ConditionTrue {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func crdReadyV1(crd *v1.CustomResourceDefinition) bool {
+	for _, cond := range crd.Status.Conditions {
+		switch cond.Type {
+		case v1.Established:
+			if cond.Status == v1.ConditionTrue {
 				return true
 			}
 		}
