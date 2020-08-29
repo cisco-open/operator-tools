@@ -142,6 +142,8 @@ func (rec *HelmReconciler) reconcile(parent reconciler.ResourceOwner, component 
 		}
 
 		resourceBuilders = rec.inventory.Append(releaseData.Namespace, releaseData.ReleaseName, parent, append(resourceBuilders, chartResourceBuilders...))
+	} else {
+		resourceBuilders = rec.inventory.Append(releaseData.Namespace, releaseData.ReleaseName, parent, resourceBuilders)
 	}
 
 	r := reconciler.NewNativeReconcilerWithDefaults(
