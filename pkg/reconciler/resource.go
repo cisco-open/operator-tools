@@ -295,7 +295,7 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 			return nil, errors.WrapIfWithDetails(err, "failed to set resourceVersion in metadata", resourceDetails...)
 		}
 
-		debugLog.Info("Updating resource")
+		debugLog.Info("updating resource")
 		var updateOptions []runtimeClient.UpdateOption
 		if ds, ok := desiredState.(DesiredStateWithUpdateOptions); ok {
 			updateOptions = append(updateOptions, ds.GetUpdateOptions()...)
@@ -367,6 +367,7 @@ func (r *GenericResourceReconciler) CreateIfNotExist(desired runtime.Object, des
 	log := r.resourceLog(desired, resourceDetails...)
 	traceLog := log.V(2)
 	err = r.Client.Get(context.TODO(), key, current)
+	current.GetObjectKind().SetGroupVersionKind(desired.GetObjectKind().GroupVersionKind())
 	if err != nil && !apierrors.IsNotFound(err) {
 		return false, nil, errors.WrapIfWithDetails(err, "getting resource failed", resourceDetails...)
 	}
