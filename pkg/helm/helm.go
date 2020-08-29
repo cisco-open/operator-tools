@@ -19,11 +19,12 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"regexp"
 	"strings"
 
 	"emperror.dev/errors"
 	"github.com/ghodss/yaml"
+	"helm.sh/helm/v3/pkg/releaseutil"
+
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/engine"
@@ -93,9 +94,9 @@ func Render(fs http.FileSystem, values map[string]interface{}, releaseOptions Re
 				continue
 			}
 
-			yamlDocs := splitMultiYamlDoc(renderedTemplate)
-			for _, yamlDoc := range yamlDocs {
-				yamlDoc = strings.TrimSpace(yamlDoc)
+			manifests := releaseutil.SplitManifests(renderedTemplate)
+			for _, manifest := range manifests {
+				yamlDoc := strings.TrimSpace(manifest)
 				if yamlDoc == "" {
 					continue
 				}
@@ -104,6 +105,10 @@ func Render(fs http.FileSystem, values map[string]interface{}, releaseOptions Re
 				json, err := yaml.YAMLToJSON([]byte(yamlDoc))
 				if err != nil {
 					return nil, errors.WrapIfWithDetails(err, "unable to convert yaml to json", map[string]interface{}{"templatePath": t})
+				}
+
+				if string(json) == "null" {
+					continue
 				}
 
 				// deserialize json into unstructured
@@ -117,13 +122,6 @@ func Render(fs http.FileSystem, values map[string]interface{}, releaseOptions Re
 	}
 
 	return objects, nil
-}
-
-func splitMultiYamlDoc(multiYamlDoc string) []string {
-	yamlDocSeparator := regexp.MustCompile("\\s*---\\s*\n")
-	yamlDocs := yamlDocSeparator.Split(multiYamlDoc, -1) // split rendered template by YAML document separator
-
-	return yamlDocs
 }
 
 func getFiles(fs http.FileSystem) ([]*loader.BufferedFile, error) {
