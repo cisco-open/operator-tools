@@ -51,23 +51,15 @@ func CRDEstablishedConditionCheck(obj runtime.Object, k8serror error) bool {
 }
 
 func ReadyReplicasConditionCheck(obj runtime.Object, k8serror error) bool {
-	var deployment *appsv1.Deployment
-	var ok bool
-
-	if deployment, ok = obj.(*appsv1.Deployment); ok {
-		return deployment.Status.ReadyReplicas == deployment.Status.Replicas
+	switch o := obj.(type) {
+	case *appsv1.Deployment:
+		return o.Status.ReadyReplicas == o.Status.Replicas
+	case *appsv1.StatefulSet:
+		return o.Status.ReadyReplicas == o.Status.Replicas
+	case *appsv1.DaemonSet:
+		return o.Status.DesiredNumberScheduled == o.Status.NumberReady
+	default:
+		// return true for unconvertable objects
+		return true
 	}
-
-	var statefulset *appsv1.StatefulSet
-	if statefulset, ok = obj.(*appsv1.StatefulSet); ok {
-		return statefulset.Status.ReadyReplicas == statefulset.Status.Replicas
-	}
-
-	var daemonset *appsv1.DaemonSet
-	if daemonset, ok = obj.(*appsv1.DaemonSet); ok {
-		return daemonset.Status.DesiredNumberScheduled == daemonset.Status.NumberReady
-	}
-
-	// return true for unconvertable objects
-	return true
 }
