@@ -63,13 +63,11 @@ bin/licensei-${LICENSEI_VERSION}:
 .PHONY: license-check
 license-check: bin/licensei ## Run license check
 	bin/licensei check
-	cd module/helm && ../../bin/licensei check --config ../../.licensei.toml
 	bin/licensei header
 
 .PHONY: test
 test: bin/kubebuilder
 	go test ./...
-	cd module/helm && go test ./...
 
 .PHONY: check
 check: test lint license-check check-diff ## Run tests and linters
@@ -85,13 +83,11 @@ bin/golangci-lint-${GOLANGCI_VERSION}:
 lint: export CGO_ENABLED = 1
 lint: bin/golangci-lint ## Run linter
 	bin/golangci-lint run
-	cd module/helm && ../../bin/golangci-lint run
 
 .PHONY: fix
 fix: export CGO_ENABLED = 1
 fix: bin/golangci-lint ## Fix lint violations
 	bin/golangci-lint run --fix
-	cd module/helm && ../../bin/golangci-lint run --fix
 
 check-diff: generate-type-docs
 	go mod tidy
