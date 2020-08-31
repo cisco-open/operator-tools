@@ -307,7 +307,9 @@ func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result,
 		rec.Log.Error(combinedResult.Err, "skip purging results due to previous errors")
 	}
 	if rec.waitBackoff != nil {
-		rec.waitForResources(*rec.waitBackoff)
+		if err := rec.waitForResources(*rec.waitBackoff); err != nil {
+			combinedResult.CombineErr(err)
+		}
 	}
 	return &combinedResult.Result, combinedResult.Err
 }
