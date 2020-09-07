@@ -141,7 +141,7 @@ func GetObjectsFromInventory(inventory core.ConfigMap) []runtime.Object {
 }
 
 // Hand over a GVK list to the native reconcile loop's purge method
-func (c *Inventory) Purge() []schema.GroupVersionKind {
+func (c *Inventory) TypesToPurge() []schema.GroupVersionKind {
 	currentObjects := c.inventoryData.ObjectsToDelete
 	groupVersionKindDict := make(map[schema.GroupVersionKind]struct{})
 

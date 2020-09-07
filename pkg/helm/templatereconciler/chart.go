@@ -38,12 +38,12 @@ func orderedChartObjectsWithState(releaseData *ReleaseData) ([]runtime.Object, r
 func chartObjects(releaseData *ReleaseData) ([]runtime.Object, error) {
 	chartDefaultValues, err := helm.GetDefaultValues(releaseData.Chart)
 	if err != nil {
-		return nil, errors.WrapIf(err, "could not get prometheus helm default values")
+		return nil, errors.WrapIff(err, "could not get chart default values for %s", releaseData.ChartName)
 	}
 
 	chartDefaultValuesYaml := helm.Strimap{}
 	if err := yaml.Unmarshal(chartDefaultValues, &chartDefaultValuesYaml); err != nil {
-		return nil, errors.WrapIf(err, "could not marshal default values")
+		return nil, errors.WrapIff(err, "could not marshal default values for %s", releaseData.ChartName)
 	}
 
 	objects, err := helm.Render(releaseData.Chart, helm.MergeMaps(chartDefaultValuesYaml, releaseData.Values), helm.ReleaseOptions{
