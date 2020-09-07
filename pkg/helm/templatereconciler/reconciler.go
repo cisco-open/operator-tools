@@ -24,7 +24,7 @@ import (
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/banzaicloud/operator-tools/pkg/types"
 	"github.com/go-logr/logr"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery"
 	controllerruntime "sigs.k8s.io/controller-runtime"
@@ -87,11 +87,14 @@ func (rec *HelmReconciler) Reconcile(object runtime.Object, component Component)
 		return &reconcile.Result{}, nil
 	}
 
+	if err := component.UpdateStatus(object, types.ReconcileStatusReconciling, ""); err != nil {
+		rec.logger.Error(err, "status update failed")
+	}
 	rec.logger.Info("reconciling")
 
 	if component.Enabled(object) {
 		if err := component.PreChecks(object); err != nil {
-			if err := component.UpdateStatus(object, types.ReconcileStatusReconciling, err.Error()); err != nil {
+			if err := component.UpdateStatus(object, types.ReconcileStatusReconciling, "waiting for precondition checks to pass"); err != nil {
 				rec.logger.Error(err, "status update failed")
 			}
 			rec.logger.Error(err, "precondition checks failed")
@@ -168,7 +171,7 @@ func (rec *HelmReconciler) reconcile(parent reconciler.ResourceOwner, component 
 		func(_ reconciler.ResourceOwner, _ interface{}) []reconciler.ResourceBuilder {
 			return resourceBuilders
 		},
-		rec.inventory.Purge,
+		rec.inventory.TypesToPurge,
 		func(_ runtime.Object) (reconciler.ResourceOwner, interface{}) {
 			return nil, nil
 		},
