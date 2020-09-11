@@ -32,6 +32,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+const legacyRequirementsFileName = "requirements.yaml"
+
 type ReleaseOptions chartutil.ReleaseOptions
 
 func GetDefaultValues(fs http.FileSystem) ([]byte, error) {
@@ -132,7 +134,7 @@ func getFiles(fs http.FileSystem) ([]*loader.BufferedFile, error) {
 		{
 			// Without requirements.yaml legacy charts's subdependencies will be processed but cannot be disabled
 			// See https://github.com/helm/helm/blob/e2442699fa4703456b16884990c5218c16ed16fc/pkg/chart/loader/load.go#L105
-			Name: "requirements.yaml",
+			Name: legacyRequirementsFileName,
 		},
 	}
 
@@ -144,7 +146,7 @@ func getFiles(fs http.FileSystem) ([]*loader.BufferedFile, error) {
 				return nil, err
 			}
 		} else {
-			// Recursively get the all files from the dir and it's subfolders
+			// Recursively get all the files from the dir and it's subfolders
 			files, err = getFilesFromDir(fs, dir, files, dirName)
 			if err != nil {
 				return nil, err
@@ -152,16 +154,21 @@ func getFiles(fs http.FileSystem) ([]*loader.BufferedFile, error) {
 		}
 	}
 
+	filteredFiles := []*loader.BufferedFile{}
 	for _, f := range files {
 		data, err := readIntoBytes(fs, f.Name)
 		if err != nil {
+			if strings.HasSuffix(f.Name, legacyRequirementsFileName) {
+				continue
+			}
 			return nil, err
 		}
 
 		f.Data = data
+		filteredFiles = append(filteredFiles, f)
 	}
 
-	return files, nil
+	return filteredFiles, nil
 }
 
 func getFilesFromDir(fs http.FileSystem, dir http.File, files []*loader.BufferedFile, dirName string) ([]*loader.BufferedFile, error) {
