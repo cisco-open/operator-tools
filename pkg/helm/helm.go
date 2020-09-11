@@ -129,6 +129,11 @@ func getFiles(fs http.FileSystem) ([]*loader.BufferedFile, error) {
 		{
 			Name: chartutil.ChartfileName,
 		},
+		{
+			// Without requirements.yaml legacy charts's subdependencies will be processed but cannot be disabled
+			// See https://github.com/helm/helm/blob/e2442699fa4703456b16884990c5218c16ed16fc/pkg/chart/loader/load.go#L105
+			Name: "requirements.yaml",
+		},
 	}
 
 	// if the Helm chart templates use some resource files (like dashboards), those should be put under resources
