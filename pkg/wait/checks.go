@@ -18,6 +18,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -29,7 +30,7 @@ func ExistsConditionCheck(obj runtime.Object, k8serror error) bool {
 }
 
 func NonExistsConditionCheck(obj runtime.Object, k8serror error) bool {
-	return k8serrors.IsNotFound(k8serror)
+	return k8serrors.IsNotFound(k8serror) || meta.IsNoMatchError(k8serror)
 }
 
 func CRDEstablishedConditionCheck(obj runtime.Object, k8serror error) bool {
