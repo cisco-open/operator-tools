@@ -124,6 +124,9 @@ func (c *ResourceConditionChecks) waitForResourceConditions(object runtime.Objec
 		for _, fn := range checkFuncs {
 			ok := fn(resource, err)
 			if !ok {
+				if err != nil {
+					c.log.V(2).Info("still waiting", "error", err)
+				}
 				return false, nil
 			}
 		}
