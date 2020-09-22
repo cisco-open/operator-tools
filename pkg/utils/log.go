@@ -69,7 +69,7 @@ func (log logger) Error(e error, msg string, vals ...interface{}) {
 }
 
 // V implements logr.logger
-func (log logger) V(level int) logr.InfoLogger {
+func (log logger) V(level int) logr.Logger {
 	return logger{
 		name:   log.name,
 		level:  level,
