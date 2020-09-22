@@ -52,6 +52,9 @@ func (r *Dispatcher) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	if err != nil {
 		return reconcile.Result{}, errors.WithStack(err)
 	}
+	if object == nil {
+		return reconcile.Result{}, nil
+	}
 	if r.ResourceFilter != nil {
 		shouldReconcile, err := r.ResourceFilter(object)
 		if err != nil || !shouldReconcile {
