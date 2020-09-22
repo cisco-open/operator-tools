@@ -23,19 +23,14 @@ import (
 	"github.com/MakeNowJust/heredoc"
 	"github.com/andreyvit/diff"
 	"github.com/banzaicloud/operator-tools/pkg/docgen"
+	"github.com/banzaicloud/operator-tools/pkg/utils"
 	"github.com/go-logr/logr"
-	"github.com/go-logr/zapr"
-	"go.uber.org/zap"
 )
 
 var logger logr.Logger
 
 func init() {
-	log, err := zap.NewDevelopment()
-	if err != nil {
-		panic(err)
-	}
-	logger = zapr.NewLogger(log)
+	logger = utils.Log
 }
 
 func TestGenParse(t *testing.T) {
