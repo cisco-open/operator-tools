@@ -58,6 +58,12 @@ func (PendingStatusPredicate) Update(e event.UpdateEvent) bool {
 		return o.IsAnyInState(types.ReconcileStatusPending)
 	}
 
+	if o, ok := e.ObjectNew.(interface {
+		IsPending() bool
+	}); ok {
+		return o.IsPending()
+	}
+
 	return false
 }
 
