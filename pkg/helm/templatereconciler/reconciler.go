@@ -84,7 +84,7 @@ func (rec *HelmReconciler) Reconcile(object runtime.Object, component Component)
 	}
 
 	if component.Skipped(object) {
-		return &reconcile.Result{}, nil
+		return &reconcile.Result{}, component.UpdateStatus(object, types.ReconcileStatusUnmanaged, "")
 	}
 
 	if err := component.UpdateStatus(object, types.ReconcileStatusReconciling, ""); err != nil {
@@ -121,9 +121,21 @@ func (rec *HelmReconciler) Reconcile(object runtime.Object, component Component)
 		}
 		return result, err
 	} else {
-		err = component.UpdateStatus(object, types.ReconcileStatusAvailable, "")
-		if err != nil {
-			return result, err
+		if component.Skipped(object) {
+			err = component.UpdateStatus(object, types.ReconcileStatusUnmanaged, "")
+			if err != nil {
+				return result, err
+			}
+		} else if component.Enabled(object) {
+			err = component.UpdateStatus(object, types.ReconcileStatusAvailable, "")
+			if err != nil {
+				return result, err
+			}
+		} else {
+			err = component.UpdateStatus(object, types.ReconcileStatusRemoved, "")
+			if err != nil {
+				return result, err
+			}
 		}
 	}
 
