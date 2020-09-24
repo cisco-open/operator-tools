@@ -104,7 +104,7 @@ func (rec *HelmReconciler) Reconcile(object runtime.Object, component Component)
 		}
 	}
 
-	defer logger.EnableGroupSession(rec.logger)
+	defer logger.EnableGroupSession(rec.logger)()
 
 	rec.logger.Info("syncing resources")
 
