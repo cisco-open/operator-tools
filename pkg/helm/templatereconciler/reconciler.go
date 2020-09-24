@@ -15,6 +15,7 @@
 package templatereconciler
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -192,6 +193,17 @@ func (rec *HelmReconciler) reconcile(parent reconciler.ResourceOwner, component 
 	result, err := r.Reconcile(parent)
 	if err != nil {
 		return result, err
+	}
+
+	if !component.Enabled(parent) {
+		// cleanup orphaned pods left from removed jobs
+		if err := rec.client.DeleteAllOf(context.TODO(), &v1.Pod{},
+			client.MatchingLabels{"release": releaseData.ReleaseName},
+			client.HasLabels{"job-name"},
+			client.InNamespace(releaseData.Namespace),
+		); err != nil {
+			return result, errors.WrapIf(err, "failed to remove pods left from the release")
+		}
 	}
 
 	rec.logger.Info("reconciled")
