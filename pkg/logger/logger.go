@@ -49,15 +49,15 @@ type logger struct {
 
 	grouppable         bool
 	truncate           bool
-	timeFormat         string
 	showTime           bool
+	grouped            bool
 	checkMark          rune
 	errorMark          rune
 	separatorCharacter rune
+	timeFormat         string
 	colors             Colors
 
 	spinner *spinner.Spinner
-	grouped bool
 
 	mux sync.Mutex
 }
@@ -66,70 +66,70 @@ var GlobalLogLevel = 1
 
 var Log logr.Logger = New()
 
-type LoggerOption func(*logger)
+type Option func(*logger)
 
-func Out(w io.Writer) LoggerOption {
+func Out(w io.Writer) Option {
 	return func(l *logger) {
 		l.out = w
 	}
 }
 
-func Err(w io.Writer) LoggerOption {
+func Err(w io.Writer) Option {
 	return func(l *logger) {
 		l.err = w
 	}
 }
 
-func Grouppable() LoggerOption {
+func Grouppable() Option {
 	return func(l *logger) {
 		l.grouppable = true
 	}
 }
 
-func Truncate() LoggerOption {
+func Truncate() Option {
 	return func(l *logger) {
 		l.truncate = true
 	}
 }
 
-func Color(colors Colors) LoggerOption {
+func Color(colors Colors) Option {
 	return func(l *logger) {
 		l.colors = colors
 	}
 }
 
-func CheckMarkCharacter(m rune) LoggerOption {
+func CheckMarkCharacter(m rune) Option {
 	return func(l *logger) {
 		l.checkMark = m
 	}
 }
 
-func ErrorMarkCharacter(m rune) LoggerOption {
+func ErrorMarkCharacter(m rune) Option {
 	return func(l *logger) {
 		l.errorMark = m
 	}
 }
 
-func SeparatorCharacter(m rune) LoggerOption {
+func SeparatorCharacter(m rune) Option {
 	return func(l *logger) {
 		l.separatorCharacter = m
 	}
 }
 
-func WithName(name string) LoggerOption {
+func WithName(name string) Option {
 	return func(l *logger) {
 		l.names = append(l.names, name)
 	}
 }
 
-func WithTime(format string) LoggerOption {
+func WithTime(format string) Option {
 	return func(l *logger) {
 		l.timeFormat = format
 		l.showTime = true
 	}
 }
 
-func New(options ...LoggerOption) logr.Logger {
+func New(options ...Option) logr.Logger {
 	l := &logger{
 		names: []string{},
 		level: 0,
@@ -142,7 +142,7 @@ func New(options ...LoggerOption) logr.Logger {
 		colors: Colors{
 			Info:  color.FgGreen,
 			Error: color.FgRed,
-			Key:   color.FgHiBlack,
+			Key:   color.FgHiGreen,
 		},
 
 		mux: sync.Mutex{},
@@ -155,13 +155,13 @@ func New(options ...LoggerOption) logr.Logger {
 	return l
 }
 
-func (l *logger) SetOptions(options ...LoggerOption) {
+func (log *logger) SetOptions(options ...Option) {
 	for _, opt := range options {
-		opt(l)
+		opt(log)
 	}
 }
 
-// Info implements logr.InfoLogger
+// Info implements logr.InfoLogger.
 func (log *logger) Info(msg string, vals ...interface{}) {
 	if GlobalLogLevel >= log.level {
 		allVal := append(vals, log.values...)
@@ -189,6 +189,7 @@ func (log *logger) Info(msg string, vals ...interface{}) {
 
 		log.mux.Lock()
 		if log.spinner != nil {
+			log.spinner.Writer = log.out
 			log.spinner.Suffix = " " + msg // Append text after the spinner
 			log.spinner.FinalMSG = color.New(log.colors.Info).Sprintf("%c", log.checkMark) + log.spinner.Suffix + "\n"
 		}
@@ -200,12 +201,12 @@ func (log *logger) Info(msg string, vals ...interface{}) {
 	}
 }
 
-// Enabled implements logr.InfoLogger
-func (*logger) Enabled() bool {
+// Enabled implements logr.InfoLogger.
+func (log *logger) Enabled() bool {
 	return true
 }
 
-// Error implements logr.logger
+// Error implements logr.logger.
 func (log *logger) Error(e error, msg string, vals ...interface{}) {
 	allVal := append(vals, log.values...)
 	if msg != "" {
@@ -232,6 +233,7 @@ func (log *logger) Error(e error, msg string, vals ...interface{}) {
 		log.spinner.Restart()
 	}
 
+	log.spinner.Writer = log.err
 	log.spinner.Suffix = " " + msg // Append text after the spinner
 	log.spinner.FinalMSG = color.New(log.colors.Error).Sprintf("%c", log.errorMark) + log.spinner.Suffix + "\n"
 
@@ -302,7 +304,7 @@ func (log *logger) Grouped(state bool) {
 func (log *logger) initSpinner() {
 	log.mux.Lock()
 	defer log.mux.Unlock()
-	log.spinner = spinner.New(spinner.CharSets[21], 100*time.Millisecond, spinner.WithHiddenCursor(true))
+	log.spinner = spinner.New(spinner.CharSets[21], 100*time.Millisecond, spinner.WithHiddenCursor(false), spinner.WithWriter(log.out))
 	_ = log.spinner.Color("green")
 }
 
@@ -353,7 +355,11 @@ func (log *logger) joinAndSeparatePairs(vals []interface{}) string {
 	joined := ""
 	c := log.colors.Key
 	for i, v := range vals {
-		joined += color.New(c).Sprintf("%s", cast.ToString(v))
+		s, err := cast.ToStringE(v)
+		if err != nil {
+			s = fmt.Sprintf("%v", v)
+		}
+		joined += color.New(c).Sprint(s)
 		if i%2 == 0 {
 			c = 0
 			joined = joined + "="
@@ -368,6 +374,10 @@ func (log *logger) joinAndSeparatePairs(vals []interface{}) string {
 }
 
 func (log *logger) getDetailedErr(err error) string {
+	if err == nil {
+		return ""
+	}
+
 	details := errors.GetDetails(err)
 	if len(details) == 0 {
 		return err.Error()
