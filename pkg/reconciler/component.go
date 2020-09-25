@@ -16,6 +16,7 @@ package reconciler
 
 import (
 	"emperror.dev/errors"
+	"github.com/banzaicloud/operator-tools/pkg/types"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -32,6 +33,16 @@ type ComponentReconciler interface {
 
 type Watches interface {
 	SetupAdditionalWatches(c controller.Controller) error
+}
+
+type ComponentWithStatus interface {
+	Update(object runtime.Object, status types.ReconcileStatus, msg string) error
+	IsSkipped(object runtime.Object) bool
+	IsEnabled(object runtime.Object) bool
+}
+
+type ComponentLifecycle interface {
+	OnFinished(object runtime.Object) error
 }
 
 // Dispatcher orchestrates reconciliation of multiple ComponentReconciler objects
@@ -76,7 +87,42 @@ func (r *Dispatcher) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 func (r *Dispatcher) Handle(object runtime.Object) (ctrl.Result, error) {
 	combinedResult := &CombinedResult{}
 	for _, cr := range r.ComponentReconcilers {
+		if cr, ok := cr.(ComponentWithStatus); ok {
+			if cr.IsSkipped(object) {
+				if uerr := cr.Update(object, types.ReconcileStatusUnmanaged, ""); uerr != nil {
+					combinedResult.CombineErr(errors.WrapIf(uerr, "unable to update status for component"))
+				}
+				continue
+			}
+			if uerr := cr.Update(object, types.ReconcileStatusReconciling, ""); uerr != nil {
+				combinedResult.CombineErr(errors.WrapIf(uerr, "unable to update status for component"))
+			}
+		}
 		result, err := cr.Reconcile(object)
+		if cr, ok := cr.(ComponentWithStatus); ok {
+			if err != nil {
+				if uerr := cr.Update(object, types.ReconcileStatusFailed, err.Error()); uerr != nil {
+					combinedResult.CombineErr(errors.WrapIf(uerr, "unable to update status for component"))
+				}
+			} else {
+				if result == nil || result.Requeue == false && result.RequeueAfter == 0 {
+					if cr.IsEnabled(object) {
+						if uerr := cr.Update(object, types.ReconcileStatusAvailable, ""); uerr != nil {
+							combinedResult.CombineErr(errors.WrapIf(uerr, "unable to update status for component"))
+						}
+					} else {
+						if uerr := cr.Update(object, types.ReconcileStatusRemoved, ""); uerr != nil {
+							combinedResult.CombineErr(errors.WrapIf(uerr, "unable to update status for component"))
+						}
+					}
+				}
+			}
+		}
+		if cr, ok := cr.(ComponentLifecycle); ok {
+			if err := cr.OnFinished(object); err != nil {
+				combinedResult.Combine(result, errors.WrapIf(err, "failed to notify component on finish"))
+			}
+		}
 		combinedResult.Combine(result, errors.WithStack(err))
 		if cr, ok := cr.(interface{ IsOptional() bool }); ok {
 			if err != nil && !cr.IsOptional() {
