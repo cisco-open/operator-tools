@@ -105,7 +105,7 @@ func (r *Dispatcher) Handle(object runtime.Object) (ctrl.Result, error) {
 					combinedResult.CombineErr(errors.WrapIf(uerr, "unable to update status for component"))
 				}
 			} else {
-				if result == nil || result.Requeue == false && result.RequeueAfter == 0 {
+				if result == nil || (!result.Requeue && result.RequeueAfter == 0) {
 					if cr.IsEnabled(object) {
 						if uerr := cr.Update(object, types.ReconcileStatusAvailable, ""); uerr != nil {
 							combinedResult.CombineErr(errors.WrapIf(uerr, "unable to update status for component"))
