@@ -88,14 +88,15 @@ func (r *Dispatcher) Handle(object runtime.Object) (ctrl.Result, error) {
 	combinedResult := &CombinedResult{}
 	for _, cr := range r.ComponentReconcilers {
 		if cr, ok := cr.(ComponentWithStatus); ok {
+			status := types.ReconcileStatusReconciling
 			if cr.IsSkipped(object) {
-				if uerr := cr.Update(object, types.ReconcileStatusUnmanaged, ""); uerr != nil {
-					combinedResult.CombineErr(errors.WrapIf(uerr, "unable to update status for component"))
-				}
-				continue
+				status = types.ReconcileStatusUnmanaged
 			}
-			if uerr := cr.Update(object, types.ReconcileStatusReconciling, ""); uerr != nil {
+			if uerr := cr.Update(object, status, ""); uerr != nil {
 				combinedResult.CombineErr(errors.WrapIf(uerr, "unable to update status for component"))
+			}
+			if cr.IsSkipped(object) {
+				continue
 			}
 		}
 		result, err := cr.Reconcile(object)
@@ -106,14 +107,12 @@ func (r *Dispatcher) Handle(object runtime.Object) (ctrl.Result, error) {
 				}
 			} else {
 				if result == nil || (!result.Requeue && result.RequeueAfter == 0) {
+					status :=  types.ReconcileStatusRemoved
 					if cr.IsEnabled(object) {
-						if uerr := cr.Update(object, types.ReconcileStatusAvailable, ""); uerr != nil {
-							combinedResult.CombineErr(errors.WrapIf(uerr, "unable to update status for component"))
-						}
-					} else {
-						if uerr := cr.Update(object, types.ReconcileStatusRemoved, ""); uerr != nil {
-							combinedResult.CombineErr(errors.WrapIf(uerr, "unable to update status for component"))
-						}
+						status = types.ReconcileStatusAvailable
+					}
+					if uerr := cr.Update(object, status, ""); uerr != nil {
+						combinedResult.CombineErr(errors.WrapIf(uerr, "unable to update status for component"))
 					}
 				}
 			}
