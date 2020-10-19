@@ -28,13 +28,16 @@ type SecretLoader interface {
 	Load(secret *Secret) (string, error)
 }
 
-type secretLoader struct {
-	// secretLoader is limited to a single namespace, to avoid hijacking other namespace's secrets
-	namespace string
-	mountPath string
-	client    client.Client
-	secrets   *MountSecrets
+func NewSecretLoader(client client.Reader, namespace, mountPath string, secrets *MountSecrets) SecretLoader {
+	return &secretLoader{
+		client:    client,
+		mountPath: mountPath,
+		namespace: namespace,
+		secrets:   secrets,
+	}
 }
+
+type MountSecrets []MountSecret
 
 func (m *MountSecrets) Append(namespace string, secret *corev1.SecretKeySelector, mappedKey string, value []byte) {
 	*m = append(*m, MountSecret{
@@ -46,8 +49,6 @@ func (m *MountSecrets) Append(namespace string, secret *corev1.SecretKeySelector
 	})
 }
 
-type MountSecrets []MountSecret
-
 type MountSecret struct {
 	Namespace string
 	Name      string
@@ -56,13 +57,12 @@ type MountSecret struct {
 	Value     []byte
 }
 
-func NewSecretLoader(client client.Client, namespace, mountPath string, secrets *MountSecrets) SecretLoader {
-	return &secretLoader{
-		client:    client,
-		mountPath: mountPath,
-		namespace: namespace,
-		secrets:   secrets,
-	}
+type secretLoader struct {
+	// secretLoader is limited to a single namespace, to avoid hijacking other namespace's secrets
+	namespace string
+	mountPath string
+	client    client.Reader
+	secrets   *MountSecrets
 }
 
 func (k *secretLoader) Load(secret *Secret) (string, error) {
