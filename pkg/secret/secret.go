@@ -28,7 +28,7 @@ type SecretLoader interface {
 	Load(secret *Secret) (string, error)
 }
 
-func NewSecretLoader(client client.Client, namespace, mountPath string, secrets *MountSecrets) SecretLoader {
+func NewSecretLoader(client client.Reader, namespace, mountPath string, secrets *MountSecrets) SecretLoader {
 	return &secretLoader{
 		client:    client,
 		mountPath: mountPath,
@@ -61,7 +61,7 @@ type secretLoader struct {
 	// secretLoader is limited to a single namespace, to avoid hijacking other namespace's secrets
 	namespace string
 	mountPath string
-	client    client.Client
+	client    client.Reader
 	secrets   *MountSecrets
 }
 
