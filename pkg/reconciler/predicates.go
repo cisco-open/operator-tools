@@ -72,7 +72,10 @@ type SpecChangePredicate struct {
 }
 
 func (SpecChangePredicate) Update(e event.UpdateEvent) bool {
-	e.MetaNew.SetResourceVersion(e.MetaOld.GetResourceVersion())
+	oldRV := e.MetaOld.GetResourceVersion()
+	e.MetaOld.SetResourceVersion(e.MetaNew.GetResourceVersion())
+	defer e.MetaOld.SetResourceVersion(oldRV)
+
 	patchResult, err := patch.DefaultPatchMaker.Calculate(e.ObjectOld, e.ObjectNew, patch.IgnoreStatusFields(), IgnoreManagedFields())
 	if err != nil {
 		return true
