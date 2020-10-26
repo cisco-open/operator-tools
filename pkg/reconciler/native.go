@@ -263,14 +263,16 @@ func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result,
 			}
 			rec.addRelatedToAnnotation(objectMeta, ownerMeta)
 			if rec.setControllerRef {
-				isCrd := false
+				skipControllerRef := false
 				switch o.(type) {
 				case *v1beta1.CustomResourceDefinition:
-					isCrd = true
+					skipControllerRef = true
 				case *v1.CustomResourceDefinition:
-					isCrd = true
+					skipControllerRef = true
+				case *corev1.Namespace:
+					skipControllerRef = true
 				}
-				if !isCrd {
+				if !skipControllerRef {
 					// namespaced resource can only own resources in the same namespace
 					if ownerMeta.GetNamespace() == "" || ownerMeta.GetNamespace() == objectMeta.GetNamespace() {
 						if err := controllerutil.SetControllerReference(ownerMeta, objectMeta, rec.scheme); err != nil {
