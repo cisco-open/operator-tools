@@ -220,24 +220,7 @@ func (base *DeploymentSpecBase) Override(spec appsv1.DeploymentSpec) appsv1.Depl
 	if base.Replicas != nil {
 		spec.Replicas = base.Replicas
 	}
-	if base.Selector != nil {
-		// Extending matchLabels
-		if base.Selector.MatchLabels != nil {
-			if spec.Selector == nil {
-				spec.Selector = &metav1.LabelSelector{}
-			}
-			if spec.Selector.MatchLabels == nil {
-				spec.Selector.MatchLabels = make(map[string]string)
-			}
-			for k, v := range base.Selector.MatchLabels {
-				spec.Selector.MatchLabels[k] = v
-			}
-		}
-		// Extending matchExpressions
-		if base.Selector.MatchExpressions != nil {
-			spec.Selector.MatchExpressions = append(spec.Selector.MatchExpressions, base.Selector.MatchExpressions...)
-		}
-	}
+	spec.Selector = mergeSelectors(base.Selector, spec.Selector)
 	if base.Strategy != nil {
 		spec.Strategy = *base.Strategy
 	}
@@ -258,30 +241,36 @@ func (base *StatefulsetSpecBase) Override(spec appsv1.StatefulSetSpec) appsv1.St
 	if base.Replicas != nil {
 		spec.Replicas = base.Replicas
 	}
-	if base.Selector != nil {
-		// Extending matchLabels
-		if base.Selector.MatchLabels != nil {
-			if spec.Selector == nil {
-				spec.Selector = &metav1.LabelSelector{}
-			}
-			if spec.Selector.MatchLabels == nil {
-				spec.Selector.MatchLabels = make(map[string]string)
-			}
-			for k, v := range base.Selector.MatchLabels {
-				spec.Selector.MatchLabels[k] = v
-			}
-		}
-		// Extending matchExpressions
-		if base.Selector.MatchExpressions != nil {
-			spec.Selector.MatchExpressions = append(spec.Selector.MatchExpressions, base.Selector.MatchExpressions...)
-		}
-	}
+	spec.Selector = mergeSelectors(base.Selector, spec.Selector)
 	if base.PodManagementPolicy != "" {
 		spec.PodManagementPolicy = base.PodManagementPolicy
 	}
 	if base.UpdateStrategy != nil {
 		spec.UpdateStrategy = *base.UpdateStrategy
 
+	}
+
+	return spec
+}
+
+func mergeSelectors(base, spec *metav1.LabelSelector) *metav1.LabelSelector {
+	if base == nil {
+		return spec
+	}
+
+	if base.MatchLabels != nil {
+		if spec == nil {
+			spec = &metav1.LabelSelector{}
+		}
+		if spec.MatchLabels == nil {
+			spec.MatchLabels = make(map[string]string)
+		}
+		for k, v := range base.MatchLabels {
+			spec.MatchLabels[k] = v
+		}
+	}
+	if base.MatchExpressions != nil {
+		spec.MatchExpressions = append(spec.MatchExpressions, base.MatchExpressions...)
 	}
 
 	return spec
