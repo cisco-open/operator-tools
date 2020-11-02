@@ -24,7 +24,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	// corev1 "k8s.io/api/core/v1"
 )
 
 func TestMetaBaseEmptyOverrideOnEmptyObject(t *testing.T) {
@@ -101,7 +100,7 @@ func TestDeploymentBaseOverrideOnExistingObject(t *testing.T) {
 				{
 					Key:      "original",
 					Operator: metav1.LabelSelectorOpIn,
-					Values:   []string{"original", "match", "expressions"},
+					Values:   []string{"original", "match", "expression"},
 				},
 			},
 		},
@@ -114,7 +113,7 @@ func TestDeploymentBaseOverrideOnExistingObject(t *testing.T) {
 				{
 					Key:      "another",
 					Operator: metav1.LabelSelectorOpIn,
-					Values:   []string{"another", "match", "expressions"},
+					Values:   []string{"another", "match", "expression"},
 				},
 			},
 		},
@@ -133,12 +132,12 @@ func TestDeploymentBaseOverrideOnExistingObject(t *testing.T) {
 				{
 					Key:      "original",
 					Operator: metav1.LabelSelectorOpIn,
-					Values:   []string{"original", "match", "expressions"},
+					Values:   []string{"original", "match", "expression"},
 				},
 				{
 					Key:      "another",
 					Operator: metav1.LabelSelectorOpIn,
-					Values:   []string{"another", "match", "expressions"},
+					Values:   []string{"another", "match", "expression"},
 				},
 			},
 		},
@@ -321,7 +320,6 @@ func TestDeploymentBaseOverride(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.base.Override(tt.spec); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("base.Override() = \n%#v\nwant\n%#v\n", got, tt.want)
-				t.Errorf("base.Override() = \n%#v\nwant\n%#v\n", got.Selector, tt.want.Selector)
 			}
 		})
 	}
@@ -527,7 +525,6 @@ func TestStatefulsetBaseOverride(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.base.Override(tt.spec); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("base.Override() = \n%#v\nwant\n%#v\n", got, tt.want)
-				t.Errorf("base.Override() = \n%#v\nwant\n%#v\n", got.Selector, tt.want.Selector)
 			}
 		})
 	}
