@@ -27,3 +27,16 @@
 | command | []string | No | - |  |
 | volumeMounts | []corev1.VolumeMount | No | - |  |
 | securityContext | *corev1.SecurityContext | No | - |  |
+### DeploymentSpecBase
+| Variable Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+| replicas | *int32 | No | - |  |
+| selector | *metav1.LabelSelector | Yes | - |  |
+| strategy | *appsv1.DeploymentStrategy | No | - |  |
+### StatefulsetSpecBase
+| Variable Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+| replicas | *int32 | No | - |  |
+| selector | *metav1.LabelSelector | Yes | - |  |
+| podManagementPolicy | appsv1.PodManagementPolicyType | No | - |  |
+| updateStrategy | *appsv1.StatefulSetUpdateStrategy | No | - |  |
