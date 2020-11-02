@@ -235,9 +235,7 @@ func (base *DeploymentSpecBase) Override(spec appsv1.DeploymentSpec) appsv1.Depl
 		}
 		// Extending matchExpressions
 		if base.Selector.MatchExpressions != nil {
-			for _, v := range base.Selector.MatchExpressions {
-				spec.Selector.MatchExpressions = append(spec.Selector.MatchExpressions, v)
-			}
+			spec.Selector.MatchExpressions = append(spec.Selector.MatchExpressions, base.Selector.MatchExpressions...)
 		}
 	}
 	if base.Strategy != nil {
@@ -275,9 +273,7 @@ func (base *StatefulsetSpecBase) Override(spec appsv1.StatefulSetSpec) appsv1.St
 		}
 		// Extending matchExpressions
 		if base.Selector.MatchExpressions != nil {
-			for _, v := range base.Selector.MatchExpressions {
-				spec.Selector.MatchExpressions = append(spec.Selector.MatchExpressions, v)
-			}
+			spec.Selector.MatchExpressions = append(spec.Selector.MatchExpressions, base.Selector.MatchExpressions...)
 		}
 	}
 	if base.PodManagementPolicy != "" {
