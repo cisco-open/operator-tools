@@ -207,6 +207,8 @@ func (base *PodSpecBase) Override(spec corev1.PodSpec) corev1.PodSpec {
 	return spec
 }
 
+// +kubebuilder:object:generate=true
+
 type DeploymentSpecBase struct {
 	Replicas *int32                     `json:"replicas,omitempty"`
 	Selector *metav1.LabelSelector      `json:"selector"`
@@ -226,6 +228,8 @@ func (base *DeploymentSpecBase) Override(spec appsv1.DeploymentSpec) appsv1.Depl
 	}
 	return spec
 }
+
+// +kubebuilder:object:generate=true
 
 type StatefulsetSpecBase struct {
 	Replicas            *int32                            `json:"replicas,omitempty"`
