@@ -31,12 +31,12 @@
 | Variable Name | Type | Required | Default | Description |
 |---|---|---|---|---|
 | replicas | *int32 | No | - |  |
-| selector | *metav1.LabelSelector | Yes | - |  |
+| selector | *metav1.LabelSelector | No | - |  |
 | strategy | *appsv1.DeploymentStrategy | No | - |  |
 ### StatefulsetSpecBase
 | Variable Name | Type | Required | Default | Description |
 |---|---|---|---|---|
 | replicas | *int32 | No | - |  |
-| selector | *metav1.LabelSelector | Yes | - |  |
+| selector | *metav1.LabelSelector | No | - |  |
 | podManagementPolicy | appsv1.PodManagementPolicyType | No | - |  |
 | updateStrategy | *appsv1.StatefulSetUpdateStrategy | No | - |  |

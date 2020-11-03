@@ -211,7 +211,7 @@ func (base *PodSpecBase) Override(spec corev1.PodSpec) corev1.PodSpec {
 
 type DeploymentSpecBase struct {
 	Replicas *int32                     `json:"replicas,omitempty"`
-	Selector *metav1.LabelSelector      `json:"selector"`
+	Selector *metav1.LabelSelector      `json:"selector,omitempty"`
 	Strategy *appsv1.DeploymentStrategy `json:"strategy,omitempty"`
 }
 
@@ -233,7 +233,7 @@ func (base *DeploymentSpecBase) Override(spec appsv1.DeploymentSpec) appsv1.Depl
 
 type StatefulsetSpecBase struct {
 	Replicas            *int32                            `json:"replicas,omitempty"`
-	Selector            *metav1.LabelSelector             `json:"selector"`
+	Selector            *metav1.LabelSelector             `json:"selector,omitempty"`
 	PodManagementPolicy appsv1.PodManagementPolicyType    `json:"podManagementPolicy,omitempty"`
 	UpdateStrategy      *appsv1.StatefulSetUpdateStrategy `json:"updateStrategy,omitempty"`
 }
