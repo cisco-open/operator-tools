@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 package utils
 
 import (
@@ -39,6 +38,10 @@ var Log logr.Logger = logger{
 	level: 0,
 	out:   os.Stderr,
 	err:   os.Stderr,
+}
+
+func NewLogger(name string, out, err io.Writer, level int) logr.Logger {
+	return &logger{name: name, err: err, out: out, level: level}
 }
 
 // Info implements logr.InfoLogger
@@ -123,4 +126,3 @@ func getDetailedErr(err error) string {
 	}
 	return fmt.Sprintf("%s (%s)", err.Error(), joinAndSeparatePairs(details))
 }
-
