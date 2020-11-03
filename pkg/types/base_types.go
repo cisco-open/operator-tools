@@ -15,8 +15,9 @@
 package types
 
 import (
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -40,22 +41,22 @@ type ReconcileStatus string
 
 const (
 	// Used for components and for aggregated status
-	ReconcileStatusFailed      ReconcileStatus = "Failed"
+	ReconcileStatusFailed ReconcileStatus = "Failed"
 
 	// Used for components and for aggregated status
 	ReconcileStatusReconciling ReconcileStatus = "Reconciling"
 
 	// Used for components
-	ReconcileStatusAvailable   ReconcileStatus = "Available"
-	ReconcileStatusUnmanaged   ReconcileStatus = "Unmanaged"
-	ReconcileStatusRemoved     ReconcileStatus = "Removed"
+	ReconcileStatusAvailable ReconcileStatus = "Available"
+	ReconcileStatusUnmanaged ReconcileStatus = "Unmanaged"
+	ReconcileStatusRemoved   ReconcileStatus = "Removed"
 
 	// Used for aggregated status if all the components are stableized (Available, Unmanaged or Removed)
-	ReconcileStatusSucceeded   ReconcileStatus = "Succeeded"
+	ReconcileStatusSucceeded ReconcileStatus = "Succeeded"
 
 	// Used to trigger reconciliation for a resource that otherwise ignores status changes, but listens to the Pending state
 	// See PendingStatusPredicate in pkg/reconciler
-	ReconcileStatusPending     ReconcileStatus = "Pending"
+	ReconcileStatusPending ReconcileStatus = "Pending"
 )
 
 func (s ReconcileStatus) Stable() bool {
@@ -155,7 +156,7 @@ func (base *ContainerBase) Override(container corev1.Container) corev1.Container
 	return container
 }
 
-func (base *MetaBase) Merge(meta v1.ObjectMeta) v1.ObjectMeta {
+func (base *MetaBase) Merge(meta metav1.ObjectMeta) metav1.ObjectMeta {
 	if base == nil {
 		return meta
 	}
@@ -203,5 +204,78 @@ func (base *PodSpecBase) Override(spec corev1.PodSpec) corev1.PodSpec {
 	if base.PriorityClassName != "" {
 		spec.PriorityClassName = base.PriorityClassName
 	}
+	return spec
+}
+
+// +kubebuilder:object:generate=true
+
+type DeploymentSpecBase struct {
+	Replicas *int32                     `json:"replicas,omitempty"`
+	Selector *metav1.LabelSelector      `json:"selector"`
+	Strategy *appsv1.DeploymentStrategy `json:"strategy,omitempty"`
+}
+
+func (base *DeploymentSpecBase) Override(spec appsv1.DeploymentSpec) appsv1.DeploymentSpec {
+	if base == nil {
+		return spec
+	}
+	if base.Replicas != nil {
+		spec.Replicas = base.Replicas
+	}
+	spec.Selector = mergeSelectors(base.Selector, spec.Selector)
+	if base.Strategy != nil {
+		spec.Strategy = *base.Strategy
+	}
+	return spec
+}
+
+// +kubebuilder:object:generate=true
+
+type StatefulsetSpecBase struct {
+	Replicas            *int32                            `json:"replicas,omitempty"`
+	Selector            *metav1.LabelSelector             `json:"selector"`
+	PodManagementPolicy appsv1.PodManagementPolicyType    `json:"podManagementPolicy,omitempty"`
+	UpdateStrategy      *appsv1.StatefulSetUpdateStrategy `json:"updateStrategy,omitempty"`
+}
+
+func (base *StatefulsetSpecBase) Override(spec appsv1.StatefulSetSpec) appsv1.StatefulSetSpec {
+	if base == nil {
+		return spec
+	}
+	if base.Replicas != nil {
+		spec.Replicas = base.Replicas
+	}
+	spec.Selector = mergeSelectors(base.Selector, spec.Selector)
+	if base.PodManagementPolicy != "" {
+		spec.PodManagementPolicy = base.PodManagementPolicy
+	}
+	if base.UpdateStrategy != nil {
+		spec.UpdateStrategy = *base.UpdateStrategy
+
+	}
+
+	return spec
+}
+
+func mergeSelectors(base, spec *metav1.LabelSelector) *metav1.LabelSelector {
+	if base == nil {
+		return spec
+	}
+
+	if base.MatchLabels != nil {
+		if spec == nil {
+			spec = &metav1.LabelSelector{}
+		}
+		if spec.MatchLabels == nil {
+			spec.MatchLabels = make(map[string]string)
+		}
+		for k, v := range base.MatchLabels {
+			spec.MatchLabels[k] = v
+		}
+	}
+	if base.MatchExpressions != nil {
+		spec.MatchExpressions = append(spec.MatchExpressions, base.MatchExpressions...)
+	}
+
 	return spec
 }
