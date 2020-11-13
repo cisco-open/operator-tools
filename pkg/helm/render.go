@@ -23,6 +23,7 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/ghodss/yaml"
+	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/releaseutil"
 
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -83,6 +84,11 @@ func Render(fs http.FileSystem, values map[string]interface{}, releaseOptions Re
 		return nil, err
 	}
 
+	crds := make(map[string]*chart.File)
+	for _, crd := range chrt.CRDObjects() {
+		crds[crd.Filename] = crd.File
+	}
+
 	// Merge templates and inject
 	var objects []runtime.Object
 	for _, tmpl := range files {
@@ -91,38 +97,52 @@ func Render(fs http.FileSystem, values map[string]interface{}, releaseOptions Re
 		}
 		t := path.Join(chartName, tmpl.Name)
 		if renderedTemplate, ok := renderedTemplates[t]; ok {
-			renderedTemplate = strings.TrimSpace(renderedTemplate)
-			if renderedTemplate == "" {
-				continue
+			objects, err = appendObjects(objects, renderedTemplate, t)
+			if err != nil {
+				return nil, err
 			}
-
-			manifests := releaseutil.SplitManifests(renderedTemplate)
-			for _, manifest := range manifests {
-				yamlDoc := strings.TrimSpace(manifest)
-				if yamlDoc == "" {
-					continue
-				}
-
-				// convert yaml to json
-				json, err := yaml.YAMLToJSON([]byte(yamlDoc))
-				if err != nil {
-					return nil, errors.WrapIfWithDetails(err, "unable to convert yaml to json", map[string]interface{}{"templatePath": t})
-				}
-
-				if string(json) == "null" {
-					continue
-				}
-
-				// deserialize json into unstructured
-				o, _, err := unstructured.UnstructuredJSONScheme.Decode(json, nil, nil)
-				if err != nil {
-					return nil, errors.WrapIfWithDetails(err, "unable to create unstructured", map[string]interface{}{"templatePath": t})
-				}
-				objects = append(objects, o)
+		} else if crd, ok := crds[t]; ok {
+			objects, err = appendObjects(objects, string(crd.Data), t)
+			if err != nil {
+				return nil, err
 			}
 		}
 	}
 
+	return objects, nil
+}
+
+func appendObjects(objects []runtime.Object, renderedTemplate, path string) ([]runtime.Object, error) {
+	renderedTemplate = strings.TrimSpace(renderedTemplate)
+	if renderedTemplate == "" {
+		return objects, nil
+	}
+
+	manifests := releaseutil.SplitManifests(renderedTemplate)
+	for _, manifest := range manifests {
+		yamlDoc := strings.TrimSpace(manifest)
+		if yamlDoc == "" {
+			continue
+		}
+
+		// convert yaml to json
+		json, err := yaml.YAMLToJSON([]byte(yamlDoc))
+		if err != nil {
+			return nil, errors.WrapIfWithDetails(err, "unable to convert yaml to json", map[string]interface{}{"templatePath": path})
+		}
+
+		if string(json) == "null" {
+			continue
+		}
+
+		// deserialize json into unstructured
+		o, _, err := unstructured.UnstructuredJSONScheme.Decode(json, nil, nil)
+		if err != nil {
+			return nil, errors.WrapIfWithDetails(err, "unable to create unstructured", map[string]interface{}{"templatePath": path})
+		}
+
+		objects = append(objects, o)
+	}
 	return objects, nil
 }
 
