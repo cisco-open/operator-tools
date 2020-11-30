@@ -268,7 +268,7 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 
 		patchResult, err := patch.DefaultPatchMaker.Calculate(current, desired, patch.IgnoreStatusFields())
 		if err != nil {
-			log.Error(err, "could not match objects")
+			debugLog.Info("could not match objects", "error", err)
 		} else if patchResult.IsEmpty() {
 			debugLog.Info("resource is in sync")
 			return nil, nil
