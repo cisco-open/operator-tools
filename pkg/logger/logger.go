@@ -180,8 +180,11 @@ func (log *logger) Info(msg string, vals ...interface{}) {
 
 		if log.truncate {
 			w, _ := terminal.Width()
-			w -= 3 // reduced by 3 (spinner char, space, leeway)
-			msg = log.truncateString(msg, int(w))
+			// vscode debug window returns 0 width (without an error)
+			if w > 3 {
+				w -= 3 // reduced by 3 (spinner char, space, leeway)
+				msg = log.truncateString(msg, int(w))
+			}
 		}
 
 		if log.spinner == nil {
