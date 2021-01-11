@@ -257,6 +257,36 @@ func (base *StatefulsetSpecBase) Override(spec appsv1.StatefulSetSpec) appsv1.St
 	return spec
 }
 
+// +kubebuilder:object:generate=true
+
+type DaemonSetSpecBase struct {
+	Selector             *metav1.LabelSelector           `json:"selector,omitempty"`
+	UpdateStrategy       *appsv1.DaemonSetUpdateStrategy `json:"updateStrategy,omitempty"`
+	MinReadySeconds      int32                           `json:"minReadySeconds,omitempty"`
+	RevisionHistoryLimit *int32                          `json:"revisionHistoryLimit,omitempty"`
+}
+
+func (base *DaemonSetSpecBase) Override(spec appsv1.DaemonSetSpec) appsv1.DaemonSetSpec {
+	if base == nil {
+		return spec
+	}
+
+	spec.Selector = mergeSelectors(base.Selector, spec.Selector)
+	if base.UpdateStrategy != nil {
+		spec.UpdateStrategy = *base.UpdateStrategy
+
+	}
+	if base.MinReadySeconds != 0 {
+		spec.MinReadySeconds = base.MinReadySeconds
+
+	}
+	if base.RevisionHistoryLimit != nil {
+		spec.RevisionHistoryLimit = base.RevisionHistoryLimit
+
+	}
+	return spec
+}
+
 func mergeSelectors(base, spec *metav1.LabelSelector) *metav1.LabelSelector {
 	if base == nil {
 		return spec
