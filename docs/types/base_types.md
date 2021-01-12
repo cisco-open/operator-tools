@@ -40,3 +40,10 @@
 | selector | *metav1.LabelSelector | No | - |  |
 | podManagementPolicy | appsv1.PodManagementPolicyType | No | - |  |
 | updateStrategy | *appsv1.StatefulSetUpdateStrategy | No | - |  |
+### DaemonSetSpecBase
+| Variable Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+| selector | *metav1.LabelSelector | No | - |  |
+| updateStrategy | *appsv1.DaemonSetUpdateStrategy | No | - |  |
+| minReadySeconds | int32 | No | - |  |
+| revisionHistoryLimit | *int32 | No | - |  |
