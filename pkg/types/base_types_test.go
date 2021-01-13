@@ -528,5 +528,4 @@ func TestStatefulsetBaseOverride(t *testing.T) {
 			}
 		})
 	}
-
 }

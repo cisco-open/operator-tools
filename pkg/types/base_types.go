@@ -108,27 +108,61 @@ type MetaBase struct {
 	Labels      map[string]string `json:"labels,omitempty"`
 }
 
+func (base *MetaBase) Merge(meta metav1.ObjectMeta) metav1.ObjectMeta {
+	if base == nil {
+		return meta
+	}
+	if len(base.Annotations) > 0 {
+		if meta.Annotations == nil {
+			meta.Annotations = make(map[string]string)
+		}
+		for key, val := range base.Annotations {
+			meta.Annotations[key] = val
+		}
+	}
+	if len(base.Labels) > 0 {
+		if meta.Labels == nil {
+			meta.Labels = make(map[string]string)
+		}
+		for key, val := range base.Labels {
+			meta.Labels[key] = val
+		}
+	}
+	return meta
+}
+
 // +kubebuilder:object:generate=true
 
-type PodSpecBase struct {
-	Tolerations        []corev1.Toleration        `json:"tolerations,omitempty"`
-	NodeSelector       map[string]string          `json:"nodeSelector,omitempty"`
-	ServiceAccountName string                     `json:"serviceAccountName,omitempty"`
-	Affinity           *corev1.Affinity           `json:"affinity,omitempty"`
-	SecurityContext    *corev1.PodSecurityContext `json:"securityContext,omitempty"`
-	Volumes            []corev1.Volume            `json:"volumes,omitempty"`
-	PriorityClassName  string                     `json:"priorityClassName,omitempty"`
+type PodTemplateBase struct {
+	Metadata *MetaBase    `json:"metadata,omitempty"`
+	PodSpec  *PodSpecBase `json:"podSpec,omitempty"`
+}
+
+func (base *PodTemplateBase) Override(template corev1.PodTemplateSpec) corev1.PodTemplateSpec {
+	if base == nil {
+		return template
+	}
+	if base.Metadata != nil {
+		template.ObjectMeta = base.Metadata.Merge(template.ObjectMeta)
+	}
+	if base.PodSpec != nil {
+		template.Spec = base.PodSpec.Override(template.Spec)
+	}
+	return template
 }
 
 // +kubebuilder:object:generate=true
 
 type ContainerBase struct {
+	Name            string                       `json:"name,omitempty"`
 	Resources       *corev1.ResourceRequirements `json:"resources,omitempty"`
 	Image           string                       `json:"image,omitempty"`
 	PullPolicy      corev1.PullPolicy            `json:"pullPolicy,omitempty"`
 	Command         []string                     `json:"command,omitempty"`
-	VolumeMounts    []corev1.VolumeMount         `json:"volumeMounts,omitempty"`
+	VolumeMounts    []corev1.VolumeMount         `json:"volumeMounts,omitempty" patchStrategy:"merge" patchMergeKey:"mountPath" `
 	SecurityContext *corev1.SecurityContext      `json:"securityContext,omitempty"`
+	LivenessProbe   *corev1.Probe                `json:"livenessProbe,omitempty"`
+	ReadinessProbe  *corev1.Probe                `json:"readinessProbe,omitempty"`
 }
 
 func (base *ContainerBase) Override(container corev1.Container) corev1.Container {
@@ -153,30 +187,27 @@ func (base *ContainerBase) Override(container corev1.Container) corev1.Container
 	if base.SecurityContext != nil {
 		container.SecurityContext = base.SecurityContext
 	}
+	if base.LivenessProbe != nil {
+		container.LivenessProbe = base.LivenessProbe
+	}
+	if base.ReadinessProbe != nil {
+		container.LivenessProbe = base.LivenessProbe
+	}
 	return container
 }
 
-func (base *MetaBase) Merge(meta metav1.ObjectMeta) metav1.ObjectMeta {
-	if base == nil {
-		return meta
-	}
-	if len(base.Annotations) > 0 {
-		if meta.Annotations == nil {
-			meta.Annotations = make(map[string]string)
-		}
-		for key, val := range base.Annotations {
-			meta.Annotations[key] = val
-		}
-	}
-	if len(base.Labels) > 0 {
-		if meta.Labels == nil {
-			meta.Labels = make(map[string]string)
-		}
-		for key, val := range base.Labels {
-			meta.Labels[key] = val
-		}
-	}
-	return meta
+// +kubebuilder:object:generate=true
+
+type PodSpecBase struct {
+	Tolerations        []corev1.Toleration           `json:"tolerations,omitempty"`
+	NodeSelector       map[string]string             `json:"nodeSelector,omitempty"`
+	ServiceAccountName string                        `json:"serviceAccountName,omitempty"`
+	Affinity           *corev1.Affinity              `json:"affinity,omitempty"`
+	SecurityContext    *corev1.PodSecurityContext    `json:"securityContext,omitempty"`
+	Volumes            []corev1.Volume               `json:"volumes,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
+	PriorityClassName  string                        `json:"priorityClassName,omitempty"`
+	Containers         []ContainerBase               `json:"containers,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
+	ImagePullSecrets   []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }
 
 func (base *PodSpecBase) Override(spec corev1.PodSpec) corev1.PodSpec {
@@ -203,6 +234,16 @@ func (base *PodSpecBase) Override(spec corev1.PodSpec) corev1.PodSpec {
 	}
 	if base.PriorityClassName != "" {
 		spec.PriorityClassName = base.PriorityClassName
+	}
+	if len(base.Containers) > 0 {
+		for _, baseContainer := range base.Containers {
+			for o, originalContainer := range spec.Containers {
+				if baseContainer.Name == originalContainer.Name {
+					spec.Containers[o] = baseContainer.Override(originalContainer)
+					break
+				}
+			}
+		}
 	}
 	return spec
 }
@@ -259,30 +300,50 @@ func (base *StatefulsetSpecBase) Override(spec appsv1.StatefulSetSpec) appsv1.St
 
 // +kubebuilder:object:generate=true
 
+type DaemonSetBase struct {
+	*MetaBase `json:",inline"`
+	Spec      *DaemonSetSpecBase `json:"spec,omitempty"`
+}
+
+func (base *DaemonSetBase) Override(daemonset appsv1.DaemonSet) appsv1.DaemonSet {
+	if base == nil {
+		return daemonset
+	}
+	if base.MetaBase != nil {
+		daemonset.ObjectMeta = base.MetaBase.Merge(daemonset.ObjectMeta)
+	}
+	if base.Spec != nil {
+		daemonset.Spec = base.Spec.Override(daemonset.Spec)
+	}
+	return daemonset
+}
+
+// +kubebuilder:object:generate=true
+
 type DaemonSetSpecBase struct {
 	Selector             *metav1.LabelSelector           `json:"selector,omitempty"`
 	UpdateStrategy       *appsv1.DaemonSetUpdateStrategy `json:"updateStrategy,omitempty"`
 	MinReadySeconds      int32                           `json:"minReadySeconds,omitempty"`
 	RevisionHistoryLimit *int32                          `json:"revisionHistoryLimit,omitempty"`
+	Template             *PodTemplateBase                `json:"template,omitempty"`
 }
 
 func (base *DaemonSetSpecBase) Override(spec appsv1.DaemonSetSpec) appsv1.DaemonSetSpec {
 	if base == nil {
 		return spec
 	}
-
 	spec.Selector = mergeSelectors(base.Selector, spec.Selector)
 	if base.UpdateStrategy != nil {
 		spec.UpdateStrategy = *base.UpdateStrategy
-
 	}
 	if base.MinReadySeconds != 0 {
 		spec.MinReadySeconds = base.MinReadySeconds
-
 	}
 	if base.RevisionHistoryLimit != nil {
 		spec.RevisionHistoryLimit = base.RevisionHistoryLimit
-
+	}
+	if base.Template != nil {
+		spec.Template = base.Template.Override(spec.Template)
 	}
 	return spec
 }
