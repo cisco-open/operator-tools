@@ -14,6 +14,7 @@ require (
 	github.com/go-logr/logr v0.2.1
 	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/iancoleman/orderedmap v0.0.0-20190318233801-ac98e3ecb4b0
+	github.com/json-iterator/go v1.1.10
 	github.com/pborman/uuid v1.2.0
 	github.com/spf13/cast v1.3.1
 	github.com/stretchr/testify v1.6.1
