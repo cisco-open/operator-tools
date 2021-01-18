@@ -207,6 +207,7 @@ type PodSpecBase struct {
 	Volumes            []corev1.Volume               `json:"volumes,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 	PriorityClassName  string                        `json:"priorityClassName,omitempty"`
 	Containers         []ContainerBase               `json:"containers,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
+	InitContainers     []ContainerBase               `json:"initContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 	ImagePullSecrets   []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }
 
@@ -240,6 +241,16 @@ func (base *PodSpecBase) Override(spec corev1.PodSpec) corev1.PodSpec {
 			for o, originalContainer := range spec.Containers {
 				if baseContainer.Name == originalContainer.Name {
 					spec.Containers[o] = baseContainer.Override(originalContainer)
+					break
+				}
+			}
+		}
+	}
+	if len(base.InitContainers) > 0 {
+		for _, baseContainer := range base.InitContainers {
+			for o, originalContainer := range spec.InitContainers {
+				if baseContainer.Name == originalContainer.Name {
+					spec.InitContainers[o] = baseContainer.Override(originalContainer)
 					break
 				}
 			}

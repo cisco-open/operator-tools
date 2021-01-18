@@ -36,6 +36,7 @@
 | volumes | []corev1.Volume | No | - |  |
 | priorityClassName | string | No | - |  |
 | containers | []ContainerBase | No | - |  |
+| initContainers | []ContainerBase | No | - |  |
 | imagePullSecrets | []corev1.LocalObjectReference | No | - |  |
 ### DeploymentBase
 | Variable Name | Type | Required | Default | Description |
