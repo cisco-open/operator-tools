@@ -135,7 +135,7 @@ func (base *MetaBase) Merge(meta metav1.ObjectMeta) metav1.ObjectMeta {
 
 type PodTemplateBase struct {
 	Metadata *MetaBase    `json:"metadata,omitempty"`
-	PodSpec  *PodSpecBase `json:"podSpec,omitempty"`
+	PodSpec  *PodSpecBase `json:"spec,omitempty"`
 }
 
 func (base *PodTemplateBase) Override(template corev1.PodTemplateSpec) corev1.PodTemplateSpec {
@@ -250,10 +250,31 @@ func (base *PodSpecBase) Override(spec corev1.PodSpec) corev1.PodSpec {
 
 // +kubebuilder:object:generate=true
 
+type DeploymentBase struct {
+	*MetaBase `json:",inline"`
+	Spec      *DeploymentSpecBase `json:"spec,omitempty"`
+}
+
+func (base *DeploymentBase) Override(deployment appsv1.Deployment) appsv1.Deployment {
+	if base == nil {
+		return deployment
+	}
+	if base.MetaBase != nil {
+		deployment.ObjectMeta = base.MetaBase.Merge(deployment.ObjectMeta)
+	}
+	if base.Spec != nil {
+		deployment.Spec = base.Spec.Override(deployment.Spec)
+	}
+	return deployment
+}
+
+// +kubebuilder:object:generate=true
+
 type DeploymentSpecBase struct {
 	Replicas *int32                     `json:"replicas,omitempty"`
 	Selector *metav1.LabelSelector      `json:"selector,omitempty"`
 	Strategy *appsv1.DeploymentStrategy `json:"strategy,omitempty"`
+	Template *PodTemplateBase           `json:"template,omitempty"`
 }
 
 func (base *DeploymentSpecBase) Override(spec appsv1.DeploymentSpec) appsv1.DeploymentSpec {
@@ -267,7 +288,30 @@ func (base *DeploymentSpecBase) Override(spec appsv1.DeploymentSpec) appsv1.Depl
 	if base.Strategy != nil {
 		spec.Strategy = *base.Strategy
 	}
+	if base.Template != nil {
+		spec.Template = base.Template.Override(spec.Template)
+	}
 	return spec
+}
+
+// +kubebuilder:object:generate=true
+
+type StatefulSetBase struct {
+	*MetaBase `json:",inline"`
+	Spec      *StatefulsetSpecBase `json:"spec,omitempty"`
+}
+
+func (base *StatefulSetBase) Override(statefulSet appsv1.StatefulSet) appsv1.StatefulSet {
+	if base == nil {
+		return statefulSet
+	}
+	if base.MetaBase != nil {
+		statefulSet.ObjectMeta = base.MetaBase.Merge(statefulSet.ObjectMeta)
+	}
+	if base.Spec != nil {
+		statefulSet.Spec = base.Spec.Override(statefulSet.Spec)
+	}
+	return statefulSet
 }
 
 // +kubebuilder:object:generate=true
@@ -277,6 +321,7 @@ type StatefulsetSpecBase struct {
 	Selector            *metav1.LabelSelector             `json:"selector,omitempty"`
 	PodManagementPolicy appsv1.PodManagementPolicyType    `json:"podManagementPolicy,omitempty"`
 	UpdateStrategy      *appsv1.StatefulSetUpdateStrategy `json:"updateStrategy,omitempty"`
+	Template            *PodTemplateBase                  `json:"template,omitempty"`
 }
 
 func (base *StatefulsetSpecBase) Override(spec appsv1.StatefulSetSpec) appsv1.StatefulSetSpec {
@@ -292,9 +337,10 @@ func (base *StatefulsetSpecBase) Override(spec appsv1.StatefulSetSpec) appsv1.St
 	}
 	if base.UpdateStrategy != nil {
 		spec.UpdateStrategy = *base.UpdateStrategy
-
 	}
-
+	if base.Template != nil {
+		spec.Template = base.Template.Override(spec.Template)
+	}
 	return spec
 }
 

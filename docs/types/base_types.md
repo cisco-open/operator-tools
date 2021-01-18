@@ -12,7 +12,7 @@
 | Variable Name | Type | Required | Default | Description |
 |---|---|---|---|---|
 | metadata | *MetaBase | No | - |  |
-| podSpec | *PodSpecBase | No | - |  |
+| spec | *PodSpecBase | No | - |  |
 ### ContainerBase
 | Variable Name | Type | Required | Default | Description |
 |---|---|---|---|---|
@@ -37,12 +37,23 @@
 | priorityClassName | string | No | - |  |
 | containers | []ContainerBase | No | - |  |
 | imagePullSecrets | []corev1.LocalObjectReference | No | - |  |
+### DeploymentBase
+| Variable Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+|  | *MetaBase | Yes | - |  |
+| spec | *DeploymentSpecBase | No | - |  |
 ### DeploymentSpecBase
 | Variable Name | Type | Required | Default | Description |
 |---|---|---|---|---|
 | replicas | *int32 | No | - |  |
 | selector | *metav1.LabelSelector | No | - |  |
 | strategy | *appsv1.DeploymentStrategy | No | - |  |
+| template | *PodTemplateBase | No | - |  |
+### StatefulSetBase
+| Variable Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+|  | *MetaBase | Yes | - |  |
+| spec | *StatefulsetSpecBase | No | - |  |
 ### StatefulsetSpecBase
 | Variable Name | Type | Required | Default | Description |
 |---|---|---|---|---|
@@ -50,6 +61,7 @@
 | selector | *metav1.LabelSelector | No | - |  |
 | podManagementPolicy | appsv1.PodManagementPolicyType | No | - |  |
 | updateStrategy | *appsv1.StatefulSetUpdateStrategy | No | - |  |
+| template | *PodTemplateBase | No | - |  |
 ### DaemonSetBase
 | Variable Name | Type | Required | Default | Description |
 |---|---|---|---|---|
