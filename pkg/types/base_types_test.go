@@ -635,6 +635,45 @@ func TestPodSpecOverride(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "initcontainers merged properly",
+			base: &types.PodSpecBase{
+				InitContainers: []types.ContainerBase{
+					{
+						Name:  "override",
+						Image: "override-image",
+					},
+					{
+						Name:  "new", // this one does not exist in the original
+						Image: "new-image",
+					},
+				},
+			},
+			spec: v12.PodSpec{
+				InitContainers: []v12.Container{
+					{
+						Name: "override", // this one will be overridden
+						Image: "original",
+					},
+					{
+						Name:  "old", // this one will be unmodified
+						Image: "old-image",
+					},
+				},
+			},
+			want: v12.PodSpec{
+				InitContainers: []v12.Container{
+					{
+						Name: "override",
+						Image: "override-image",
+					},
+					{
+						Name:  "old",
+						Image: "old-image",
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		tt := tt
