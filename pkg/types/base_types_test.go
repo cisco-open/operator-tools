@@ -22,6 +22,7 @@ import (
 	"github.com/banzaicloud/operator-tools/pkg/utils"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
+	v12 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -529,3 +530,159 @@ func TestStatefulsetBaseOverride(t *testing.T) {
 		})
 	}
 }
+
+func TestStatefulSetOverride(t *testing.T) {
+	tests := []struct {
+		name string
+		base *types.StatefulSetBase
+		spec appsv1.StatefulSet
+		want appsv1.StatefulSet
+	}{
+		{
+			name: "metadata annotations gets merged",
+			base: &types.StatefulSetBase{MetaBase: &types.MetaBase{
+				Annotations: map[string]string{
+					"override": "winning",
+					"old":      "old-value",
+				},
+			}},
+			spec: appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{
+				Annotations: map[string]string{
+					"override": "ooo",
+					"new":      "new-value",
+				},
+			}},
+			want: appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{
+				Annotations: map[string]string{
+					"override": "winning",
+					"old":      "old-value",
+					"new":      "new-value",
+				},
+			}},
+		},
+		{
+			name: "spec gets merged",
+			base: &types.StatefulSetBase{
+				Spec: &types.StatefulsetSpecBase{
+					Replicas: utils.IntPointer(12),
+				},
+			},
+			spec: appsv1.StatefulSet{
+				Spec: appsv1.StatefulSetSpec{
+					Replicas: utils.IntPointer(1),
+				},
+			},
+			want: appsv1.StatefulSet{
+				Spec: appsv1.StatefulSetSpec{
+					Replicas: utils.IntPointer(12),
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.base.Override(tt.spec); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("base.Override() = \n%#v\nwant\n%#v\n", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPodSpecOverride(t *testing.T) {
+	tests := []struct {
+		name string
+		base *types.PodSpecBase
+		spec v12.PodSpec
+		want v12.PodSpec
+	}{
+		{
+			name: "containers merged properly",
+			base: &types.PodSpecBase{
+				Containers: []types.ContainerBase{
+					{
+						Name:  "override",
+						Image: "override-image",
+					},
+					{
+						Name:  "new", // this one does not exist in the original
+						Image: "new-image",
+					},
+				},
+			},
+			spec: v12.PodSpec{
+				Containers: []v12.Container{
+					{
+						Name: "override", // this one will be overridden
+						Image: "original",
+					},
+					{
+						Name:  "old", // this one will be unmodified
+						Image: "old-image",
+					},
+				},
+			},
+			want: v12.PodSpec{
+				Containers: []v12.Container{
+					{
+						Name: "override",
+						Image: "override-image",
+					},
+					{
+						Name:  "old",
+						Image: "old-image",
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.base.Override(tt.spec); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("base.Override() = \n%#v\nwant\n%#v\n", got, tt.want)
+			}
+		})
+	}
+}
+
+
+func TestPodTemplateOverride(t *testing.T) {
+	tests := []struct {
+		name string
+		base *types.PodTemplateBase
+		spec v12.PodTemplateSpec
+		want v12.PodTemplateSpec
+	}{
+		{
+			name: "spec override and merge",
+			base: &types.PodTemplateBase{
+				PodSpec: &types.PodSpecBase{
+					ServiceAccountName: "new",
+					PriorityClassName:  "",
+				},
+			},
+			spec: v12.PodTemplateSpec{
+				Spec: v12.PodSpec{
+					ServiceAccountName: "old",
+					PriorityClassName:  "keep",
+				},
+			},
+			want: v12.PodTemplateSpec{
+				Spec: v12.PodSpec{
+					ServiceAccountName: "new",
+					PriorityClassName:  "keep",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.base.Override(tt.spec); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("base.Override() = \n%#v\nwant\n%#v\n", got, tt.want)
+			}
+		})
+	}
+}
+
