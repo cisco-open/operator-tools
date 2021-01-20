@@ -76,3 +76,25 @@
 | minReadySeconds | int32 | No | - |  |
 | revisionHistoryLimit | *int32 | No | - |  |
 | template | *PodTemplateBase | No | - |  |
+### ServiceBase
+| Variable Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+|  | *MetaBase | Yes | - |  |
+| spec | *ServiceSpecBase | No | - |  |
+### ServiceSpecBase
+| Variable Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+| ports | []corev1.ServicePort | No | - |  |
+| selector | map[string]string | No | - |  |
+| type | corev1.ServiceType | No | - |  |
+| externalIPs | []string | No | - |  |
+| sessionAffinity | corev1.ServiceAffinity | No | - |  |
+| loadBalancerIP | string | No | - |  |
+| loadBalancerSourceRanges | []string | No | - |  |
+| externalName | string | No | - |  |
+| externalTrafficPolicy | corev1.ServiceExternalTrafficPolicyType | No | - |  |
+| healthCheckNodePort | int32 | No | - |  |
+| publishNotReadyAddresses | bool | No | - |  |
+| sessionAffinityConfig | *corev1.SessionAffinityConfig | No | - |  |
+| ipFamily | *corev1.IPFamily | No | - |  |
+| topologyKeys | []string | No | - |  |

@@ -427,3 +427,104 @@ func mergeSelectors(base, spec *metav1.LabelSelector) *metav1.LabelSelector {
 
 	return spec
 }
+
+// +kubebuilder:object:generate=true
+
+type ServiceBase struct {
+	*MetaBase `json:",inline"`
+	Spec      *ServiceSpecBase `json:"spec,omitempty"`
+}
+
+func (base *ServiceBase) Override(service corev1.Service) corev1.Service {
+	if base == nil {
+		return service
+	}
+	if base.MetaBase != nil {
+		service.ObjectMeta = base.MetaBase.Merge(service.ObjectMeta)
+	}
+	if base.Spec != nil {
+		service.Spec = base.Spec.Override(service.Spec)
+	}
+	return service
+}
+
+// +kubebuilder:object:generate=true
+
+type ServiceSpecBase struct {
+	Ports                    []corev1.ServicePort                    `json:"ports,omitempty" patchStrategy:"merge" patchMergeKey:"port"`
+	Selector                 map[string]string                       `json:"selector,omitempty"`
+	Type                     corev1.ServiceType                      `json:"type,omitempty"`
+	ExternalIPs              []string                                `json:"externalIPs,omitempty"`
+	SessionAffinity          corev1.ServiceAffinity                  `json:"sessionAffinity,omitempty"`
+	LoadBalancerIP           string                                  `json:"loadBalancerIP,omitempty"`
+	LoadBalancerSourceRanges []string                                `json:"loadBalancerSourceRanges,omitempty"`
+	ExternalName             string                                  `json:"externalName,omitempty"`
+	ExternalTrafficPolicy    corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
+	HealthCheckNodePort      int32                                   `json:"healthCheckNodePort,omitempty"`
+	PublishNotReadyAddresses bool                                    `json:"publishNotReadyAddresses,omitempty"`
+	SessionAffinityConfig    *corev1.SessionAffinityConfig           `json:"sessionAffinityConfig,omitempty"`
+	IPFamily                 *corev1.IPFamily                        `json:"ipFamily,omitempty"`
+	TopologyKeys             []string                                `json:"topologyKeys,omitempty"`
+}
+
+func (base *ServiceSpecBase) Override(spec corev1.ServiceSpec) corev1.ServiceSpec {
+	if base == nil {
+		return spec
+	}
+	// updates existing ports looking up on the port field
+	if len(base.Ports) > 0 {
+		for _, p := range base.Ports {
+			for i, original := range spec.Ports {
+				if p.Port == original.Port {
+					spec.Ports[i] = p
+					break
+				}
+			}
+		}
+	}
+	if len(base.Selector) > 0 {
+		if spec.Selector == nil {
+			spec.Selector = make(map[string]string)
+		}
+		for key, val := range base.Selector {
+			spec.Selector[key] = val
+		}
+	}
+	if base.Type != "" {
+		spec.Type = base.Type
+	}
+	if len(base.ExternalIPs) > 0 {
+		spec.ExternalIPs = base.ExternalIPs
+	}
+	if base.SessionAffinity != "" {
+		spec.SessionAffinity = base.SessionAffinity
+	}
+	if base.LoadBalancerIP != "" {
+		spec.LoadBalancerIP = base.LoadBalancerIP
+	}
+	if len(base.LoadBalancerSourceRanges) > 0 {
+		spec.LoadBalancerSourceRanges = base.LoadBalancerSourceRanges
+	}
+	if base.ExternalName != "" {
+		spec.ExternalName = base.ExternalName
+	}
+	if base.ExternalTrafficPolicy != "" {
+		spec.ExternalTrafficPolicy = base.ExternalTrafficPolicy
+	}
+	if base.HealthCheckNodePort != 0 {
+		spec.HealthCheckNodePort = base.HealthCheckNodePort
+	}
+	if base.PublishNotReadyAddresses {
+		spec.PublishNotReadyAddresses = base.PublishNotReadyAddresses
+	}
+	if base.SessionAffinityConfig != nil {
+		spec.SessionAffinityConfig = base.SessionAffinityConfig
+	}
+	if base.IPFamily != nil {
+		spec.IPFamily = base.IPFamily
+	}
+	if len(base.TopologyKeys) > 0 {
+		spec.TopologyKeys = base.TopologyKeys
+	}
+	return spec
+}
