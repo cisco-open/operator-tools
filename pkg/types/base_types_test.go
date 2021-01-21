@@ -540,7 +540,7 @@ func TestStatefulSetOverride(t *testing.T) {
 	}{
 		{
 			name: "metadata annotations gets merged",
-			base: &types.StatefulSetBase{MetaBase: &types.MetaBase{
+			base: &types.StatefulSetBase{ObjectMeta: &types.MetaBase{
 				Annotations: map[string]string{
 					"override": "winning",
 					"old":      "old-value",

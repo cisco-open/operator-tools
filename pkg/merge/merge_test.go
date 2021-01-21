@@ -23,6 +23,7 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestMerge(t *testing.T) {
@@ -194,7 +195,7 @@ func TestMergeWithKindredType(t *testing.T) {
 	assert.Equal(t, overrides.Spec.Template.PodSpec.Containers[2].Image, result.Spec.Template.Spec.Containers[2].Image)
 }
 
-func TestMergePrimitiveArrayOverride(t *testing.T) {
+func TestMergeArrayOverride(t *testing.T) {
 	base := &corev1.Service{
 		Spec: corev1.ServiceSpec{
 			ExternalIPs: []string{
@@ -216,3 +217,62 @@ func TestMergePrimitiveArrayOverride(t *testing.T) {
 
 	require.Equal(t, []string{"c", "d"}, result.Spec.ExternalIPs)
 }
+
+func TestMergeMap(t *testing.T) {
+	base := &corev1.Service{
+		ObjectMeta: v12.ObjectMeta{
+			Labels: map[string]string{
+				"a": "1",
+				"b": "2",
+			},
+		},
+	}
+	overrides := &corev1.Service{
+		ObjectMeta: v12.ObjectMeta{
+			Labels: map[string]string{
+				"b": "3",
+				"c": "4",
+			},
+		},
+	}
+
+	result := &corev1.Service{}
+	err := Merge(base, overrides, result)
+	require.NoError(t, err)
+
+	require.Equal(t, map[string]string{
+		"a": "1",
+		"b": "3",
+		"c": "4",
+	}, result.ObjectMeta.Labels)
+}
+
+func TestMergeMapWithKindredType(t *testing.T) {
+	base := &corev1.Service{
+		ObjectMeta: v12.ObjectMeta{
+			Labels: map[string]string{
+				"a": "1",
+				"b": "2",
+			},
+		},
+	}
+	overrides := &types.ServiceBase{
+		ObjectMeta: types.MetaBase{
+			Labels: map[string]string{
+				"b": "3",
+				"c": "4",
+			},
+		},
+	}
+
+	result := &corev1.Service{}
+	err := Merge(base, overrides, result)
+	require.NoError(t, err)
+
+	require.Equal(t, map[string]string{
+		"a": "1",
+		"b": "3",
+		"c": "4",
+	}, result.ObjectMeta.Labels)
+}
+

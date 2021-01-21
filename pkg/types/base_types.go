@@ -142,9 +142,9 @@ func (base *PodTemplateBase) Override(template corev1.PodTemplateSpec) corev1.Po
 	if base == nil {
 		return template
 	}
-	if base.Metadata != nil {
-		template.ObjectMeta = base.Metadata.Merge(template.ObjectMeta)
-	}
+
+	template.ObjectMeta = base.Metadata.Merge(template.ObjectMeta)
+
 	if base.PodSpec != nil {
 		template.Spec = base.PodSpec.Override(template.Spec)
 	}
@@ -262,17 +262,17 @@ func (base *PodSpecBase) Override(spec corev1.PodSpec) corev1.PodSpec {
 // +kubebuilder:object:generate=true
 
 type DeploymentBase struct {
-	*MetaBase `json:",inline"`
-	Spec      *DeploymentSpecBase `json:"spec,omitempty"`
+	ObjectMeta *MetaBase           `json:"metadata,omitempty"`
+	Spec       *DeploymentSpecBase `json:"spec,omitempty"`
 }
 
 func (base *DeploymentBase) Override(deployment appsv1.Deployment) appsv1.Deployment {
 	if base == nil {
 		return deployment
 	}
-	if base.MetaBase != nil {
-		deployment.ObjectMeta = base.MetaBase.Merge(deployment.ObjectMeta)
-	}
+
+	deployment.ObjectMeta = base.ObjectMeta.Merge(deployment.ObjectMeta)
+
 	if base.Spec != nil {
 		deployment.Spec = base.Spec.Override(deployment.Spec)
 	}
@@ -308,16 +308,16 @@ func (base *DeploymentSpecBase) Override(spec appsv1.DeploymentSpec) appsv1.Depl
 // +kubebuilder:object:generate=true
 
 type StatefulSetBase struct {
-	*MetaBase `json:",inline"`
-	Spec      *StatefulsetSpecBase `json:"spec,omitempty"`
+	ObjectMeta *MetaBase            `json:"metadata,omitempty"`
+	Spec       *StatefulsetSpecBase `json:"spec,omitempty"`
 }
 
 func (base *StatefulSetBase) Override(statefulSet appsv1.StatefulSet) appsv1.StatefulSet {
 	if base == nil {
 		return statefulSet
 	}
-	if base.MetaBase != nil {
-		statefulSet.ObjectMeta = base.MetaBase.Merge(statefulSet.ObjectMeta)
+	if base.ObjectMeta != nil {
+		statefulSet.ObjectMeta = base.ObjectMeta.Merge(statefulSet.ObjectMeta)
 	}
 	if base.Spec != nil {
 		statefulSet.Spec = base.Spec.Override(statefulSet.Spec)
@@ -358,16 +358,16 @@ func (base *StatefulsetSpecBase) Override(spec appsv1.StatefulSetSpec) appsv1.St
 // +kubebuilder:object:generate=true
 
 type DaemonSetBase struct {
-	*MetaBase `json:",inline"`
-	Spec      *DaemonSetSpecBase `json:"spec,omitempty"`
+	ObjectMeta *MetaBase          `json:"metadata,omitempty"`
+	Spec       *DaemonSetSpecBase `json:"spec,omitempty"`
 }
 
 func (base *DaemonSetBase) Override(daemonset appsv1.DaemonSet) appsv1.DaemonSet {
 	if base == nil {
 		return daemonset
 	}
-	if base.MetaBase != nil {
-		daemonset.ObjectMeta = base.MetaBase.Merge(daemonset.ObjectMeta)
+	if base.ObjectMeta != nil {
+		daemonset.ObjectMeta = base.ObjectMeta.Merge(daemonset.ObjectMeta)
 	}
 	if base.Spec != nil {
 		daemonset.Spec = base.Spec.Override(daemonset.Spec)
@@ -431,17 +431,17 @@ func mergeSelectors(base, spec *metav1.LabelSelector) *metav1.LabelSelector {
 // +kubebuilder:object:generate=true
 
 type ServiceBase struct {
-	*MetaBase `json:",inline"`
-	Spec      *ServiceSpecBase `json:"spec,omitempty"`
+	ObjectMeta MetaBase         `json:"metadata,omitempty"`
+	Spec       *ServiceSpecBase `json:"spec,omitempty"`
 }
 
 func (base *ServiceBase) Override(service corev1.Service) corev1.Service {
 	if base == nil {
 		return service
 	}
-	if base.MetaBase != nil {
-		service.ObjectMeta = base.MetaBase.Merge(service.ObjectMeta)
-	}
+
+	service.ObjectMeta = base.ObjectMeta.Merge(service.ObjectMeta)
+
 	if base.Spec != nil {
 		service.Spec = base.Spec.Override(service.Spec)
 	}
