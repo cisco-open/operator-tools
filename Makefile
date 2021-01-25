@@ -8,35 +8,33 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
+CONTROLLER_GEN_VERSION = v0.4.1
+CONTROLLER_GEN = $(PWD)/bin/controller-gen
+
 OS = $(shell uname | tr A-Z a-z)
 
 KUBEBUILDER_VERSION = 2.2.0
 export KUBEBUILDER_ASSETS := $(PWD)/bin
 
 # Generate code
-generate: controller-gen
+generate: bin/controller-gen
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/secret/...
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/volume/...
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/prometheus/...
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/types/...
+	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/typeoverride/...
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/helm/...
 
-# find or download controller-gen
-# download controller-gen if necessary
-controller-gen:
-ifeq (, $(shell which controller-gen))
-	@{ \
-	set -e ;\
-	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$CONTROLLER_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.4 ;\
-	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
-	}
-CONTROLLER_GEN=$(GOBIN)/controller-gen
-else
-CONTROLLER_GEN=$(shell which controller-gen)
-endif
+.PHONY: bin/controller-gen
+bin/controller-gen:
+	@ if ! test -x bin/controller-gen; then \
+		set -ex ;\
+		CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
+		cd $$CONTROLLER_GEN_TMP_DIR ;\
+		go mod init tmp ;\
+		GOBIN=$(PWD)/bin go get sigs.k8s.io/controller-tools/cmd/controller-gen@${CONTROLLER_GEN_VERSION} ;\
+		rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
+	fi
 
 .PHONY: bin/kubebuilder_$(KUBEBUILDER_VERSION)
 bin/kubebuilder_$(KUBEBUILDER_VERSION):
