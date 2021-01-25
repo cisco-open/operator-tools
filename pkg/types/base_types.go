@@ -103,6 +103,8 @@ func AggregatedState(componentStatuses []ReconcileStatus) ReconcileStatus {
 
 // +kubebuilder:object:generate=true
 
+// Deprecated
+// Consider using ObjectMeta in the typeoverrides package combined with the merge package
 type MetaBase struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 	Labels      map[string]string `json:"labels,omitempty"`
@@ -133,6 +135,8 @@ func (base *MetaBase) Merge(meta metav1.ObjectMeta) metav1.ObjectMeta {
 
 // +kubebuilder:object:generate=true
 
+// Deprecated
+// Consider using PodTemplateSpec in the typeoverrides package combined with the merge package
 type PodTemplateBase struct {
 	Metadata *MetaBase    `json:"metadata,omitempty"`
 	PodSpec  *PodSpecBase `json:"spec,omitempty"`
@@ -153,6 +157,8 @@ func (base *PodTemplateBase) Override(template corev1.PodTemplateSpec) corev1.Po
 
 // +kubebuilder:object:generate=true
 
+// Deprecated
+// Consider using Container in the typeoverrides package combined with the merge package
 type ContainerBase struct {
 	Name            string                       `json:"name,omitempty"`
 	Resources       *corev1.ResourceRequirements `json:"resources,omitempty"`
@@ -198,6 +204,8 @@ func (base *ContainerBase) Override(container corev1.Container) corev1.Container
 
 // +kubebuilder:object:generate=true
 
+// Deprecated
+// Consider using PodSpec in the typeoverrides package combined with the merge package
 type PodSpecBase struct {
 	Tolerations        []corev1.Toleration           `json:"tolerations,omitempty"`
 	NodeSelector       map[string]string             `json:"nodeSelector,omitempty"`
@@ -261,6 +269,8 @@ func (base *PodSpecBase) Override(spec corev1.PodSpec) corev1.PodSpec {
 
 // +kubebuilder:object:generate=true
 
+// Deprecated
+// Consider using Deployment in the typeoverrides package combined with the merge package
 type DeploymentBase struct {
 	*MetaBase `json:",inline"`
 	Spec      *DeploymentSpecBase `json:"spec,omitempty"`
@@ -281,6 +291,8 @@ func (base *DeploymentBase) Override(deployment appsv1.Deployment) appsv1.Deploy
 
 // +kubebuilder:object:generate=true
 
+// Deprecated
+// Consider using DeploymentSpec in the typeoverrides package combined with the merge package
 type DeploymentSpecBase struct {
 	Replicas *int32                     `json:"replicas,omitempty"`
 	Selector *metav1.LabelSelector      `json:"selector,omitempty"`
@@ -307,6 +319,8 @@ func (base *DeploymentSpecBase) Override(spec appsv1.DeploymentSpec) appsv1.Depl
 
 // +kubebuilder:object:generate=true
 
+// Deprecated
+// Consider using StatefulSet in the typeoverrides package combined with the merge package
 type StatefulSetBase struct {
 	*MetaBase `json:",inline"`
 	Spec      *StatefulsetSpecBase `json:"spec,omitempty"`
@@ -327,6 +341,8 @@ func (base *StatefulSetBase) Override(statefulSet appsv1.StatefulSet) appsv1.Sta
 
 // +kubebuilder:object:generate=true
 
+// Deprecated
+// Consider using StatefulSetSpec in the typeoverrides package combined with the merge package
 type StatefulsetSpecBase struct {
 	Replicas            *int32                            `json:"replicas,omitempty"`
 	Selector            *metav1.LabelSelector             `json:"selector,omitempty"`
@@ -357,6 +373,8 @@ func (base *StatefulsetSpecBase) Override(spec appsv1.StatefulSetSpec) appsv1.St
 
 // +kubebuilder:object:generate=true
 
+// Deprecated
+// Consider using DaemonSet in the typeoverrides package combined with the merge package
 type DaemonSetBase struct {
 	*MetaBase `json:",inline"`
 	Spec      *DaemonSetSpecBase `json:"spec,omitempty"`
@@ -377,6 +395,8 @@ func (base *DaemonSetBase) Override(daemonset appsv1.DaemonSet) appsv1.DaemonSet
 
 // +kubebuilder:object:generate=true
 
+// Deprecated
+// Consider using DaemonSetSpec in the typeoverrides package combined with the merge package
 type DaemonSetSpecBase struct {
 	Selector             *metav1.LabelSelector           `json:"selector,omitempty"`
 	UpdateStrategy       *appsv1.DaemonSetUpdateStrategy `json:"updateStrategy,omitempty"`
