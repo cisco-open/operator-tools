@@ -25,7 +25,6 @@ generate: bin/controller-gen
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/typeoverride/...
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/helm/...
 
-.PHONY: bin/controller-gen
 bin/controller-gen:
 	@ if ! test -x bin/controller-gen; then \
 		set -ex ;\
