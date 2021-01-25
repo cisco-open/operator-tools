@@ -17,11 +17,15 @@ package merge
 import (
 	"testing"
 
+	"github.com/banzaicloud/operator-tools/pkg/typeoverride"
+	"github.com/banzaicloud/operator-tools/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func TestMerge(t *testing.T) {
@@ -31,21 +35,21 @@ func TestMerge(t *testing.T) {
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name: "container-a",
+							Name:  "container-a",
 							Image: "image-a",
 						},
 						{
-							Name: "container-b",
+							Name:  "container-b",
 							Image: "image-b",
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
-									corev1.ResourceCPU: resource.MustParse("100m"),
+									corev1.ResourceCPU:    resource.MustParse("100m"),
 									corev1.ResourceMemory: resource.MustParse("100M"),
 								},
 							},
 						},
 						{
-							Name: "container-c",
+							Name:  "container-c",
 							Image: "image-c",
 						},
 					},
@@ -59,7 +63,7 @@ func TestMerge(t *testing.T) {
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name: "container-a",
+							Name:  "container-a",
 							Image: "image-a-2",
 						},
 						{
@@ -69,6 +73,10 @@ func TestMerge(t *testing.T) {
 									corev1.ResourceCPU: resource.MustParse("123m"),
 								},
 							},
+						},
+						{
+							Name:  "container-d",
+							Image: "image-d",
 						},
 					},
 				},
@@ -80,6 +88,8 @@ func TestMerge(t *testing.T) {
 	err := Merge(base, overrides, result)
 	require.NoError(t, err)
 
+	assert.Len(t, result.Spec.Template.Spec.Containers, 4)
+
 	// container a has a modified image
 	assert.Equal(t, "container-a", result.Spec.Template.Spec.Containers[0].Name)
 	assert.Equal(t, "image-a-2", result.Spec.Template.Spec.Containers[0].Image)
@@ -90,11 +100,279 @@ func TestMerge(t *testing.T) {
 	assert.Equal(t, "image-b", result.Spec.Template.Spec.Containers[1].Image)
 	assert.Equal(t, corev1.ResourceRequirements{
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU: resource.MustParse("123m"),
+			corev1.ResourceCPU:    resource.MustParse("123m"),
 			corev1.ResourceMemory: resource.MustParse("100M"),
 		},
 	}, result.Spec.Template.Spec.Containers[1].Resources)
 
+	// container d is added as a new item
+	assert.Equal(t, base.Spec.Template.Spec.Containers[2], result.Spec.Template.Spec.Containers[3])
+
 	// container c is not modified
-	assert.Equal(t, base.Spec.Template.Spec.Containers[2], result.Spec.Template.Spec.Containers[2])
+	assert.Equal(t, overrides.Spec.Template.Spec.Containers[2], result.Spec.Template.Spec.Containers[2])
+}
+
+func TestMergeWithEmbeddedType(t *testing.T) {
+	base := &v1.DaemonSet{
+		Spec: v1.DaemonSetSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "container-a",
+							Image: "image-a",
+						},
+						{
+							Name:  "container-b",
+							Image: "image-b",
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("100m"),
+									corev1.ResourceMemory: resource.MustParse("100M"),
+								},
+							},
+						},
+						{
+							Name:  "container-c",
+							Image: "image-c",
+						},
+					},
+				},
+			},
+		},
+	}
+	overrides := &typeoverride.DaemonSet{
+		Spec: typeoverride.DaemonSetSpec{
+			Template: typeoverride.PodTemplateSpec{
+				Spec: typeoverride.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "container-a",
+							Image: "image-a-2",
+						},
+						{
+							Name: "container-b",
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU: resource.MustParse("123m"),
+								},
+							},
+						},
+						{
+							Name:  "container-d",
+							Image: "image-d",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := &v1.DaemonSet{}
+	err := Merge(base, overrides, result)
+	require.NoError(t, err)
+
+	assert.Len(t, result.Spec.Template.Spec.Containers, 4)
+
+	// container a has a modified image
+	assert.Equal(t, "container-a", result.Spec.Template.Spec.Containers[0].Name)
+	assert.Equal(t, "image-a-2", result.Spec.Template.Spec.Containers[0].Image)
+	assert.Equal(t, corev1.ResourceRequirements{}, result.Spec.Template.Spec.Containers[0].Resources)
+
+	// container b has the same image but updated resource requirements
+	assert.Equal(t, "container-b", result.Spec.Template.Spec.Containers[1].Name)
+	assert.Equal(t, "image-b", result.Spec.Template.Spec.Containers[1].Image)
+	assert.Equal(t, corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("123m"),
+			corev1.ResourceMemory: resource.MustParse("100M"),
+		},
+	}, result.Spec.Template.Spec.Containers[1].Resources)
+
+	// container d is added as a new item
+	assert.Equal(t, base.Spec.Template.Spec.Containers[2], result.Spec.Template.Spec.Containers[3])
+
+	// container c is not modified
+	assert.Equal(t, overrides.Spec.Template.Spec.Containers[2].Name, result.Spec.Template.Spec.Containers[2].Name)
+	assert.Equal(t, overrides.Spec.Template.Spec.Containers[2].Image, result.Spec.Template.Spec.Containers[2].Image)
+}
+
+func TestMergeStatefulSetReplicas(t *testing.T) {
+	base := &v1.StatefulSet{
+		Spec: v1.StatefulSetSpec{
+			Replicas: utils.IntPointer(1),
+		},
+	}
+	overrides := v1.StatefulSet{
+		Spec: v1.StatefulSetSpec{
+			Replicas: utils.IntPointer(0),
+		},
+	}
+	err := Merge(base, overrides)
+	require.NoError(t, err)
+
+	assert.Equal(t, *base.Spec.Replicas, int32(0))
+}
+
+func TestMergeArrayOverride(t *testing.T) {
+	base := &corev1.Service{
+		Spec: corev1.ServiceSpec{
+			ExternalIPs: []string{
+				"a", "b",
+			},
+		},
+	}
+	overrides := &typeoverride.Service{
+		Spec: corev1.ServiceSpec{
+			ExternalIPs: []string{
+				"c", "d",
+			},
+		},
+	}
+
+	result := &corev1.Service{}
+	err := Merge(base, overrides, result)
+	require.NoError(t, err)
+
+	require.Equal(t, []string{"c", "d"}, result.Spec.ExternalIPs)
+}
+
+func TestMergeMap(t *testing.T) {
+	base := &corev1.Service{
+		ObjectMeta: v12.ObjectMeta{
+			Labels: map[string]string{
+				"a": "1",
+				"b": "2",
+			},
+		},
+	}
+	overrides := &corev1.Service{
+		ObjectMeta: v12.ObjectMeta{
+			Labels: map[string]string{
+				"b": "3",
+				"c": "4",
+			},
+		},
+	}
+
+	result := &corev1.Service{}
+	err := Merge(base, overrides, result)
+	require.NoError(t, err)
+
+	require.Equal(t, map[string]string{
+		"a": "1",
+		"b": "3",
+		"c": "4",
+	}, result.ObjectMeta.Labels)
+}
+
+func TestMergeMapWithEmbeddedType(t *testing.T) {
+	base := &corev1.Service{
+		ObjectMeta: v12.ObjectMeta{
+			Labels: map[string]string{
+				"a": "1",
+				"b": "2",
+			},
+		},
+	}
+	overrides := &typeoverride.Service{
+		ObjectMeta: typeoverride.ObjectMeta{
+			Labels: map[string]string{
+				"b": "3",
+				"c": "4",
+			},
+		},
+	}
+
+	result := &corev1.Service{}
+	err := Merge(base, overrides, result)
+	require.NoError(t, err)
+
+	require.Equal(t, map[string]string{
+		"a": "1",
+		"b": "3",
+		"c": "4",
+	}, result.ObjectMeta.Labels)
+}
+
+func TestMergeService(t *testing.T) {
+	base := &corev1.Service{
+		ObjectMeta: v12.ObjectMeta{
+			Labels: map[string]string{
+				"a": "1",
+				"b": "2",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       80,
+					TargetPort: intstr.FromInt(8080),
+				},
+			},
+			Selector: map[string]string{
+				"a": "1",
+				"b": "2",
+			},
+			LoadBalancerIP: "1.2.3.4",
+		},
+	}
+	overrides := &typeoverride.Service{
+		ObjectMeta: typeoverride.ObjectMeta{
+			Labels: map[string]string{
+				"b": "3",
+				"c": "4",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http1",
+					Port:       80,
+					TargetPort: intstr.FromInt(8081),
+				},
+				{
+					Name:       "http2",
+					Port:       82,
+					TargetPort: intstr.FromInt(8082),
+				},
+			},
+			Selector:map[string]string{
+				"b": "3",
+				"c": "4",
+			},
+		},
+	}
+
+	result := &corev1.Service{}
+	err := Merge(base, overrides, result)
+	require.NoError(t, err)
+
+	require.Equal(t, map[string]string{
+		"a": "1",
+		"b": "3",
+		"c": "4",
+	}, result.ObjectMeta.Labels)
+
+	require.Equal(t, result.Spec, corev1.ServiceSpec{
+		Ports: []corev1.ServicePort{
+			{
+				Name:       "http1",
+				Port:       80,
+				TargetPort: intstr.FromInt(8081),
+			},
+			{
+				Name:       "http2",
+				Port:       82,
+				TargetPort: intstr.FromInt(8082),
+			},
+		},
+		Selector: map[string]string{
+			"a": "1",
+			"b": "3",
+			"c": "4",
+		},
+		LoadBalancerIP: "1.2.3.4",
+	})
 }
