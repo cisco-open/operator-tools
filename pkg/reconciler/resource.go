@@ -18,9 +18,13 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"emperror.dev/errors"
+	"github.com/banzaicloud/k8s-objectmatcher/patch"
+	"github.com/banzaicloud/operator-tools/pkg/types"
+	"github.com/banzaicloud/operator-tools/pkg/utils"
 	"github.com/go-logr/logr"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -29,21 +33,29 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	"github.com/banzaicloud/k8s-objectmatcher/patch"
-	"github.com/banzaicloud/operator-tools/pkg/types"
 )
 
 const (
-	StateCreated StaticDesiredState = "Created"
-	StateAbsent  StaticDesiredState = "Absent"
-	StatePresent StaticDesiredState = "Present"
+	DefaultRecreateRequeueDelay int32              = 10
+	StateCreated                StaticDesiredState = "Created"
+	StateAbsent                 StaticDesiredState = "Absent"
+	StatePresent                StaticDesiredState = "Present"
+)
+
+var (
+	DefaultRecreateEnabledroupKinds = []schema.GroupKind{
+		{Group: "", Kind: "Service"},
+		{Group: "apps", Kind: "StatefulSet"},
+		{Group: "apps", Kind: "DaemonSet"},
+		{Group: "apps", Kind: "Deployment"},
+	}
 )
 
 type DesiredState interface {
@@ -122,19 +134,45 @@ type GenericResourceReconciler struct {
 
 type ResourceReconcilerOption func(*ReconcilerOpts)
 
+type RecreateResourceCondition func(kind schema.GroupVersionKind, status metav1.Status) bool
+
 // Recommended to use NewReconcilerWith + ResourceReconcilerOptions
 type ReconcilerOpts struct {
-	Log                                              logr.Logger
-	Scheme                                           *runtime.Scheme
-	EnableRecreateWorkloadOnImmutableFieldChange     bool
+	Log    logr.Logger
+	Scheme *runtime.Scheme
+	// Enable recreating workloads and services when the API server rejects an update
+	EnableRecreateWorkloadOnImmutableFieldChange bool
+	// Custom log message to help when a workload or service need to be recreated
 	EnableRecreateWorkloadOnImmutableFieldChangeHelp string
+	// The delay in seconds to wait before checking back after deleted the resource (10s by default)
+	RecreateRequeueDelay *int32
+	// List of callbacks evaluated to decide whether a given gvk is enabled to be recreated or not
+	RecreateEnabledResourceCondition RecreateResourceCondition
 }
 
 // NewGenericReconciler returns GenericResourceReconciler
+// Deprecated, use NewReconcilerWith
 func NewGenericReconciler(client runtimeClient.Client, log logr.Logger, opts ReconcilerOpts) *GenericResourceReconciler {
 	if opts.Scheme == nil {
 		opts.Scheme = runtime.NewScheme()
 		_ = clientgoscheme.AddToScheme(opts.Scheme)
+	}
+	if opts.RecreateRequeueDelay == nil {
+		opts.RecreateRequeueDelay = utils.IntPointer(DefaultRecreateRequeueDelay)
+	}
+	if opts.RecreateEnabledResourceCondition == nil {
+		// only allow a custom set of types and only specific errors
+		opts.RecreateEnabledResourceCondition = func(kind schema.GroupVersionKind, status metav1.Status) bool {
+			if !strings.Contains(status.Message, "immutable") {
+				return false
+			}
+			for _, gk := range DefaultRecreateEnabledroupKinds {
+				if gk == kind.GroupKind() {
+					return true
+				}
+			}
+			return false
+		}
 	}
 	return &GenericResourceReconciler{
 		Log:     log,
@@ -161,23 +199,46 @@ func WithEnableRecreateWorkload() ResourceReconcilerOption {
 	}
 }
 
-func NewReconcilerWith(client runtimeClient.Client, opts ...func(reconciler *ReconcilerOpts)) ResourceReconciler {
-	rec := &GenericResourceReconciler{
-		Client: client,
-		Options: ReconcilerOpts{
-			EnableRecreateWorkloadOnImmutableFieldChangeHelp: "recreating object on immutable field change has to be enabled explicitly through the reconciler options",
-		},
-		Log: log.NullLogger{},
+func WithRecreateRequeueDelay(delay int32) ResourceReconcilerOption {
+	return func(o *ReconcilerOpts) {
+		o.RecreateRequeueDelay = utils.IntPointer(delay)
 	}
+}
+
+// Use this option for the legacy behaviour
+func WithRecreateEnabledForAll() ResourceReconcilerOption {
+	return func(o *ReconcilerOpts) {
+		o.RecreateEnabledResourceCondition = func(_ schema.GroupVersionKind, _ metav1.Status) bool {
+			return true
+		}
+	}
+}
+
+// Use this option for the legacy behaviour
+func WithRecreateEnabledFor(condition RecreateResourceCondition) ResourceReconcilerOption {
+	return func(o *ReconcilerOpts) {
+		o.RecreateEnabledResourceCondition = condition
+	}
+}
+
+// Match for exact GVK
+func WithRecreateEnabledForNothing() ResourceReconcilerOption {
+	return func(o *ReconcilerOpts) {
+		o.RecreateEnabledResourceCondition = func(kind schema.GroupVersionKind, status metav1.Status) bool {
+			return false
+		}
+	}
+}
+
+func NewReconcilerWith(client runtimeClient.Client, opts ...func(reconciler *ReconcilerOpts)) ResourceReconciler {
+	rec := NewGenericReconciler(client, log.NullLogger{}, ReconcilerOpts{
+		EnableRecreateWorkloadOnImmutableFieldChangeHelp: "recreating object on immutable field change has to be enabled explicitly through the reconciler options",
+	})
 	for _, opt := range opts {
 		opt(&rec.Options)
 	}
 	if rec.Options.Log != nil {
 		rec.Log = rec.Options.Log
-	}
-	if rec.Options.Scheme == nil {
-		rec.Options.Scheme = runtime.NewScheme()
-		_ = clientgoscheme.AddToScheme(rec.Options.Scheme)
 	}
 	return rec
 }
@@ -190,7 +251,7 @@ func (r *GenericResourceReconciler) CreateResource(desired runtime.Object) error
 
 // ReconcileResource reconciles various kubernetes types
 func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, desiredState DesiredState) (*reconcile.Result, error) {
-	resourceDetails, err := r.resourceDetails(desired)
+	resourceDetails, gvk, err := r.resourceDetails(desired)
 	if err != nil {
 		return nil, errors.WrapIf(err, "failed to get resource details")
 	}
@@ -304,17 +365,20 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 			sErr, ok := err.(*apierrors.StatusError)
 			if ok && sErr.ErrStatus.Code == 422 && sErr.ErrStatus.Reason == metav1.StatusReasonInvalid {
 				if r.Options.EnableRecreateWorkloadOnImmutableFieldChange {
-					log.Error(err, "failed to update resource, trying to recreate")
+					if !r.Options.RecreateEnabledResourceCondition(gvk, sErr.ErrStatus) {
+						return nil, errors.WrapIfWithDetails(err, "resource type is not allowed to be recreated", resourceDetails...)
+					}
+					log.Error(err, "failed to update resource, trying to recreate", resourceDetails...)
 					err := r.Client.Delete(context.TODO(), current,
 						// wait until all dependent resources gets cleared up
 						runtimeClient.PropagationPolicy(metav1.DeletePropagationForeground),
 					)
 					if err != nil {
-						return nil, errors.WrapIf(err, "failed to delete current resource")
+						return nil, errors.WrapIfWithDetails(err, "failed to delete current resource", resourceDetails...)
 					}
 					return &reconcile.Result{
 						Requeue:      true,
-						RequeueAfter: time.Second * 10,
+						RequeueAfter: time.Second * time.Duration(utils.PointerToInt32(r.Options.RecreateRequeueDelay)),
 					}, nil
 				} else {
 					return nil, errors.WrapIf(sErr, r.Options.EnableRecreateWorkloadOnImmutableFieldChangeHelp)
@@ -331,6 +395,10 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 		}
 	}
 	return nil, nil
+}
+
+func (r *GenericResourceReconciler) isRecreateEnabledType(gvk schema.GroupVersionKind, status metav1.Status) bool {
+	return r.Options.RecreateEnabledResourceCondition(gvk, status)
 }
 
 func (r *GenericResourceReconciler) fromDesired(desired runtime.Object) (runtime.Object, error) {
@@ -360,7 +428,7 @@ func (r *GenericResourceReconciler) CreateIfNotExist(desired runtime.Object, des
 	if err != nil {
 		return false, nil, errors.WrapIf(err, "failed to get object key")
 	}
-	resourceDetails, err := r.resourceDetails(desired)
+	resourceDetails, _, err := r.resourceDetails(desired)
 	if err != nil {
 		return false, nil, errors.WrapIf(err, "failed to get resource details")
 	}
@@ -437,7 +505,7 @@ func (r *GenericResourceReconciler) delete(desired runtime.Object, desiredState 
 	if err != nil {
 		return false, errors.WrapIf(err, "failed to get object key")
 	}
-	resourceDetails, err := r.resourceDetails(desired)
+	resourceDetails, _, err := r.resourceDetails(desired)
 	if err != nil {
 		return false, errors.WrapIf(err, "failed to get resource details")
 	}
@@ -508,10 +576,11 @@ func crdReadyV1(crd *v1.CustomResourceDefinition) bool {
 	return false
 }
 
-func (r *GenericResourceReconciler) resourceDetails(desired runtime.Object) ([]interface{}, error) {
+func (r *GenericResourceReconciler) resourceDetails(desired runtime.Object) ([]interface{}, schema.GroupVersionKind, error) {
+	gvk := schema.GroupVersionKind{}
 	key, err := runtimeClient.ObjectKeyFromObject(desired)
 	if err != nil {
-		return nil, errors.WithStackIf(err)
+		return nil, gvk, errors.WithStackIf(err)
 	}
 	values := []interface{}{"name", key.Name}
 	if key.Namespace != "" {
@@ -519,17 +588,17 @@ func (r *GenericResourceReconciler) resourceDetails(desired runtime.Object) ([]i
 	}
 	defaultValues := append(values, "type", reflect.TypeOf(desired).String())
 	if r.Options.Scheme == nil {
-		return defaultValues, nil
+		return defaultValues, gvk, nil
 	}
-	gvk, err := apiutil.GVKForObject(desired, r.Options.Scheme)
+	gvk, err = apiutil.GVKForObject(desired, r.Options.Scheme)
 	if err != nil {
 		r.Log.V(2).Info("unable to get gvk for resource, falling back to type")
-		return values, nil
+		return values, gvk, nil
 	}
 	values = append(values,
 		"apiVersion", gvk.GroupVersion().String(),
 		"kind", gvk.Kind)
-	return values, nil
+	return values, gvk, nil
 }
 
 func (r *GenericResourceReconciler) resourceLog(desired runtime.Object, details ...interface{}) logr.Logger {
