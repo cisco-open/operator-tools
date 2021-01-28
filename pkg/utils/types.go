@@ -60,6 +60,14 @@ func PointerToInt(i *int) int {
 	return *i
 }
 
+func PointerToInt32(i *int32) int32 {
+	if i == nil {
+		return 0
+	}
+
+	return *i
+}
+
 func PointerToString(s *string) string {
 	if s == nil {
 		return ""
