@@ -23,6 +23,7 @@ import (
 	"github.com/banzaicloud/operator-tools/pkg/inventory"
 	"github.com/banzaicloud/operator-tools/pkg/logger"
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
+	"github.com/banzaicloud/operator-tools/pkg/resources"
 	"github.com/banzaicloud/operator-tools/pkg/types"
 	"github.com/go-logr/logr"
 	"k8s.io/api/core/v1"
@@ -41,6 +42,10 @@ type ReleaseData struct {
 	Namespace   string
 	ChartName   string
 	ReleaseName string
+	// Layers can be embedded into CRDs directly to provide flexible override mechanisms
+	Layers []resources.K8SResourceOverlay
+	// Modifiers can be used from client code to modify resources before being applied
+	Modifiers []resources.ObjectModifierFunc
 }
 
 type Component interface {
@@ -53,11 +58,12 @@ type Component interface {
 }
 
 type HelmReconciler struct {
-	client    client.Client
-	scheme    *runtime.Scheme
-	logger    logr.Logger
-	inventory *inventory.Inventory
-	opts      []reconciler.NativeReconcilerOpt
+	client       client.Client
+	scheme       *runtime.Scheme
+	logger       logr.Logger
+	inventory    *inventory.Inventory
+	opts         []reconciler.NativeReconcilerOpt
+	objectParser *resources.ObjectParser
 }
 
 func NewHelmReconciler(
@@ -68,11 +74,12 @@ func NewHelmReconciler(
 	opts []reconciler.NativeReconcilerOpt,
 ) *HelmReconciler {
 	r := &HelmReconciler{
-		client:    client,
-		scheme:    scheme,
-		logger:    logger,
-		inventory: inventory.NewDiscoveryInventory(client, logger, discovery),
-		opts:      opts,
+		client:       client,
+		scheme:       scheme,
+		logger:       logger,
+		inventory:    inventory.NewDiscoveryInventory(client, logger, discovery),
+		objectParser: resources.NewObjectParser(scheme),
+		opts:         opts,
 	}
 	return r
 }
@@ -166,7 +173,17 @@ func (rec *HelmReconciler) reconcile(parent reconciler.ResourceOwner, component 
 			return nil, err
 		}
 
-		chartResourceBuilders, err := reconciler.GetResourceBuildersFromObjects(objects, state)
+		modifiers := releaseData.Modifiers
+
+		for _, layer := range releaseData.Layers {
+			modifier, err := resources.PatchYAMLModifier(layer, rec.objectParser)
+			if err != nil {
+				return nil, errors.WrapIf(err, "failed to create modifier from layer")
+			}
+			modifiers = append(modifiers, modifier)
+		}
+
+		chartResourceBuilders, err := reconciler.GetResourceBuildersFromObjects(objects, state, modifiers...)
 		if err != nil {
 			return nil, err
 		}
