@@ -45,7 +45,7 @@ type OverlayPatchType string
 
 const (
 	ReplaceOverlayPatchType OverlayPatchType = "replace"
-	DeleteOverlayPatchType  OverlayPatchType = "delete"
+	DeleteOverlayPatchType  OverlayPatchType = "remove"
 )
 
 // +kubebuilder:object:generate=true
