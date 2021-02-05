@@ -254,6 +254,9 @@ func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result,
 		o, state, err := r()
 		if err != nil {
 			combinedResult.CombineErr(err)
+		} else if o == nil || state == nil {
+			rec.Log.Info("skipping resource builder reconciliation due to object or desired state was nil")
+			continue
 		} else {
 			var objectMeta metav1.Object
 			objectMeta, err = rec.addComponentIDAnnotation(o, componentID)
