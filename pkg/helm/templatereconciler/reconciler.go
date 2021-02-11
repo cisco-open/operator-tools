@@ -26,7 +26,7 @@ import (
 	"github.com/banzaicloud/operator-tools/pkg/resources"
 	"github.com/banzaicloud/operator-tools/pkg/types"
 	"github.com/go-logr/logr"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery"
 	controllerruntime "sigs.k8s.io/controller-runtime"
@@ -66,6 +66,14 @@ type HelmReconciler struct {
 	objectParser *resources.ObjectParser
 }
 
+type preConditionsFatalErr struct {
+	error
+}
+
+func NewPreConditionsFatalErr(err error) error {
+	return &preConditionsFatalErr{err}
+}
+
 func NewHelmReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
@@ -102,6 +110,13 @@ func (rec *HelmReconciler) Reconcile(object runtime.Object, component Component)
 
 	if component.Enabled(object) {
 		if err := component.PreChecks(object); err != nil {
+			if preCondErr, ok := err.(*preConditionsFatalErr); ok {
+				if err := component.UpdateStatus(object, types.ReconcileStatusFailed, preCondErr.Error()); err != nil {
+					rec.logger.Error(err, "status update failed")
+				}
+
+				return nil, preCondErr
+			}
 			if err := component.UpdateStatus(object, types.ReconcileStatusReconciling, "waiting for precondition checks to pass"); err != nil {
 				rec.logger.Error(err, "status update failed")
 			}
@@ -109,6 +124,7 @@ func (rec *HelmReconciler) Reconcile(object runtime.Object, component Component)
 			return &reconcile.Result{
 				RequeueAfter: time.Second * 5,
 			}, nil
+
 		}
 	}
 
