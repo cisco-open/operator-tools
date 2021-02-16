@@ -384,6 +384,8 @@ type PodSpec struct {
 	SetHostnameAsFQDN *bool `json:"setHostnameAsFQDN,omitempty"`
 }
 
+// +kubebuilder:object:generate=true
+
 // ServiceAccount is a subset of ServiceAccount in k8s.io/api/core/v1
 type ServiceAccount struct {
 	// +optional
