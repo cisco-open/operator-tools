@@ -383,3 +383,22 @@ type PodSpec struct {
 	// +optional
 	SetHostnameAsFQDN *bool `json:"setHostnameAsFQDN,omitempty"`
 }
+
+// +kubebuilder:object:generate=true
+
+// ServiceAccount is a subset of ServiceAccount in k8s.io/api/core/v1
+type ServiceAccount struct {
+	// +optional
+	ObjectMeta `json:"metadata,omitempty"`
+
+	// +optional
+	// +patchMergeKey=name
+	// +patchStrategy=merge
+	Secrets []v1.ObjectReference `json:"secrets,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
+
+	// +optional
+	ImagePullSecrets []v1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+
+	// +optional
+	AutomountServiceAccountToken *bool `json:"automountServiceAccountToken,omitempty"`
+}
