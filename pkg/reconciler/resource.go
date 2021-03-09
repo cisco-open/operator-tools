@@ -148,6 +148,8 @@ type ReconcilerOpts struct {
 	RecreateRequeueDelay *int32
 	// List of callbacks evaluated to decide whether a given gvk is enabled to be recreated or not
 	RecreateEnabledResourceCondition RecreateResourceCondition
+	// Immediately recreate the resource instead of deleting and returning with a requeue
+	RecreateImmediately bool
 }
 
 // NewGenericReconciler returns GenericResourceReconciler
@@ -227,6 +229,12 @@ func WithRecreateEnabledForNothing() ResourceReconcilerOption {
 		o.RecreateEnabledResourceCondition = func(kind schema.GroupVersionKind, status metav1.Status) bool {
 			return false
 		}
+	}
+}
+
+func WithRecreateImmediately() ResourceReconcilerOption {
+	return func(o *ReconcilerOpts) {
+		o.RecreateImmediately = true
 	}
 }
 
@@ -369,8 +377,30 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 						return nil, errors.WrapIfWithDetails(err, "resource type is not allowed to be recreated", resourceDetails...)
 					}
 					log.Error(err, "failed to update resource, trying to recreate", resourceDetails...)
+					if r.Options.RecreateImmediately {
+						err := r.Client.Delete(context.TODO(), current,
+							// DO NOT wait until all dependent resources get cleared up
+							runtimeClient.PropagationPolicy(metav1.DeletePropagationBackground),
+						)
+						if err != nil {
+							return nil, errors.WrapIfWithDetails(err, "failed to delete current resource", resourceDetails...)
+						}
+						if err := metaAccessor.SetResourceVersion(desired, ""); err != nil {
+							return nil, errors.WrapIfWithDetails(err, "unable to clear resourceVersion", resourceDetails...)
+						}
+						created, _, err := r.CreateIfNotExist(desired, desiredState)
+						if err == nil {
+							if !created {
+								return nil, errors.New("resource already exists")
+							}
+							return nil, nil
+						}
+						if err != nil {
+							return nil, errors.WrapIfWithDetails(err, "failed to recreate resource", resourceDetails...)
+						}
+					}
 					err := r.Client.Delete(context.TODO(), current,
-						// wait until all dependent resources gets cleared up
+						// wait until all dependent resources get cleared up
 						runtimeClient.PropagationPolicy(metav1.DeletePropagationForeground),
 					)
 					if err != nil {
@@ -395,10 +425,6 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 		}
 	}
 	return nil, nil
-}
-
-func (r *GenericResourceReconciler) isRecreateEnabledType(gvk schema.GroupVersionKind, status metav1.Status) bool {
-	return r.Options.RecreateEnabledResourceCondition(gvk, status)
 }
 
 func (r *GenericResourceReconciler) fromDesired(desired runtime.Object) (runtime.Object, error) {

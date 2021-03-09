@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -102,11 +103,11 @@ func TestRecreateObjectFailIfNotAllowed(t *testing.T) {
 			name: "fails to recreate service",
 			desired: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test",
+					Name:      "test0",
 					Namespace: testNamespace,
 				},
 				Spec: corev1.ServiceSpec{
-					ClusterIP: "10.0.0.100",
+					ClusterIP: "10.0.0.10",
 					Ports: []corev1.ServicePort{
 						{
 							Port: 123,
@@ -119,7 +120,7 @@ func TestRecreateObjectFailIfNotAllowed(t *testing.T) {
 				reconciler.WithRecreateEnabledForNothing(),
 			),
 			update: func(object runtime.Object) runtime.Object {
-				object.(*corev1.Service).Spec.ClusterIP = "10.0.0.102"
+				object.(*corev1.Service).Spec.ClusterIP = "10.0.0.11"
 				return object
 			},
 			wantError: func(err error) {
@@ -131,11 +132,11 @@ func TestRecreateObjectFailIfNotAllowed(t *testing.T) {
 			name: "allowed to recreate service by default",
 			desired: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test",
+					Name:      "test1",
 					Namespace: testNamespace,
 				},
 				Spec: corev1.ServiceSpec{
-					ClusterIP: "10.0.0.100",
+					ClusterIP: "10.0.0.20",
 					Ports: []corev1.ServicePort{
 						{
 							Port: 123,
@@ -148,12 +149,47 @@ func TestRecreateObjectFailIfNotAllowed(t *testing.T) {
 				//reconciler.WithRecreateEnabledForNothing(),
 			),
 			update: func(object runtime.Object) runtime.Object {
-				object.(*corev1.Service).Spec.ClusterIP = "10.0.0.102"
+				object.(*corev1.Service).Spec.ClusterIP = "10.0.0.21"
 				return object
 			},
 			wantResult: func(result *reconcile.Result) {
 				require.NotNil(t, result)
 				require.True(t, result.Requeue)
+			},
+		},
+		{
+			name: "recreate service immediately",
+			desired: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test2",
+					Namespace: testNamespace,
+				},
+				Spec: corev1.ServiceSpec{
+					ClusterIP: "10.0.0.31",
+					Ports: []corev1.ServicePort{
+						{
+							Port: 123,
+						},
+					},
+				},
+			},
+			reconciler: reconciler.NewReconcilerWith(k8sClient,
+				reconciler.WithEnableRecreateWorkload(),
+				reconciler.WithRecreateImmediately(),
+			),
+			update: func(object runtime.Object) runtime.Object {
+				object.(*corev1.Service).Spec.ClusterIP = "10.0.0.32"
+				return object
+			},
+			wantResult: func(result *reconcile.Result) {
+				require.Nil(t, result)
+				svc := &corev1.Service{}
+				err := k8sClient.Get(context.TODO(), types.NamespacedName{
+					Namespace: testNamespace,
+					Name:      "test2",
+				}, svc)
+				require.NoError(t, err)
+				require.Equal(t, svc.Spec.ClusterIP, "10.0.0.32")
 			},
 		},
 	}
