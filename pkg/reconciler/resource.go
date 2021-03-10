@@ -50,7 +50,7 @@ const (
 )
 
 var (
-	DefaultRecreateEnabledroupKinds = []schema.GroupKind{
+	DefaultRecreateEnabledGroupKinds = []schema.GroupKind{
 		{Group: "", Kind: "Service"},
 		{Group: "apps", Kind: "StatefulSet"},
 		{Group: "apps", Kind: "DaemonSet"},
@@ -142,16 +142,16 @@ type ReconcilerOpts struct {
 	Scheme *runtime.Scheme
 	// Enable recreating workloads and services when the API server rejects an update
 	EnableRecreateWorkloadOnImmutableFieldChange bool
-	// Custom log message to help when a workload or service need to be recreated
+	// Custom log message to help when a workload or service needs to be recreated
 	EnableRecreateWorkloadOnImmutableFieldChangeHelp string
-	// The delay in seconds to wait before checking back after deleted the resource (10s by default)
+	// The delay in seconds to wait before checking back after deleting the resource (10s by default)
 	RecreateRequeueDelay *int32
 	// List of callbacks evaluated to decide whether a given gvk is enabled to be recreated or not
 	RecreateEnabledResourceCondition RecreateResourceCondition
 	// Immediately recreate the resource instead of deleting and returning with a requeue
 	RecreateImmediately bool
 	// Check the update error message contains this substring before recreate. Default: "immutable"
-	RecreateErrorMessageContains *string
+	RecreateErrorMessageSubstring *string
 }
 
 // NewGenericReconciler returns GenericResourceReconciler
@@ -164,8 +164,8 @@ func NewGenericReconciler(client runtimeClient.Client, log logr.Logger, opts Rec
 	if opts.RecreateRequeueDelay == nil {
 		opts.RecreateRequeueDelay = utils.IntPointer(DefaultRecreateRequeueDelay)
 	}
-	if opts.RecreateErrorMessageContains == nil {
-		opts.RecreateErrorMessageContains = utils.StringPointer("immutable")
+	if opts.RecreateErrorMessageSubstring == nil {
+		opts.RecreateErrorMessageSubstring = utils.StringPointer("immutable")
 	}
 	if opts.RecreateEnabledResourceCondition == nil {
 		// only allow a custom set of types and only specific errors
@@ -173,7 +173,7 @@ func NewGenericReconciler(client runtimeClient.Client, log logr.Logger, opts Rec
 			if !strings.Contains(status.Message, "immutable") {
 				return false
 			}
-			for _, gk := range DefaultRecreateEnabledroupKinds {
+			for _, gk := range DefaultRecreateEnabledGroupKinds {
 				if gk == kind.GroupKind() {
 					return true
 				}
@@ -206,6 +206,7 @@ func WithEnableRecreateWorkload() ResourceReconcilerOption {
 	}
 }
 
+// Apply the given amount of delay before recreating a resource after it has been removed
 func WithRecreateRequeueDelay(delay int32) ResourceReconcilerOption {
 	return func(o *ReconcilerOpts) {
 		o.RecreateRequeueDelay = utils.IntPointer(delay)
@@ -228,7 +229,7 @@ func WithRecreateEnabledFor(condition RecreateResourceCondition) ResourceReconci
 	}
 }
 
-// Match for exact GVK
+// Matches no GVK
 func WithRecreateEnabledForNothing() ResourceReconcilerOption {
 	return func(o *ReconcilerOpts) {
 		o.RecreateEnabledResourceCondition = func(kind schema.GroupVersionKind, status metav1.Status) bool {
@@ -237,21 +238,24 @@ func WithRecreateEnabledForNothing() ResourceReconcilerOption {
 	}
 }
 
+// Recreate workloads immediately without waiting for dependents to get GCd
 func WithRecreateImmediately() ResourceReconcilerOption {
 	return func(o *ReconcilerOpts) {
 		o.RecreateImmediately = true
 	}
 }
 
-func WithRecreateErrorMessageContains(substring string) ResourceReconcilerOption {
+// Recreate only if the error message contains the given substring
+func WithRecreateErrorMessageSubstring(substring string) ResourceReconcilerOption {
 	return func(o *ReconcilerOpts) {
-		o.RecreateErrorMessageContains = utils.StringPointer(substring)
+		o.RecreateErrorMessageSubstring = utils.StringPointer(substring)
 	}
 }
 
+// Disable checking the error message before recreating resources
 func WithRecreateErrorMessageIgnored() ResourceReconcilerOption {
 	return func(o *ReconcilerOpts) {
-		o.RecreateErrorMessageContains = utils.StringPointer("")
+		o.RecreateErrorMessageSubstring = utils.StringPointer("")
 	}
 }
 
@@ -390,7 +394,7 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 			sErr, ok := err.(*apierrors.StatusError)
 			if ok && sErr.ErrStatus.Code == 422 && sErr.ErrStatus.Reason == metav1.StatusReasonInvalid &&
 				// Check the actual error message
-				strings.Contains(sErr.ErrStatus.Message, utils.PointerToString(r.Options.RecreateErrorMessageContains)) {
+				strings.Contains(sErr.ErrStatus.Message, utils.PointerToString(r.Options.RecreateErrorMessageSubstring)) {
 				if r.Options.EnableRecreateWorkloadOnImmutableFieldChange {
 					if !r.Options.RecreateEnabledResourceCondition(gvk, sErr.ErrStatus) {
 						return nil, errors.WrapIfWithDetails(err, "resource type is not allowed to be recreated", resourceDetails...)

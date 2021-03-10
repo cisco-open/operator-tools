@@ -146,7 +146,6 @@ func TestRecreateObjectFailIfNotAllowed(t *testing.T) {
 			},
 			reconciler: reconciler.NewReconcilerWith(k8sClient,
 				reconciler.WithEnableRecreateWorkload(),
-				//reconciler.WithRecreateEnabledForNothing(),
 			),
 			update: func(object runtime.Object) runtime.Object {
 				object.(*corev1.Service).Spec.ClusterIP = "10.0.0.21"
