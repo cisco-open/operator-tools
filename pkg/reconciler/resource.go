@@ -150,6 +150,8 @@ type ReconcilerOpts struct {
 	RecreateEnabledResourceCondition RecreateResourceCondition
 	// Immediately recreate the resource instead of deleting and returning with a requeue
 	RecreateImmediately bool
+	// Check the update error message contains this substring before recreate. Default: "immutable"
+	RecreateErrorMessageContains *string
 }
 
 // NewGenericReconciler returns GenericResourceReconciler
@@ -161,6 +163,9 @@ func NewGenericReconciler(client runtimeClient.Client, log logr.Logger, opts Rec
 	}
 	if opts.RecreateRequeueDelay == nil {
 		opts.RecreateRequeueDelay = utils.IntPointer(DefaultRecreateRequeueDelay)
+	}
+	if opts.RecreateErrorMessageContains == nil {
+		opts.RecreateErrorMessageContains = utils.StringPointer("immutable")
 	}
 	if opts.RecreateEnabledResourceCondition == nil {
 		// only allow a custom set of types and only specific errors
@@ -235,6 +240,18 @@ func WithRecreateEnabledForNothing() ResourceReconcilerOption {
 func WithRecreateImmediately() ResourceReconcilerOption {
 	return func(o *ReconcilerOpts) {
 		o.RecreateImmediately = true
+	}
+}
+
+func WithRecreateErrorMessageContains(substring string) ResourceReconcilerOption {
+	return func(o *ReconcilerOpts) {
+		o.RecreateErrorMessageContains = utils.StringPointer(substring)
+	}
+}
+
+func WithRecreateErrorMessageIgnored() ResourceReconcilerOption {
+	return func(o *ReconcilerOpts) {
+		o.RecreateErrorMessageContains = utils.StringPointer("")
 	}
 }
 
@@ -371,7 +388,9 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 		}
 		if err := r.Client.Update(context.TODO(), desired, updateOptions...); err != nil {
 			sErr, ok := err.(*apierrors.StatusError)
-			if ok && sErr.ErrStatus.Code == 422 && sErr.ErrStatus.Reason == metav1.StatusReasonInvalid {
+			if ok && sErr.ErrStatus.Code == 422 && sErr.ErrStatus.Reason == metav1.StatusReasonInvalid &&
+				// Check the actual error message
+				strings.Contains(sErr.ErrStatus.Message, utils.PointerToString(r.Options.RecreateErrorMessageContains)) {
 				if r.Options.EnableRecreateWorkloadOnImmutableFieldChange {
 					if !r.Options.RecreateEnabledResourceCondition(gvk, sErr.ErrStatus) {
 						return nil, errors.WrapIfWithDetails(err, "resource type is not allowed to be recreated", resourceDetails...)
