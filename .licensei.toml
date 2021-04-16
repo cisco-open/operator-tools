@@ -20,6 +20,10 @@ ignored = [
   "github.com/uber-go/tally", # MIT
   "github.com/russross/blackfriday", # BSD
 
+  "github.com/xeipuuv/gojsonpointer", # Apache2
+  "github.com/xeipuuv/gojsonreference", # Apache2
+  "github.com/xeipuuv/gojsonschema", # Apache2
+
   "github.com/davecgh/go-spew", # ISC license
   "github.com/oracle/oci-go-sdk", # UPL-1.0
 
