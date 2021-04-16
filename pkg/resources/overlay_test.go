@@ -17,19 +17,65 @@ package resources
 import (
 	"testing"
 
-	"github.com/banzaicloud/operator-tools/pkg/types"
-	"github.com/banzaicloud/operator-tools/pkg/utils"
 	"github.com/go-test/deep"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+
+	"github.com/banzaicloud/operator-tools/pkg/types"
+	"github.com/banzaicloud/operator-tools/pkg/utils"
 )
 
 func TestPatchYAMLModifier(t *testing.T) {
 	objectName := "test-object"
 	testNamespace := "test-ns"
+
+	baseObject := &v1.Service{
+		TypeMeta: v12.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: v12.ObjectMeta{
+			Name:      objectName,
+			Namespace: testNamespace,
+		},
+		Spec: v1.ServiceSpec{
+			LoadBalancerIP: "1.2.3.4",
+			Ports: []v1.ServicePort{
+				{
+					Port: 123,
+					Name: "port1",
+				},
+				{
+					Port: 456,
+					Name: "port-to-delete",
+				},
+			},
+		},
+	}
+
+	baseWantObject := &v1.Service{
+		TypeMeta: v12.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: v12.ObjectMeta{
+			Name:      objectName,
+			Namespace: testNamespace,
+		},
+		Spec: v1.ServiceSpec{
+			LoadBalancerIP: "5.6.7.8",
+			Ports: []v1.ServicePort{
+				{
+					Port: 123,
+					Name: "port2",
+				},
+			},
+		},
+	}
+
 	parser := NewObjectParser(clientgoscheme.Scheme)
 	tests := map[string]struct {
 		overlay           K8SResourceOverlay
@@ -56,53 +102,85 @@ func TestPatchYAMLModifier(t *testing.T) {
 						Value: utils.StringPointer("port2"),
 					},
 					{
-						Type:  DeleteOverlayPatchType,
-						Path:  utils.StringPointer("/spec/ports/1"),
+						Type: DeleteOverlayPatchType,
+						Path: utils.StringPointer("/spec/ports/1"),
 					},
 				},
 			},
-			object: &v1.Service{
-				TypeMeta: v12.TypeMeta{
-					Kind:       "Service",
-					APIVersion: "v1",
+			object: baseObject,
+			want:   baseWantObject,
+		},
+		"matching wo objectkey patching": {
+			overlay: K8SResourceOverlay{
+				Patches: []K8SResourceOverlayPatch{
+					{
+						Type:  ReplaceOverlayPatchType,
+						Path:  utils.StringPointer("/spec/loadBalancerIP"),
+						Value: utils.StringPointer("5.6.7.8"),
+					},
+					{
+						Type:  ReplaceOverlayPatchType,
+						Path:  utils.StringPointer("/spec/ports/0/name"),
+						Value: utils.StringPointer("port2"),
+					},
+					{
+						Type: DeleteOverlayPatchType,
+						Path: utils.StringPointer("/spec/ports/1"),
+					},
 				},
-				ObjectMeta: v12.ObjectMeta{
-					Name:      objectName,
+			},
+			object: baseObject,
+			want:   baseWantObject,
+		},
+		"matching wo objectkey namespace patching": {
+			overlay: K8SResourceOverlay{
+				ObjectKey: types.ObjectKey{
+					Name: objectName,
+				},
+				Patches: []K8SResourceOverlayPatch{
+					{
+						Type:  ReplaceOverlayPatchType,
+						Path:  utils.StringPointer("/spec/loadBalancerIP"),
+						Value: utils.StringPointer("5.6.7.8"),
+					},
+					{
+						Type:  ReplaceOverlayPatchType,
+						Path:  utils.StringPointer("/spec/ports/0/name"),
+						Value: utils.StringPointer("port2"),
+					},
+					{
+						Type: DeleteOverlayPatchType,
+						Path: utils.StringPointer("/spec/ports/1"),
+					},
+				},
+			},
+			object: baseObject,
+			want:   baseWantObject,
+		},
+		"matching wo objectkey name patching": {
+			overlay: K8SResourceOverlay{
+				ObjectKey: types.ObjectKey{
 					Namespace: testNamespace,
 				},
-				Spec: v1.ServiceSpec{
-					LoadBalancerIP: "1.2.3.4",
-					Ports: []v1.ServicePort{
-						{
-							Port: 123,
-							Name: "port1",
-						},
-						{
-							Port: 456,
-							Name: "port-to-delete",
-						},
+				Patches: []K8SResourceOverlayPatch{
+					{
+						Type:  ReplaceOverlayPatchType,
+						Path:  utils.StringPointer("/spec/loadBalancerIP"),
+						Value: utils.StringPointer("5.6.7.8"),
+					},
+					{
+						Type:  ReplaceOverlayPatchType,
+						Path:  utils.StringPointer("/spec/ports/0/name"),
+						Value: utils.StringPointer("port2"),
+					},
+					{
+						Type: DeleteOverlayPatchType,
+						Path: utils.StringPointer("/spec/ports/1"),
 					},
 				},
 			},
-			want: &v1.Service{
-				TypeMeta: v12.TypeMeta{
-					Kind:       "Service",
-					APIVersion: "v1",
-				},
-				ObjectMeta: v12.ObjectMeta{
-					Name:      objectName,
-					Namespace: testNamespace,
-				},
-				Spec: v1.ServiceSpec{
-					LoadBalancerIP: "5.6.7.8",
-					Ports: []v1.ServicePort{
-						{
-							Port: 123,
-							Name: "port2",
-						},
-					},
-				},
-			},
+			object: baseObject,
+			want:   baseWantObject,
 		},
 	}
 	for name, tt := range tests {
