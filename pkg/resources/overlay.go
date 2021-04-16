@@ -106,7 +106,7 @@ func PatchYAMLModifier(overlay K8SResourceOverlay, parser *ObjectParser) (Object
 			return o, nil
 		}
 
-		if meta.GetName() != overlay.ObjectKey.Name || meta.GetNamespace() != overlay.ObjectKey.Namespace {
+		if (overlay.ObjectKey.Name != "" && meta.GetName() != overlay.ObjectKey.Name) || (overlay.ObjectKey.Namespace != "" && meta.GetNamespace() != overlay.ObjectKey.Namespace) {
 			return o, nil
 		}
 
