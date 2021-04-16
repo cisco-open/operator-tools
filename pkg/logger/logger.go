@@ -322,6 +322,12 @@ func (log *logger) stopSpinner() {
 }
 
 func (log *logger) copyLogger() logger {
+	names := make([]string, len(log.names))
+	copy(names, log.names)
+
+	values := make([]interface{}, len(log.values))
+	copy(values, log.values)
+
 	return logger{
 		level:              log.level,
 		names:              log.names,
