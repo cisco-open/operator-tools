@@ -21,9 +21,9 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -108,19 +108,16 @@ func (c *ResourceConditionChecks) WaitForResources(id string, objects []runtime.
 func (c *ResourceConditionChecks) waitForResourceConditions(object runtime.Object, log logr.Logger, checkFuncs ...ResourceConditionCheck) error {
 	resource := object.DeepCopyObject()
 
-	key, err := client.ObjectKeyFromObject(resource)
+	m, err := meta.Accessor(resource)
 	if err != nil {
 		return errors.WrapIf(err, "failed to get object key")
 	}
-
+	key := client.ObjectKey{Namespace: m.GetNamespace(), Name: m.GetName()}
 	log = log.WithValues(c.resourceDetails(resource)...)
 
 	log.V(1).Info("pending")
 	err = wait.ExponentialBackoff(c.backoff, func() (bool, error) {
-		err := c.client.Get(context.Background(), types.NamespacedName{
-			Name:      key.Name,
-			Namespace: key.Namespace,
-		}, resource)
+		err := c.client.Get(context.Background(), key, resource.(client.Object))
 		for _, fn := range checkFuncs {
 			ok := fn(resource, err)
 			if !ok {
@@ -146,7 +143,8 @@ func (c *ResourceConditionChecks) waitForResourceConditions(object runtime.Objec
 func (r *ResourceConditionChecks) resourceDetails(desired runtime.Object) []interface{} {
 	values := make([]interface{}, 0)
 
-	key, err := client.ObjectKeyFromObject(desired)
+	m, err := meta.Accessor(desired)
+	key := client.ObjectKey{Namespace: m.GetNamespace(), Name: m.GetName()}
 	if err == nil {
 		values = append(values, "name", key.Name)
 		if key.Namespace != "" {
