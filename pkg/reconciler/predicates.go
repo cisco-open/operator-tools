@@ -22,7 +22,6 @@ import (
 	"github.com/banzaicloud/operator-tools/pkg/types"
 )
 
-
 type SkipCreatePredicate struct {
 	predicate.Funcs
 }
@@ -72,9 +71,9 @@ type SpecChangePredicate struct {
 }
 
 func (SpecChangePredicate) Update(e event.UpdateEvent) bool {
-	oldRV := e.MetaOld.GetResourceVersion()
-	e.MetaOld.SetResourceVersion(e.MetaNew.GetResourceVersion())
-	defer e.MetaOld.SetResourceVersion(oldRV)
+	oldRV := e.ObjectOld.GetResourceVersion()
+	e.ObjectOld.SetResourceVersion(e.ObjectNew.GetResourceVersion())
+	defer e.ObjectOld.SetResourceVersion(oldRV)
 
 	patchResult, err := patch.DefaultPatchMaker.Calculate(e.ObjectOld, e.ObjectNew, patch.IgnoreStatusFields(), IgnoreManagedFields())
 	if err != nil {

@@ -13,7 +13,7 @@ CONTROLLER_GEN = $(PWD)/bin/controller-gen
 
 OS = $(shell uname | tr A-Z a-z)
 
-KUBEBUILDER_VERSION = 2.2.0
+KUBEBUILDER_VERSION = 2.3.1
 export KUBEBUILDER_ASSETS := $(PWD)/bin
 
 # Generate code

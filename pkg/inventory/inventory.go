@@ -247,7 +247,7 @@ func (c *Inventory) PrepareDeletableObjects() error {
 			c.log.Info("object namespace is unknown, unable to determine whether is eligible for deletion", "gvk", currentObject.GetObjectKind().GroupVersionKind().String(), "name", metaobj.GetName())
 			continue
 		}
-		err = c.genericClient.Get(context.TODO(), types.NamespacedName{Namespace: metaobj.GetNamespace(), Name: metaobj.GetName()}, currentObject)
+		err = c.genericClient.Get(context.TODO(), types.NamespacedName{Namespace: metaobj.GetNamespace(), Name: metaobj.GetName()}, currentObject.(client.Object))
 		if err != nil && !meta.IsNoMatchError(err) && !apierrors.IsNotFound(err) {
 			return errors.WrapIfWithDetails(err,
 				"could not verify if object exists",
