@@ -143,7 +143,7 @@ func (d *Doc) visitNode(n ast.Node) bool {
 			if ok && typeName.Name.IsExported() {
 				d.Append(fmt.Sprintf("### %s", getTypeName(generic, typeName.Name.Name)))
 				if getTypeDocs(generic, true) != "" {
-					d.Append(fmt.Sprintf("#### %s", getTypeDocs(generic, true)))
+					d.Append(fmt.Sprintf("%s", getTypeDocs(generic, true)))
 				}
 				d.Append("| Variable Name | Type | Required | Default | Description |")
 				d.Append("|---|---|---|---|---|")
