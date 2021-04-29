@@ -28,11 +28,11 @@ import (
 // The purpose of this is that now these types can be embedded into CRDs and can be used to provide a convenient override
 // mechanism for resources created inside an operator.
 //
-// For an example see tests in github.com/banzaicloud/operator-tools/pkg/merge
+// For an example see tests in https://github.com/banzaicloud/operator-tools/tree/master/pkg/merge
 
 // +kubebuilder:object:generate=true
 
-// ObjectMeta contains only a subset of the fields included in k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta
+// ObjectMeta contains only a [subset of the fields included in k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#objectmeta-v1-meta).
 type ObjectMeta struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 	Labels      map[string]string `json:"labels,omitempty"`
@@ -64,10 +64,11 @@ func (override *ObjectMeta) Merge(meta metav1.ObjectMeta) metav1.ObjectMeta {
 
 // +kubebuilder:object:generate=true
 
-// Service is a subset of Service in k8s.io/api/apps/v1 for embedding
+// Service is a subset of [Service in k8s.io/api/apps/v1](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#service-v1-core) for embedding.
 type Service struct {
-	ObjectMeta ObjectMeta     `json:"metadata,omitempty"`
-	Spec       v1.ServiceSpec `json:"spec,omitempty"`
+	ObjectMeta ObjectMeta `json:"metadata,omitempty"`
+	// Kubernetes [Service Specification](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#servicespec-v1-core)
+	Spec v1.ServiceSpec `json:"spec,omitempty"`
 }
 
 // +kubebuilder:object:generate=true
@@ -80,29 +81,31 @@ type IngressExtensionsV1beta1 struct {
 
 // +kubebuilder:object:generate=true
 
-// IngressExtensionsV1beta1 is a subset of Ingress in k8s.io/api/networking/v1beta1
+// IngressExtensionsV1beta1 is a subset of [Ingress in k8s.io/api/networking/v1beta1](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#ingress-v1-networking-k8s-io).
 type IngressNetworkingV1beta1 struct {
 	ObjectMeta `json:"metadata,omitempty"`
-	Spec       networkingv1beta1.IngressSpec `json:"spec,omitempty"`
+	// Kubernetes [Ingress Specification](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#ingressclassspec-v1-networking-k8s-io)
+	Spec networkingv1beta1.IngressSpec `json:"spec,omitempty"`
 }
 
 // +kubebuilder:object:generate=true
 
-// DaemonSet is a subset of DaemonSet in k8s.io/api/apps/v1
+// DaemonSet is a subset of [DaemonSet in k8s.io/api/apps/v1](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#daemonset-v1-apps), with [DaemonSetSpec replaced by the local variant](#daemonsetspec).
 type DaemonSet struct {
 	ObjectMeta `json:"metadata,omitempty"`
-	Spec       DaemonSetSpec `json:"spec,omitempty"`
+	// [Local DaemonSet specification](#daemonsetspec)
+	Spec DaemonSetSpec `json:"spec,omitempty"`
 }
 
 // +kubebuilder:object:generate=true
 
-// DaemonSetSpec is a subset of DaemonSetSpec in k8s.io/api/apps/v1 but with required fields declared as optional
-// and PodTemplateSpec replaced by the local variant
+// DaemonSetSpec is a subset of [DaemonSetSpec in k8s.io/api/apps/v1](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#daemonsetspec-v1-apps) but with required fields declared as optional
+// and [PodTemplateSpec replaced by the local variant](#podtemplatespec).
 type DaemonSetSpec struct {
 	// A label query over pods that are managed by the daemon set.
 	Selector *metav1.LabelSelector `json:"selector,omitempty"`
 
-	// An object that describes the pod that will be created.
+	// An object that describes the pod that will be created. Note that this is a [local PodTemplateSpec](#podtemplatespec)
 	Template PodTemplateSpec `json:"template,omitempty"`
 
 	// An update strategy to replace existing DaemonSet pods with new pods.
@@ -122,17 +125,17 @@ type DaemonSetSpec struct {
 
 // +kubebuilder:object:generate=true
 
-// Deployment is a subset of Deployment in k8s.io/api/apps/v1
+// Deployment is a subset of [Deployment in k8s.io/api/apps/v1](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#deployment-v1-apps), with [DeploymentSpec replaced by the local variant](#deploymentspec).
 type Deployment struct {
 	ObjectMeta `json:"metadata,omitempty"`
-	// The desired behavior of this deployment.
+	// The desired behavior of [this deployment](deploymentspec).
 	Spec DeploymentSpec `json:"spec,omitempty"`
 }
 
 // +kubebuilder:object:generate=true
 
-// DeploymentSpec is a subset of DeploymentSpec in k8s.io/api/apps/v1 but with required fields declared as optional
-// and PodTemplateSpec replaced by the local variant
+// DeploymentSpec is a subset of [DeploymentSpec in k8s.io/api/apps/v1](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#deploymentspec-v1-apps) but with required fields declared as optional
+// and [PodTemplateSpec replaced by the local variant](#podtemplatespec).
 type DeploymentSpec struct {
 	// Number of desired pods. This is a pointer to distinguish between explicit
 	// zero and not specified. Defaults to 1.
@@ -143,7 +146,7 @@ type DeploymentSpec struct {
 	// It must match the pod template's labels.
 	Selector *metav1.LabelSelector `json:"selector,omitempty"`
 
-	// Template describes the pods that will be created.
+	// An object that describes the pod that will be created. Note that this is a [local PodTemplateSpec](#podtemplatespec)
 	Template PodTemplateSpec `json:"template,omitempty"`
 
 	// The deployment strategy to use to replace existing pods with new ones.
@@ -173,7 +176,7 @@ type DeploymentSpec struct {
 
 // +kubebuilder:object:generate=true
 
-// StatefulSet is a subset of StatefulSet in k8s.io/api/apps/v1
+// StatefulSet is a subset of [StatefulSet in k8s.io/api/apps/v1](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#statefulset-v1-apps), with [StatefulSetSpec replaced by the local variant](#statefulsetspec).
 type StatefulSet struct {
 	ObjectMeta `json:"metadata,omitempty"`
 	Spec       StatefulSetSpec `json:"spec,omitempty"`
@@ -181,17 +184,17 @@ type StatefulSet struct {
 
 // +kubebuilder:object:generate=true
 
-// StatefulSetSpec is a subset of StatefulSetSpec in k8s.io/api/apps/v1 but with required fields declared as optional
-// and PodTemplateSpec and PersistentVolumeClaim replaced by the local variant
+// StatefulSetSpec is a subset of [StatefulSetSpec in k8s.io/api/apps/v1](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#statefulsetspec-v1-apps) but with required fields declared as optional
+// and [PodTemplateSpec](#podtemplatespec) and [PersistentVolumeClaim replaced by the local variant](#persisternvolumeclaim).
 type StatefulSetSpec struct {
-	// replicas is the desired number of replicas of the given Template.
+	// Replicas is the desired number of replicas of the given Template.
 	// These are replicas in the sense that they are instantiations of the
 	// same Template, but individual replicas also have a consistent identity.
 	// If unspecified, defaults to 1.
 	// +optional
 	Replicas *int32 `json:"replicas,omitempty"`
 
-	// selector is a label query over pods that should match the replica count.
+	// Selector is a label query over pods that should match the replica count.
 	// It must match the pod template's labels.
 	Selector *metav1.LabelSelector `json:"selector,omitempty"`
 
@@ -242,7 +245,7 @@ type StatefulSetSpec struct {
 
 // +kubebuilder:object:generate=true
 
-// PersistentVolumeClaim is a subset of PersistentVolumeClaim in k8s.io/api/core/v1
+// PersistentVolumeClaim is a subset of [PersistentVolumeClaim in k8s.io/api/core/v1](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#persistentvolumeclaim-v1-core).
 type PersistentVolumeClaim struct {
 	EmbeddedPersistentVolumeClaimObjectMeta `json:"metadata,omitempty"`
 	Spec                                    v1.PersistentVolumeClaimSpec `json:"spec,omitempty"`
@@ -262,7 +265,7 @@ type EmbeddedPersistentVolumeClaimObjectMeta struct {
 // +kubebuilder:object:generate=true
 
 // PodTemplateSpec describes the data a pod should have when created from a template
-// Same as PodTemplateSpec in k8s.io/api/core/v1 but with the local ObjectMeta and PodSpec types embedded
+// It's the same as [PodTemplateSpec in k8s.io/api/core/v1](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#podtemplatespec-v1-core) but with the [local ObjectMeta](#objectmeta) and [PodSpec](#podspec) types embedded.
 type PodTemplateSpec struct {
 	ObjectMeta `json:"metadata,omitempty"`
 	Spec       PodSpec `json:"spec,omitempty"`
@@ -270,7 +273,7 @@ type PodTemplateSpec struct {
 
 // +kubebuilder:object:generate=true
 
-// PodSpec is a subset of PodSpec in k8s.io/api/corev1. Same as the original PodSpec expect it allows for containers to be missing.
+// PodSpec is a subset of [PodSpec in k8s.io/api/corev1](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#podspec-v1-core). It's the same as the original PodSpec expect it allows for containers to be missing.
 type PodSpec struct {
 	// List of volumes that can be mounted by containers belonging to the pod.
 	// +patchMergeKey=name
@@ -386,7 +389,7 @@ type PodSpec struct {
 
 // +kubebuilder:object:generate=true
 
-// ServiceAccount is a subset of ServiceAccount in k8s.io/api/core/v1
+// ServiceAccount is a subset of [ServiceAccount in k8s.io/api/core/v1](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#serviceaccount-v1-core).
 type ServiceAccount struct {
 	// +optional
 	ObjectMeta `json:"metadata,omitempty"`
