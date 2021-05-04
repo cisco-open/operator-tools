@@ -142,7 +142,7 @@ func (d *Doc) visitNode(n ast.Node) bool {
 			structure, ok := typeName.Type.(*ast.StructType)
 			if ok && typeName.Name.IsExported() {
 				d.Append(fmt.Sprintf("## %s", getTypeName(generic, typeName.Name.Name)))
-				d.Append("\n")
+				d.Append("") // Adds a line-break for markdown formatting
 				if getTypeDocs(generic, true) != "" {
 					d.Append(fmt.Sprintf("%s", getTypeDocs(generic, true)))
 				}
@@ -155,7 +155,7 @@ func (d *Doc) visitNode(n ast.Node) bool {
 					}
 					d.Append(fmt.Sprintf("| %s | %s | %s | %s | %s |", name, d.normaliseType(item.Type), required, def, com))
 				}
-				d.Append("\n")
+				d.Append("") // Adds a line-break for markdown formatting
 			}
 		}
 	}
