@@ -114,12 +114,12 @@ type DaemonSetSpec struct {
 	// The minimum number of seconds for which a newly created DaemonSet pod should
 	// be ready without any of its container crashing, for it to be considered
 	// available. Defaults to 0 (pod will be considered available as soon as it
-	// is ready).
+	// is ready). (default: 0)
 	MinReadySeconds int32 `json:"minReadySeconds,omitempty"`
 
 	// The number of old history to retain to allow rollback.
 	// This is a pointer to distinguish between explicit zero and not specified.
-	// Defaults to 10.
+	// Defaults to 10. (default: 10)
 	RevisionHistoryLimit *int32 `json:"revisionHistoryLimit,omitempty"`
 }
 
@@ -138,7 +138,7 @@ type Deployment struct {
 // and [PodTemplateSpec replaced by the local variant](#podtemplatespec).
 type DeploymentSpec struct {
 	// Number of desired pods. This is a pointer to distinguish between explicit
-	// zero and not specified. Defaults to 1.
+	// zero and not specified. Defaults to 1. (default: 1)
 	Replicas *int32 `json:"replicas,omitempty"`
 
 	// Label selector for pods. Existing ReplicaSets whose pods are
@@ -155,12 +155,12 @@ type DeploymentSpec struct {
 
 	// Minimum number of seconds for which a newly created pod should be ready
 	// without any of its container crashing, for it to be considered available.
-	// Defaults to 0 (pod will be considered available as soon as it is ready)
+	// Defaults to 0 (pod will be considered available as soon as it is ready) (default: 0)
 	MinReadySeconds int32 `json:"minReadySeconds,omitempty"`
 
 	// The number of old ReplicaSets to retain to allow rollback.
 	// This is a pointer to distinguish between explicit zero and not specified.
-	// Defaults to 10.
+	// Defaults to 10. (default: 10)
 	RevisionHistoryLimit *int32 `json:"revisionHistoryLimit,omitempty"`
 
 	// Indicates that the deployment is paused.
@@ -170,7 +170,8 @@ type DeploymentSpec struct {
 	// is considered to be failed. The deployment controller will continue to
 	// process failed deployments and a condition with a ProgressDeadlineExceeded
 	// reason will be surfaced in the deployment status. Note that progress will
-	// not be estimated during the time a deployment is paused. Defaults to 600s.
+	// not be estimated during the time a deployment is paused.
+	// Defaults to 600s. (default: 600)
 	ProgressDeadlineSeconds *int32 `json:"progressDeadlineSeconds,omitempty"`
 }
 
@@ -190,7 +191,7 @@ type StatefulSetSpec struct {
 	// Replicas is the desired number of replicas of the given Template.
 	// These are replicas in the sense that they are instantiations of the
 	// same Template, but individual replicas also have a consistent identity.
-	// If unspecified, defaults to 1.
+	// If unspecified, defaults to 1. (default: 1)
 	// +optional
 	Replicas *int32 `json:"replicas,omitempty"`
 
@@ -228,6 +229,7 @@ type StatefulSetSpec struct {
 	// The alternative policy is `Parallel` which will create pods in parallel
 	// to match the desired scale without waiting, and on scale down will delete
 	// all pods at once.
+	// (default: OrderedReady)
 	// +optional
 	PodManagementPolicy appsv1.PodManagementPolicyType `json:"podManagementPolicy,omitempty"`
 
@@ -239,7 +241,7 @@ type StatefulSetSpec struct {
 	// revisionHistoryLimit is the maximum number of revisions that will
 	// be maintained in the StatefulSet's revision history. The revision history
 	// consists of all revisions not represented by a currently applied
-	// StatefulSetSpec version. The default value is 10.
+	// StatefulSetSpec version. The default value is 10. (default: 10)
 	RevisionHistoryLimit *int32 `json:"revisionHistoryLimit,omitempty"`
 }
 
@@ -293,15 +295,15 @@ type PodSpec struct {
 	EphemeralContainers []v1.EphemeralContainer `json:"ephemeralContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
 	// Restart policy for all containers within the pod.
 	// One of Always, OnFailure, Never.
-	// Default to Always.
+	// Default to Always. (default: Always)
 	RestartPolicy v1.RestartPolicy `json:"restartPolicy,omitempty"`
 	// Optional duration in seconds the pod needs to terminate gracefully.
-	// Defaults to 30 seconds.
+	// Defaults to 30 seconds. (default: 30)
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// Optional duration in seconds the pod may be active on the node relative to
 	ActiveDeadlineSeconds *int64 `json:"activeDeadlineSeconds,omitempty"`
 	// Set DNS policy for the pod.
-	// Defaults to "ClusterFirst".
+	// Defaults to "ClusterFirst". (default: ClusterFirst)
 	// Valid values are 'ClusterFirstWithHostNet', 'ClusterFirst', 'Default' or 'None'.
 	DNSPolicy v1.DNSPolicy `json:"dnsPolicy,omitempty"`
 	// NodeSelector is a selector which must be true for the pod to fit on a node.
@@ -314,17 +316,17 @@ type PodSpec struct {
 	NodeName string `json:"nodeName,omitempty"`
 	// Host networking requested for this pod. Use the host's network namespace.
 	// If this option is set, the ports that will be used must be specified.
-	// Default to false.
+	// Default to false. (default: false)
 	HostNetwork bool `json:"hostNetwork,omitempty"`
 	// Use the host's pid namespace.
-	// Optional: Default to false.
+	// Optional: Default to false. (default: false)
 	HostPID bool `json:"hostPID,omitempty"`
 	// Use the host's ipc namespace.
-	// Optional: Default to false.
+	// Optional: Default to false. (default: false)
 	HostIPC bool `json:"hostIPC,omitempty"`
 	// Share a single process namespace between all of the containers in a pod.
 	// HostPID and ShareProcessNamespace cannot both be set.
-	// Optional: Default to false.
+	// Optional: Default to false. (default: false)
 	ShareProcessNamespace *bool `json:"shareProcessNamespace,omitempty"`
 	// SecurityContext holds pod-level security attributes and common container settings.
 	// Optional: Defaults to empty.  See type description for default values of each field.
@@ -365,11 +367,11 @@ type PodSpec struct {
 	RuntimeClassName *string `json:"runtimeClassName,omitempty"`
 	// EnableServiceLinks indicates whether information about services should be injected into pod's
 	// environment variables, matching the syntax of Docker links.
-	// Optional: Defaults to true.
+	// Optional: Defaults to true. (default: true)
 	EnableServiceLinks *bool `json:"enableServiceLinks,omitempty"`
 	// PreemptionPolicy is the Policy for preempting pods with lower priority.
 	// One of Never, PreemptLowerPriority.
-	// Defaults to PreemptLowerPriority if unset.
+	// Defaults to PreemptLowerPriority if unset. (default: PreemptLowerPriority)
 	PreemptionPolicy *v1.PreemptionPolicy `json:"preemptionPolicy,omitempty"`
 	// Overhead represents the resource overhead associated with running a pod for a given RuntimeClass.
 	Overhead v1.ResourceList `json:"overhead,omitempty"`
@@ -382,7 +384,7 @@ type PodSpec struct {
 	// +listMapKey=whenUnsatisfiable
 	TopologySpreadConstraints []v1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty" patchStrategy:"merge" patchMergeKey:"topologyKey"`
 	// If true the pod's hostname will be configured as the pod's FQDN, rather than the leaf name (the default).
-	// Default to false.
+	// Default to false. (default: false)
 	// +optional
 	SetHostnameAsFQDN *bool `json:"setHostnameAsFQDN,omitempty"`
 }
