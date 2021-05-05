@@ -90,22 +90,22 @@ type IngressNetworkingV1beta1 struct {
 
 // +kubebuilder:object:generate=true
 
-// DaemonSet is a subset of [DaemonSet in k8s.io/api/apps/v1](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#daemonset-v1-apps), with [DaemonSetSpec replaced by the local variant](#daemonsetspec).
+// DaemonSet is a subset of [DaemonSet in k8s.io/api/apps/v1](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#daemonset-v1-apps), with [DaemonSetSpec replaced by the local variant](#daemonset-spec).
 type DaemonSet struct {
 	ObjectMeta `json:"metadata,omitempty"`
-	// [Local DaemonSet specification](#daemonsetspec)
+	// [Local DaemonSet specification](#daemonset-spec)
 	Spec DaemonSetSpec `json:"spec,omitempty"`
 }
 
 // +kubebuilder:object:generate=true
 
 // DaemonSetSpec is a subset of [DaemonSetSpec in k8s.io/api/apps/v1](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#daemonsetspec-v1-apps) but with required fields declared as optional
-// and [PodTemplateSpec replaced by the local variant](#podtemplatespec).
+// and [PodTemplateSpec replaced by the local variant](#podtemplate-spec).
 type DaemonSetSpec struct {
 	// A label query over pods that are managed by the daemon set.
 	Selector *metav1.LabelSelector `json:"selector,omitempty"`
 
-	// An object that describes the pod that will be created. Note that this is a [local PodTemplateSpec](#podtemplatespec)
+	// An object that describes the pod that will be created. Note that this is a [local PodTemplateSpec](#podtemplate-spec)
 	Template PodTemplateSpec `json:"template,omitempty"`
 
 	// An update strategy to replace existing DaemonSet pods with new pods.
@@ -125,7 +125,7 @@ type DaemonSetSpec struct {
 
 // +kubebuilder:object:generate=true
 
-// Deployment is a subset of [Deployment in k8s.io/api/apps/v1](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#deployment-v1-apps), with [DeploymentSpec replaced by the local variant](#deploymentspec).
+// Deployment is a subset of [Deployment in k8s.io/api/apps/v1](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#deployment-v1-apps), with [DeploymentSpec replaced by the local variant](#deployment-spec).
 type Deployment struct {
 	ObjectMeta `json:"metadata,omitempty"`
 	// The desired behavior of [this deployment](deploymentspec).
@@ -135,7 +135,7 @@ type Deployment struct {
 // +kubebuilder:object:generate=true
 
 // DeploymentSpec is a subset of [DeploymentSpec in k8s.io/api/apps/v1](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#deploymentspec-v1-apps) but with required fields declared as optional
-// and [PodTemplateSpec replaced by the local variant](#podtemplatespec).
+// and [PodTemplateSpec replaced by the local variant](#podtemplate-spec).
 type DeploymentSpec struct {
 	// Number of desired pods. This is a pointer to distinguish between explicit
 	// zero and not specified. Defaults to 1. (default: 1)
@@ -146,7 +146,7 @@ type DeploymentSpec struct {
 	// It must match the pod template's labels.
 	Selector *metav1.LabelSelector `json:"selector,omitempty"`
 
-	// An object that describes the pod that will be created. Note that this is a [local PodTemplateSpec](#podtemplatespec)
+	// An object that describes the pod that will be created. Note that this is a [local PodTemplateSpec](#podtemplate-spec)
 	Template PodTemplateSpec `json:"template,omitempty"`
 
 	// The deployment strategy to use to replace existing pods with new ones.
@@ -177,7 +177,7 @@ type DeploymentSpec struct {
 
 // +kubebuilder:object:generate=true
 
-// StatefulSet is a subset of [StatefulSet in k8s.io/api/apps/v1](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#statefulset-v1-apps), with [StatefulSetSpec replaced by the local variant](#statefulsetspec).
+// StatefulSet is a subset of [StatefulSet in k8s.io/api/apps/v1](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#statefulset-v1-apps), with [StatefulSetSpec replaced by the local variant](#statefulset-spec).
 type StatefulSet struct {
 	ObjectMeta `json:"metadata,omitempty"`
 	Spec       StatefulSetSpec `json:"spec,omitempty"`
@@ -186,7 +186,7 @@ type StatefulSet struct {
 // +kubebuilder:object:generate=true
 
 // StatefulSetSpec is a subset of [StatefulSetSpec in k8s.io/api/apps/v1](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#statefulsetspec-v1-apps) but with required fields declared as optional
-// and [PodTemplateSpec](#podtemplatespec) and [PersistentVolumeClaim replaced by the local variant](#persisternvolumeclaim).
+// and [PodTemplateSpec](#podtemplate-spec) and [PersistentVolumeClaim replaced by the local variant](#persisternvolumeclaim).
 type StatefulSetSpec struct {
 	// Replicas is the desired number of replicas of the given Template.
 	// These are replicas in the sense that they are instantiations of the
