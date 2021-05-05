@@ -5,13 +5,31 @@
  Leverages core types from kubernetes/api/core/v1
 
 ## Configuration
-### Secret
-| Variable Name | Type | Required | Default | Description |
-|---|---|---|---|---|
-| value | string | No | - | Refers to a non-secret value<br> |
-| valueFrom | *ValueFrom | No | - | Refers to a secret value to be used directly<br> |
-| mountFrom | *ValueFrom | No | - | Refers to a secret value to be used through a volume mount<br> |
-### ValueFrom
-| Variable Name | Type | Required | Default | Description |
-|---|---|---|---|---|
-| secretKeyRef | *corev1.SecretKeySelector | No | - |  |
+## Secret
+
+### value (string, optional) {#secret-value}
+
+Refers to a non-secret value<br>
+
+Default: -
+
+### valueFrom (*ValueFrom, optional) {#secret-valuefrom}
+
+Refers to a secret value to be used directly<br>
+
+Default: -
+
+### mountFrom (*ValueFrom, optional) {#secret-mountfrom}
+
+Refers to a secret value to be used through a volume mount<br>
+
+Default: -
+
+
+## ValueFrom
+
+### secretKeyRef (*corev1.SecretKeySelector, optional) {#valuefrom-secretkeyref}
+
+Default: -
+
+
