@@ -141,19 +141,35 @@ func (d *Doc) visitNode(n ast.Node) bool {
 			}
 			structure, ok := typeName.Type.(*ast.StructType)
 			if ok && typeName.Name.IsExported() {
-				d.Append(fmt.Sprintf("### %s", getTypeName(generic, typeName.Name.Name)))
+				d.Append(fmt.Sprintf("## %s", getTypeName(generic, typeName.Name.Name)))
+				d.Append("") // Adds a line-break for markdown formatting
 				if getTypeDocs(generic, true) != "" {
-					d.Append(fmt.Sprintf("#### %s", getTypeDocs(generic, true)))
+					d.Append(fmt.Sprintf("%s", getTypeDocs(generic, true)))
 				}
-				d.Append("| Variable Name | Type | Required | Default | Description |")
-				d.Append("|---|---|---|---|---|")
 				for i, item := range structure.Fields.List {
 					name, com, def, required, err := d.getValuesFromItem(item)
 					if err != nil {
 						panic(errors.WrapIff(err, "failed to get values for field #%d for type %s", i, typeName.Name.Name))
 					}
-					d.Append(fmt.Sprintf("| %s | %s | %s | %s | %s |", name, d.normaliseType(item.Type), required, def, com))
+
+					required_string := ""
+					if required == "No" {
+						required_string = ", optional"
+					} else if required == "Yes" {
+						required_string = ", required"
+					}
+
+					anchor := strings.ToLower(getTypeName(generic, typeName.Name.Name) + "-" + name)
+					d.Append(fmt.Sprintf("### %s (%s%s) {#%s}", name, d.normaliseType(item.Type), required_string, anchor))
+					d.Append("")
+					if com != "" {
+						d.Append(fmt.Sprintf("%s", com))
+						d.Append("")
+					}
+					d.Append(fmt.Sprintf("Default: %s", def))
+					d.Append("") // Adds a line-break for markdown formatting
 				}
+				d.Append("") // Adds a line-break for markdown formatting
 			}
 		}
 	}

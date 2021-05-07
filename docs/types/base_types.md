@@ -1,108 +1,243 @@
-### ObjectKey
-| Variable Name | Type | Required | Default | Description |
-|---|---|---|---|---|
-| name | string | No | - |  |
-| namespace | string | No | - |  |
-### MetaBase
-#### Deprecated
+## ObjectKey
+
+### name (string, optional) {#objectkey-name}
+
+Default: -
+
+### namespace (string, optional) {#objectkey-namespace}
+
+Default: -
+
+
+## MetaBase
+
+Deprecated
 Consider using ObjectMeta in the typeoverrides package combined with the merge package
 
-| Variable Name | Type | Required | Default | Description |
-|---|---|---|---|---|
-| annotations | map[string]string | No | - |  |
-| labels | map[string]string | No | - |  |
-### PodTemplateBase
-#### Deprecated
+### annotations (map[string]string, optional) {#metabase-annotations}
+
+Default: -
+
+### labels (map[string]string, optional) {#metabase-labels}
+
+Default: -
+
+
+## PodTemplateBase
+
+Deprecated
 Consider using PodTemplateSpec in the typeoverrides package combined with the merge package
 
-| Variable Name | Type | Required | Default | Description |
-|---|---|---|---|---|
-| metadata | *MetaBase | No | - |  |
-| spec | *PodSpecBase | No | - |  |
-### ContainerBase
-#### Deprecated
+### metadata (*MetaBase, optional) {#podtemplatebase-metadata}
+
+Default: -
+
+### spec (*PodSpecBase, optional) {#podtemplatebase-spec}
+
+Default: -
+
+
+## ContainerBase
+
+Deprecated
 Consider using Container in the typeoverrides package combined with the merge package
 
-| Variable Name | Type | Required | Default | Description |
-|---|---|---|---|---|
-| name | string | No | - |  |
-| resources | *corev1.ResourceRequirements | No | - |  |
-| image | string | No | - |  |
-| pullPolicy | corev1.PullPolicy | No | - |  |
-| command | []string | No | - |  |
-| volumeMounts | []corev1.VolumeMount | No | - |  |
-| securityContext | *corev1.SecurityContext | No | - |  |
-| livenessProbe | *corev1.Probe | No | - |  |
-| readinessProbe | *corev1.Probe | No | - |  |
-### PodSpecBase
-#### Deprecated
+### name (string, optional) {#containerbase-name}
+
+Default: -
+
+### resources (*corev1.ResourceRequirements, optional) {#containerbase-resources}
+
+Default: -
+
+### image (string, optional) {#containerbase-image}
+
+Default: -
+
+### pullPolicy (corev1.PullPolicy, optional) {#containerbase-pullpolicy}
+
+Default: -
+
+### command ([]string, optional) {#containerbase-command}
+
+Default: -
+
+### volumeMounts ([]corev1.VolumeMount, optional) {#containerbase-volumemounts}
+
+Default: -
+
+### securityContext (*corev1.SecurityContext, optional) {#containerbase-securitycontext}
+
+Default: -
+
+### livenessProbe (*corev1.Probe, optional) {#containerbase-livenessprobe}
+
+Default: -
+
+### readinessProbe (*corev1.Probe, optional) {#containerbase-readinessprobe}
+
+Default: -
+
+
+## PodSpecBase
+
+Deprecated
 Consider using PodSpec in the typeoverrides package combined with the merge package
 
-| Variable Name | Type | Required | Default | Description |
-|---|---|---|---|---|
-| tolerations | []corev1.Toleration | No | - |  |
-| nodeSelector | map[string]string | No | - |  |
-| serviceAccountName | string | No | - |  |
-| affinity | *corev1.Affinity | No | - |  |
-| securityContext | *corev1.PodSecurityContext | No | - |  |
-| volumes | []corev1.Volume | No | - |  |
-| priorityClassName | string | No | - |  |
-| containers | []ContainerBase | No | - |  |
-| initContainers | []ContainerBase | No | - |  |
-| imagePullSecrets | []corev1.LocalObjectReference | No | - |  |
-### DeploymentBase
-#### Deprecated
+### tolerations ([]corev1.Toleration, optional) {#podspecbase-tolerations}
+
+Default: -
+
+### nodeSelector (map[string]string, optional) {#podspecbase-nodeselector}
+
+Default: -
+
+### serviceAccountName (string, optional) {#podspecbase-serviceaccountname}
+
+Default: -
+
+### affinity (*corev1.Affinity, optional) {#podspecbase-affinity}
+
+Default: -
+
+### securityContext (*corev1.PodSecurityContext, optional) {#podspecbase-securitycontext}
+
+Default: -
+
+### volumes ([]corev1.Volume, optional) {#podspecbase-volumes}
+
+Default: -
+
+### priorityClassName (string, optional) {#podspecbase-priorityclassname}
+
+Default: -
+
+### containers ([]ContainerBase, optional) {#podspecbase-containers}
+
+Default: -
+
+### initContainers ([]ContainerBase, optional) {#podspecbase-initcontainers}
+
+Default: -
+
+### imagePullSecrets ([]corev1.LocalObjectReference, optional) {#podspecbase-imagepullsecrets}
+
+Default: -
+
+
+## DeploymentBase
+
+Deprecated
 Consider using Deployment in the typeoverrides package combined with the merge package
 
-| Variable Name | Type | Required | Default | Description |
-|---|---|---|---|---|
-|  | *MetaBase | Yes | - |  |
-| spec | *DeploymentSpecBase | No | - |  |
-### DeploymentSpecBase
-#### Deprecated
+###  (*MetaBase, required) {#deploymentbase-}
+
+Default: -
+
+### spec (*DeploymentSpecBase, optional) {#deploymentbase-spec}
+
+Default: -
+
+
+## DeploymentSpecBase
+
+Deprecated
 Consider using DeploymentSpec in the typeoverrides package combined with the merge package
 
-| Variable Name | Type | Required | Default | Description |
-|---|---|---|---|---|
-| replicas | *int32 | No | - |  |
-| selector | *metav1.LabelSelector | No | - |  |
-| strategy | *appsv1.DeploymentStrategy | No | - |  |
-| template | *PodTemplateBase | No | - |  |
-### StatefulSetBase
-#### Deprecated
+### replicas (*int32, optional) {#deploymentspecbase-replicas}
+
+Default: -
+
+### selector (*metav1.LabelSelector, optional) {#deploymentspecbase-selector}
+
+Default: -
+
+### strategy (*appsv1.DeploymentStrategy, optional) {#deploymentspecbase-strategy}
+
+Default: -
+
+### template (*PodTemplateBase, optional) {#deploymentspecbase-template}
+
+Default: -
+
+
+## StatefulSetBase
+
+Deprecated
 Consider using StatefulSet in the typeoverrides package combined with the merge package
 
-| Variable Name | Type | Required | Default | Description |
-|---|---|---|---|---|
-|  | *MetaBase | Yes | - |  |
-| spec | *StatefulsetSpecBase | No | - |  |
-### StatefulsetSpecBase
-#### Deprecated
+###  (*MetaBase, required) {#statefulsetbase-}
+
+Default: -
+
+### spec (*StatefulsetSpecBase, optional) {#statefulsetbase-spec}
+
+Default: -
+
+
+## StatefulsetSpecBase
+
+Deprecated
 Consider using StatefulSetSpec in the typeoverrides package combined with the merge package
 
-| Variable Name | Type | Required | Default | Description |
-|---|---|---|---|---|
-| replicas | *int32 | No | - |  |
-| selector | *metav1.LabelSelector | No | - |  |
-| podManagementPolicy | appsv1.PodManagementPolicyType | No | - |  |
-| updateStrategy | *appsv1.StatefulSetUpdateStrategy | No | - |  |
-| template | *PodTemplateBase | No | - |  |
-### DaemonSetBase
-#### Deprecated
+### replicas (*int32, optional) {#statefulsetspecbase-replicas}
+
+Default: -
+
+### selector (*metav1.LabelSelector, optional) {#statefulsetspecbase-selector}
+
+Default: -
+
+### podManagementPolicy (appsv1.PodManagementPolicyType, optional) {#statefulsetspecbase-podmanagementpolicy}
+
+Default: -
+
+### updateStrategy (*appsv1.StatefulSetUpdateStrategy, optional) {#statefulsetspecbase-updatestrategy}
+
+Default: -
+
+### template (*PodTemplateBase, optional) {#statefulsetspecbase-template}
+
+Default: -
+
+
+## DaemonSetBase
+
+Deprecated
 Consider using DaemonSet in the typeoverrides package combined with the merge package
 
-| Variable Name | Type | Required | Default | Description |
-|---|---|---|---|---|
-|  | *MetaBase | Yes | - |  |
-| spec | *DaemonSetSpecBase | No | - |  |
-### DaemonSetSpecBase
-#### Deprecated
+###  (*MetaBase, required) {#daemonsetbase-}
+
+Default: -
+
+### spec (*DaemonSetSpecBase, optional) {#daemonsetbase-spec}
+
+Default: -
+
+
+## DaemonSetSpecBase
+
+Deprecated
 Consider using DaemonSetSpec in the typeoverrides package combined with the merge package
 
-| Variable Name | Type | Required | Default | Description |
-|---|---|---|---|---|
-| selector | *metav1.LabelSelector | No | - |  |
-| updateStrategy | *appsv1.DaemonSetUpdateStrategy | No | - |  |
-| minReadySeconds | int32 | No | - |  |
-| revisionHistoryLimit | *int32 | No | - |  |
-| template | *PodTemplateBase | No | - |  |
+### selector (*metav1.LabelSelector, optional) {#daemonsetspecbase-selector}
+
+Default: -
+
+### updateStrategy (*appsv1.DaemonSetUpdateStrategy, optional) {#daemonsetspecbase-updatestrategy}
+
+Default: -
+
+### minReadySeconds (int32, optional) {#daemonsetspecbase-minreadyseconds}
+
+Default: -
+
+### revisionHistoryLimit (*int32, optional) {#daemonsetspecbase-revisionhistorylimit}
+
+Default: -
+
+### template (*PodTemplateBase, optional) {#daemonsetspecbase-template}
+
+Default: -
+
+
