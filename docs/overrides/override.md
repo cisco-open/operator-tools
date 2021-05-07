@@ -72,7 +72,7 @@ Default: -
 ## DaemonSetSpec
 
 DaemonSetSpec is a subset of [DaemonSetSpec in k8s.io/api/apps/v1](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#daemonsetspec-v1-apps) but with required fields declared as optional
-and [PodTemplateSpec replaced by the local variant](#podtemplate-spec).
+and [PodTemplateSpec replaced by the local variant](#podtemplatespec).
 
 ### selector (*metav1.LabelSelector, optional) {#daemonsetspec-selector}
 
@@ -82,7 +82,7 @@ Default: -
 
 ### template (PodTemplateSpec, optional) {#daemonsetspec-template}
 
-An object that describes the pod that will be created. Note that this is a [local PodTemplateSpec](#podtemplate-spec)<br>
+An object that describes the pod that will be created. Note that this is a [local PodTemplateSpec](#podtemplatespec)<br>
 
 Default: -
 
@@ -115,7 +115,7 @@ Default: -
 
 ### spec (DeploymentSpec, optional) {#deployment-spec}
 
-The desired behavior of [this deployment](deploymentspec).<br>
+The desired behavior of [this deployment](#deploymentspec).<br>
 
 Default: -
 
@@ -123,7 +123,7 @@ Default: -
 ## DeploymentSpec
 
 DeploymentSpec is a subset of [DeploymentSpec in k8s.io/api/apps/v1](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#deploymentspec-v1-apps) but with required fields declared as optional
-and [PodTemplateSpec replaced by the local variant](#podtemplate-spec).
+and [PodTemplateSpec replaced by the local variant](#podtemplatespec).
 
 ### replicas (*int32, optional) {#deploymentspec-replicas}
 
@@ -139,7 +139,7 @@ Default: -
 
 ### template (PodTemplateSpec, optional) {#deploymentspec-template}
 
-An object that describes the pod that will be created. Note that this is a [local PodTemplateSpec](#podtemplate-spec)<br>
+An object that describes the pod that will be created. Note that this is a [local PodTemplateSpec](#podtemplatespec)<br>
 
 Default: -
 
@@ -190,7 +190,7 @@ Default: -
 ## StatefulSetSpec
 
 StatefulSetSpec is a subset of [StatefulSetSpec in k8s.io/api/apps/v1](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#statefulsetspec-v1-apps) but with required fields declared as optional
-and [PodTemplateSpec](#podtemplate-spec) and [PersistentVolumeClaim replaced by the local variant](#persisternvolumeclaim).
+and [PodTemplateSpec](#podtemplatespec) and [PersistentVolumeClaim replaced by the local variant](#persistentvolumeclaim).
 
 ### replicas (*int32, optional) {#statefulsetspec-replicas}
 
