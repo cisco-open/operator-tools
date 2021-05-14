@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/cast"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -180,6 +181,39 @@ func TestNativeReconcilerKeepsTheSecret(t *testing.T) {
 	assert.Len(t, purged, 2)
 	assert.Equal(t, purged[0].(*unstructured.Unstructured).GetName(), "asd-1")
 	assert.Equal(t, purged[1].(*unstructured.Unstructured).GetName(), "asd-0")
+}
+
+
+func TestNativeReconcilerObjectModifier(t *testing.T) {
+	nativeReconciler := createReconcilerForRefTests(
+		reconciler.NativeReconcilerWithModifier(func(o, p runtime.Object) (runtime.Object, error) {
+			om, _ := meta.Accessor(o)
+			pm, _ := meta.Accessor(p)
+			om.SetAnnotations(pm.GetAnnotations())
+			return o, nil
+		}))
+
+	fakeOwnerObject := &corev1.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "example",
+			Namespace: controlNamespace,
+			UID:       "something",
+			Annotations: map[string]string{
+				"parentKey": "parentValue",
+			},
+		},
+	}
+
+	_, err := nativeReconciler.Reconcile(fakeOwnerObject)
+	if err != nil {
+		t.Fatalf("got error: %s", err.Error())
+	}
+
+	assertConfigMapList(t, func(l *corev1.ConfigMapList) {
+		assert.Len(t, l.Items, 1)
+		assert.Contains(t, l.Items[0].Annotations, "parentKey")
+		assert.Equal(t, "parentValue", l.Items[0].Annotations["parentKey"])
+	})
 }
 
 func TestNativeReconcilerSetNoControllerRefByDefault(t *testing.T) {
