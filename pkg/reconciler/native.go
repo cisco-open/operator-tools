@@ -148,6 +148,7 @@ type NativeReconciler struct {
 	setControllerRef       bool
 	reconciledObjectStates map[reconciledObjectState][]runtime.Object
 	waitBackoff            *wait.Backoff
+	objectModifiers        []resources.ObjectModifierWithParentFunc
 }
 
 type NativeReconcilerOpt func(*NativeReconciler)
@@ -173,6 +174,12 @@ func NativeReconcilerSetRESTMapper(mapper meta.RESTMapper) NativeReconcilerOpt {
 func NativeReconcilerWithWait(backoff *wait.Backoff) NativeReconcilerOpt {
 	return func(r *NativeReconciler) {
 		r.waitBackoff = backoff
+	}
+}
+
+func NativeReconcilerWithModifier(modifierFunc resources.ObjectModifierWithParentFunc) NativeReconcilerOpt {
+	return func(r *NativeReconciler) {
+		r.objectModifiers = append(r.objectModifiers, modifierFunc)
 	}
 }
 
@@ -250,6 +257,7 @@ func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result,
 	// visited objects wont be purged
 	excludeFromPurge := map[string]bool{}
 	combinedResult := &CombinedResult{}
+LOOP:
 	for _, r := range rec.reconciledComponent.ResourceBuilders(rec.configTranslate(owner)) {
 		o, state, err := r()
 		if err != nil {
@@ -285,6 +293,17 @@ func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result,
 					}
 				}
 			}
+
+			if len(rec.objectModifiers) > 0 {
+				for _, om := range rec.objectModifiers {
+					o, err = om(o, owner)
+					if err != nil {
+						combinedResult.CombineErr(errors.WrapIf(err, "unable to apply object modifier"))
+						continue LOOP
+					}
+				}
+			}
+
 			var result *reconcile.Result
 			result, err = rec.ReconcileResource(o, state)
 			if err == nil {

@@ -16,12 +16,17 @@ package resources
 
 import (
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
 type ObjectModifierFunc func(o runtime.Object) (runtime.Object, error)
+type ObjectModifierWithParentFunc func(o, p runtime.Object) (runtime.Object, error)
 
 var DefaultModifiers = []ObjectModifierFunc{
 	ClearCRDStatusModifier,
@@ -29,6 +34,37 @@ var DefaultModifiers = []ObjectModifierFunc{
 	MutatingWebhookConfigurationModifier,
 	ValidatingWebhookConfigurationModifier,
 }
+
+func WorkloadImagePullSecretsModifier(imagePullSecrets ...[]corev1.LocalObjectReference) ObjectModifierFunc {
+	merge := func(existing []corev1.LocalObjectReference, additions ...[]corev1.LocalObjectReference) []corev1.LocalObjectReference {
+		ips := make([]corev1.LocalObjectReference, 0)
+		ips = append(ips, existing...)
+		for _, addition := range additions {
+			ips = append(ips, addition...)
+		}
+		return ips
+	}
+
+	return func(obj runtime.Object) (runtime.Object, error) {
+		switch o := obj.(type) {
+		case *appsv1.DaemonSet:
+			o.Spec.Template.Spec.ImagePullSecrets = merge(o.Spec.Template.Spec.ImagePullSecrets, imagePullSecrets...)
+		case *appsv1.Deployment:
+			o.Spec.Template.Spec.ImagePullSecrets = merge(o.Spec.Template.Spec.ImagePullSecrets, imagePullSecrets...)
+		case *appsv1.ReplicaSet:
+			o.Spec.Template.Spec.ImagePullSecrets = merge(o.Spec.Template.Spec.ImagePullSecrets, imagePullSecrets...)
+		case *appsv1.StatefulSet:
+			o.Spec.Template.Spec.ImagePullSecrets = merge(o.Spec.Template.Spec.ImagePullSecrets, imagePullSecrets...)
+		case *corev1.ReplicationController:
+			o.Spec.Template.Spec.ImagePullSecrets = merge(o.Spec.Template.Spec.ImagePullSecrets, imagePullSecrets...)
+		case *batchv1.Job:
+			o.Spec.Template.Spec.ImagePullSecrets = merge(o.Spec.Template.Spec.ImagePullSecrets, imagePullSecrets...)
+		}
+
+		return obj, nil
+	}
+}
+
 
 func ClearCRDStatusModifier(o runtime.Object) (runtime.Object, error) {
 	if crd, ok := o.(*apiextensionsv1beta1.CustomResourceDefinition); ok {
