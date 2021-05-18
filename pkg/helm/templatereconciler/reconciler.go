@@ -199,6 +199,7 @@ func (rec *HelmReconciler) reconcile(parent reconciler.ResourceOwner, component 
 			modifiers = append(modifiers, modifier)
 		}
 
+		// fmt.Printf("DEBUG>> GetResourceBuildersFromObjects called with: objects:%#v\nstate:%#v\nmodifiers:%#v\n", objects, state, modifiers)
 		chartResourceBuilders, err := reconciler.GetResourceBuildersFromObjects(objects, state, modifiers...)
 		if err != nil {
 			return nil, err

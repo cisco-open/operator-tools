@@ -16,6 +16,7 @@ package reconciler
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"emperror.dev/errors"
@@ -76,18 +77,81 @@ func GetResourceBuildersFromObjects(objects []runtime.Object, state DesiredState
 			}
 		}
 		resources = append(resources, func() (runtime.Object, DesiredState, error) {
-			if desired, ok := o.(*corev1.Service); ok {
-				beforeUpdateHook := DesiredStateHook(func(current runtime.Object) error {
-					if s, ok := current.(*corev1.Service); ok {
-						desired.Spec.ClusterIP = s.Spec.ClusterIP
-					} else {
-						return errors.Errorf("failed to cast service object %+v", current)
-					}
-					return nil
-				})
-				return o, beforeUpdateHook, nil
+			// if desired, ok := o.(*corev1.Service); ok {
+			// 	beforeUpdateHook := DesiredStateHook(func(current runtime.Object) error {
+			// 		if s, ok := current.(*corev1.Service); ok {
+			// 			desired.Spec.ClusterIP = s.Spec.ClusterIP
+			// 		} else {
+			// 			return errors.Errorf("failed to cast service object %+v", current)
+			// 		}
+			// 		return nil
+			// 	})
+			// 	return o, beforeUpdateHook, nil
+			// }
+
+			// state := NewDynamicDesiredState().WithDesiredState(state)
+
+			switch o.GetObjectKind().GroupVersionKind().Kind {
+			case "Service":
+				fallthrough
+			case "ServiceAccount":
+				state = NewDynamicDesiredState().WithDesiredState(state).WithBeforeUpdateFns(
+					BeforeUpdateFn(DesiredStateUpdateKeepServiceAccountTokenReferences),
+					BeforeUpdateFn(DesiredStateUpdateServiceIPModifier),
+				)
+			case "Secret":
+				fmt.Printf("\nDEBUG>> Resource for secret:%#v\n", o)
 			}
 
+			// state := NewDynamicDesiredState().WithBeforeUpdateFns(DesiredStateUpdateServiceIPModifier, DesiredStateUpdateKeepServiceAccountTokenReferences)\
+			// if apiutil.GVKForObject(o,)
+			// if o.GetObjectKind().GroupVersionKind().Kind == "ServiceAccount" {
+			// 	var sa corev1.ServiceAccount
+			// 	err := runtime.DefaultUnstructuredConverter.FromUnstructured(o, &sa)
+			// }
+
+			// fmt.Printf("DEBUG>> type assertion: %#v\n", o)
+			// if desired, ok := o.(*corev1.Service); ok {
+			// 	fmt.Printf("DEBUG>> type assertion: true\n")
+
+			// 	switch o.GetObjectKind().GroupVersionKind().Kind {
+			// 	case "Service":
+			// 		fmt.Printf("DEBUG>> (%s)\n", "Service")
+			// 	case "ServiceAccount":
+			// 		fmt.Printf("DEBUG>> (%s)\n", "ServiceAccount")
+			// 	default:
+			// 		fmt.Printf("DEBUG>> (%s) (%#v)\n", "default", o.GetObjectKind().GroupVersionKind().Kind)
+			// 	}
+
+			// 	switch t := o.(type) {
+			// 	case *corev1.Service:
+			// 		fmt.Printf("DEBUG>>GetResourceBuildersFromObjects:%#v\n", t)
+			// 		beforeUpdateHook := DesiredStateHook(func(current runtime.Object) error {
+			// 			if s, ok := current.(*corev1.Service); ok {
+			// 				t.Spec.ClusterIP = s.Spec.ClusterIP
+			// 			} else {
+			// 				return errors.Errorf("failed to cast service object %+v", current)
+			// 			}
+			// 			return nil
+			// 		})
+			// 		return o, beforeUpdateHook, nil
+			// 	case *corev1.ServiceAccount:
+			// 		fmt.Printf("DEBUG>>GetResourceBuildersFromObjects:%#v\n", t)
+			// 		beforeUpdateHook := DesiredStateHook(func(current runtime.Object) error {
+			// 			fmt.Printf("DEBUG>>beforeupdatehook:%#v\n", current)
+			// 			if s, ok := current.(*corev1.ServiceAccount); ok {
+			// 				fmt.Printf("DEBUG>>\n%#v\n%#v\n", t, s)
+			// 				t.Secrets = s.Secrets
+			// 			} else {
+			// 				return errors.Errorf("failed to cast ServiceAccount object %+v", current)
+			// 			}
+			// 			return nil
+			// 		})
+			// 		return o, beforeUpdateHook, nil
+			// 	default:
+			// 		fmt.Printf("DEBUG>>GetResourceBuildersFromObjects:(%s) %#v\n", "default", t)
+			// 		return o, state, nil
+			// 	}
 			return o, state, nil
 		})
 	}
@@ -260,6 +324,7 @@ func (rec *NativeReconciler) Reconcile(owner runtime.Object) (*reconcile.Result,
 LOOP:
 	for _, r := range rec.reconciledComponent.ResourceBuilders(rec.configTranslate(owner)) {
 		o, state, err := r()
+		// fmt.Printf("DEBUG>> o: %#v %v %v\n", o, state, err)
 		if err != nil {
 			combinedResult.CombineErr(err)
 		} else if o == nil || state == nil {

@@ -26,6 +26,7 @@ import (
 	"github.com/banzaicloud/operator-tools/pkg/types"
 	"github.com/banzaicloud/operator-tools/pkg/utils"
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -355,7 +356,14 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 		if err != nil {
 			return nil, errors.WrapIfWithDetails(err, "failed to get desired state dynamically", resourceDetails...)
 		}
-
+		// DEBUG
+		switch current.(type) {
+		case *corev1.ServiceAccount:
+			fmt.Printf("\nDEBUG>> Desired object after 'BeforeUpdate' call: %#v\n", desired)
+		case *corev1.Service:
+			fmt.Printf("\nDEBUG>> Desired object after 'BeforeUpdate' call: %#v\n", desired)
+		}
+		// EO DEBUG
 		patchResult, err := patch.DefaultPatchMaker.Calculate(current, desired, patch.IgnoreStatusFields())
 		if err != nil {
 			debugLog.Info("could not match objects", "error", err)
