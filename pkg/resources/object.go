@@ -130,21 +130,23 @@ func (p *ObjectParser) ParseYAMLToK8sObject(yaml []byte, yamlModifiers ...YAMLMo
 		yaml = modifierFunc(yaml)
 	}
 
-	s := json.NewYAMLSerializer(json.DefaultMetaFactory, p.scheme, p.scheme)
-	o, _, err := s.Decode(yaml, nil, nil)
-	if err != nil {
-		r := bytes.NewReader(yaml)
-		decoder := k8syaml.NewYAMLOrJSONDecoder(r, 1024)
-
-		out := &unstructured.Unstructured{}
-		err := decoder.Decode(out)
-		if err != nil {
-			return nil, errors.WrapIf(err, "error decoding object")
+	if p.scheme != nil {
+		s := json.NewYAMLSerializer(json.DefaultMetaFactory, p.scheme, p.scheme)
+		o, _, err := s.Decode(yaml, nil, nil)
+		if err == nil {
+			return o, nil
 		}
-		o = out
 	}
 
-	return o, nil
+	r := bytes.NewReader(yaml)
+	decoder := k8syaml.NewYAMLOrJSONDecoder(r, 1024)
+
+	out := &unstructured.Unstructured{}
+	err := decoder.Decode(out)
+	if err != nil {
+		return nil, errors.WrapIf(err, "error decoding object as unstructured")
+	}
+	return out, nil
 }
 
 func (p *ObjectParser) removeNonYAMLLines(yms string) string {

@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"emperror.dev/errors"
+	"github.com/banzaicloud/operator-tools/pkg/resources"
 	"github.com/ghodss/yaml"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -29,13 +30,19 @@ import (
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/engine"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const legacyRequirementsFileName = "requirements.yaml"
 
-type ReleaseOptions chartutil.ReleaseOptions
+type ReleaseOptions struct {
+	Name      string
+	Namespace string
+	Revision  int
+	IsUpgrade bool
+	IsInstall bool
+	Scheme    *runtime.Scheme
+}
 
 func GetDefaultValues(fs http.FileSystem) ([]byte, error) {
 	file, err := fs.Open(chartutil.ValuesfileName)
@@ -89,6 +96,12 @@ func Render(fs http.FileSystem, values map[string]interface{}, releaseOptions Re
 		crds[crd.Filename] = crd.File
 	}
 
+	typedParser := resources.NewObjectParser(releaseOptions.Scheme)
+
+	parser := func(json []byte) (runtime.Object, error) {
+		return typedParser.ParseYAMLToK8sObject(json, resources.ReplaceAPIVersionYAMLModifier("autoscaling/v2beta1", "autoscaling/v1"))
+	}
+
 	// Merge templates and inject
 	var objects []runtime.Object
 	for _, tmpl := range files {
@@ -97,12 +110,12 @@ func Render(fs http.FileSystem, values map[string]interface{}, releaseOptions Re
 		}
 		t := path.Join(chartName, tmpl.Name)
 		if renderedTemplate, ok := renderedTemplates[t]; ok {
-			objects, err = appendObjects(objects, renderedTemplate, t)
+			objects, err = parseAndAppendObjects(parser, objects, renderedTemplate, t)
 			if err != nil {
 				return nil, err
 			}
 		} else if crd, ok := crds[t]; ok {
-			objects, err = appendObjects(objects, string(crd.Data), t)
+			objects, err = parseAndAppendObjects(parser, objects, string(crd.Data), t)
 			if err != nil {
 				return nil, err
 			}
@@ -112,7 +125,7 @@ func Render(fs http.FileSystem, values map[string]interface{}, releaseOptions Re
 	return objects, nil
 }
 
-func appendObjects(objects []runtime.Object, renderedTemplate, path string) ([]runtime.Object, error) {
+func parseAndAppendObjects(parser func([]byte) (runtime.Object, error), objects []runtime.Object, renderedTemplate, path string) ([]runtime.Object, error) {
 	renderedTemplate = strings.TrimSpace(renderedTemplate)
 	if renderedTemplate == "" {
 		return objects, nil
@@ -135,10 +148,9 @@ func appendObjects(objects []runtime.Object, renderedTemplate, path string) ([]r
 			continue
 		}
 
-		// deserialize json into unstructured
-		o, _, err := unstructured.UnstructuredJSONScheme.Decode(json, nil, nil)
+		o, err := parser(json)
 		if err != nil {
-			return nil, errors.WrapIfWithDetails(err, "unable to create unstructured", map[string]interface{}{"templatePath": path})
+			return nil, err
 		}
 
 		objects = append(objects, o)

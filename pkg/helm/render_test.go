@@ -21,7 +21,10 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 )
 
 func TestRenderChartWithCrdsAndTemplates(t *testing.T) {
@@ -74,4 +77,30 @@ func TestRenderChartWithCrdsOnly(t *testing.T) {
 	assert.True(t, ok, "object should be unstructured")
 
 	assert.Equal(t, "loggings.logging.banzaicloud.io", o.GetName())
+}
+
+func TestRenderWithScheme(t *testing.T) {
+	chart := http.Dir("testdata/templates/logging-operator")
+
+	defaultValues, err := GetDefaultValues(chart)
+	require.NoError(t, err)
+
+	valuesMap := map[string]interface{}{}
+	err = yaml.Unmarshal(defaultValues, &valuesMap)
+	require.NoError(t, err)
+
+	scheme := runtime.NewScheme()
+	_ = clientgoscheme.AddToScheme(scheme)
+
+	objects, err := Render(chart, valuesMap, ReleaseOptions{
+		Name:      "release-name",
+		Namespace: "release-namespace",
+		Scheme: scheme,
+	}, "logging-operator")
+	require.NoError(t, err)
+
+	assert.Len(t, objects, 1)
+
+	_, ok := objects[0].(*v1.ServiceAccount)
+	assert.True(t, ok, "object should be a ServiceAccount")
 }
