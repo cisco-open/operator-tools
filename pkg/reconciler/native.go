@@ -76,19 +76,24 @@ func GetResourceBuildersFromObjects(objects []runtime.Object, state DesiredState
 			}
 		}
 		resources = append(resources, func() (runtime.Object, DesiredState, error) {
-			if desired, ok := o.(*corev1.Service); ok {
-				beforeUpdateHook := DesiredStateHook(func(current runtime.Object) error {
-					if s, ok := current.(*corev1.Service); ok {
-						desired.Spec.ClusterIP = s.Spec.ClusterIP
-					} else {
-						return errors.Errorf("failed to cast service object %+v", current)
+			ds := DynamicDesiredState{
+				DesiredState: state,
+			}
+			ds.BeforeUpdateFunc = func(current, desired runtime.Object) error {
+				for _, f := range []func(current, desired runtime.Object) error{
+					ServiceIPModifier,
+					KeepLabelsAndAnnotationsModifer,
+					KeepServiceAccountTokenReferences,
+				} {
+					err := f(current, desired)
+					if err != nil {
+						return err
 					}
-					return nil
-				})
-				return o, beforeUpdateHook, nil
+				}
+				return nil
 			}
 
-			return o, state, nil
+			return o, ds, nil
 		})
 	}
 
