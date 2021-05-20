@@ -184,7 +184,7 @@ func (rec *HelmReconciler) reconcile(parent reconciler.ResourceOwner, component 
 	}
 
 	if component.Enabled(parent) {
-		objects, state, err := orderedChartObjectsWithState(releaseData)
+		objects, state, err := orderedChartObjectsWithState(releaseData, rec.scheme)
 		if err != nil {
 			return nil, err
 		}

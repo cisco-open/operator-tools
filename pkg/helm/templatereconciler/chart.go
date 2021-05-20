@@ -24,8 +24,8 @@ import (
 	"github.com/banzaicloud/operator-tools/pkg/utils"
 )
 
-func orderedChartObjectsWithState(releaseData *ReleaseData) ([]runtime.Object, reconciler.DesiredState, error) {
-	objects, err := chartObjects(releaseData)
+func orderedChartObjectsWithState(releaseData *ReleaseData, scheme *runtime.Scheme) ([]runtime.Object, reconciler.DesiredState, error) {
+	objects, err := chartObjects(releaseData, scheme)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -35,7 +35,7 @@ func orderedChartObjectsWithState(releaseData *ReleaseData) ([]runtime.Object, r
 	return objects, reconciler.StatePresent, nil
 }
 
-func chartObjects(releaseData *ReleaseData) ([]runtime.Object, error) {
+func chartObjects(releaseData *ReleaseData, scheme *runtime.Scheme) ([]runtime.Object, error) {
 	chartDefaultValues, err := helm.GetDefaultValues(releaseData.Chart)
 	if err != nil {
 		return nil, errors.WrapIff(err, "could not get chart default values for %s", releaseData.ChartName)
@@ -51,6 +51,7 @@ func chartObjects(releaseData *ReleaseData) ([]runtime.Object, error) {
 		IsInstall: true,
 		IsUpgrade: false,
 		Namespace: releaseData.Namespace,
+		Scheme: scheme,
 	}, releaseData.ChartName)
 	if err != nil {
 		return nil, errors.WrapIff(err, "could not render %s helm manifest objects", releaseData.ChartName)
