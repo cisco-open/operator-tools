@@ -36,7 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -77,15 +77,15 @@ type DesiredStateShouldDelete interface {
 }
 
 type DesiredStateWithDeleteOptions interface {
-	GetDeleteOptions() []runtimeClient.DeleteOption
+	GetDeleteOptions() []client.DeleteOption
 }
 
 type DesiredStateWithCreateOptions interface {
-	GetCreateOptions() []runtimeClient.CreateOption
+	GetCreateOptions() []client.CreateOption
 }
 
 type DesiredStateWithUpdateOptions interface {
-	GetUpdateOptions() []runtimeClient.UpdateOption
+	GetUpdateOptions() []client.UpdateOption
 }
 
 type DesiredStateWithStaticState interface {
@@ -128,7 +128,7 @@ func (d DesiredStateHook) BeforeDelete(current runtime.Object) error {
 // GenericResourceReconciler generic resource reconciler
 type GenericResourceReconciler struct {
 	Log     logr.Logger
-	Client  runtimeClient.Client
+	Client  client.Client
 	Options ReconcilerOpts
 }
 
@@ -156,7 +156,7 @@ type ReconcilerOpts struct {
 
 // NewGenericReconciler returns GenericResourceReconciler
 // Deprecated, use NewReconcilerWith
-func NewGenericReconciler(client runtimeClient.Client, log logr.Logger, opts ReconcilerOpts) *GenericResourceReconciler {
+func NewGenericReconciler(client client.Client, log logr.Logger, opts ReconcilerOpts) *GenericResourceReconciler {
 	if opts.Scheme == nil {
 		opts.Scheme = runtime.NewScheme()
 		_ = clientgoscheme.AddToScheme(opts.Scheme)
@@ -259,7 +259,7 @@ func WithRecreateErrorMessageIgnored() ResourceReconcilerOption {
 	}
 }
 
-func NewReconcilerWith(client runtimeClient.Client, opts ...func(reconciler *ReconcilerOpts)) ResourceReconciler {
+func NewReconcilerWith(client client.Client, opts ...func(reconciler *ReconcilerOpts)) ResourceReconciler {
 	rec := NewGenericReconciler(client, log.NullLogger{}, ReconcilerOpts{
 		EnableRecreateWorkloadOnImmutableFieldChangeHelp: "recreating object on immutable field change has to be enabled explicitly through the reconciler options",
 	})
@@ -386,11 +386,11 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 		}
 
 		debugLog.Info("updating resource")
-		var updateOptions []runtimeClient.UpdateOption
+		var updateOptions []client.UpdateOption
 		if ds, ok := desiredState.(DesiredStateWithUpdateOptions); ok {
 			updateOptions = append(updateOptions, ds.GetUpdateOptions()...)
 		}
-		if err := r.Client.Update(context.TODO(), desired, updateOptions...); err != nil {
+		if err := r.Client.Update(context.TODO(), desired.(client.Object), updateOptions...); err != nil {
 			sErr, ok := err.(*apierrors.StatusError)
 			if ok && sErr.ErrStatus.Code == 422 && sErr.ErrStatus.Reason == metav1.StatusReasonInvalid &&
 				// Check the actual error message
@@ -401,9 +401,9 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 					}
 					log.Error(err, "failed to update resource, trying to recreate", resourceDetails...)
 					if r.Options.RecreateImmediately {
-						err := r.Client.Delete(context.TODO(), current,
+						err := r.Client.Delete(context.TODO(), current.(client.Object),
 							// DO NOT wait until all dependent resources get cleared up
-							runtimeClient.PropagationPolicy(metav1.DeletePropagationBackground),
+							client.PropagationPolicy(metav1.DeletePropagationBackground),
 						)
 						if err != nil {
 							return nil, errors.WrapIfWithDetails(err, "failed to delete current resource", resourceDetails...)
@@ -422,9 +422,9 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 							return nil, errors.WrapIfWithDetails(err, "failed to recreate resource", resourceDetails...)
 						}
 					}
-					err := r.Client.Delete(context.TODO(), current,
+					err := r.Client.Delete(context.TODO(), current.(client.Object),
 						// wait until all dependent resources get cleared up
-						runtimeClient.PropagationPolicy(metav1.DeletePropagationForeground),
+						client.PropagationPolicy(metav1.DeletePropagationForeground),
 					)
 					if err != nil {
 						return nil, errors.WrapIfWithDetails(err, "failed to delete current resource", resourceDetails...)
@@ -473,17 +473,18 @@ func (r *GenericResourceReconciler) CreateIfNotExist(desired runtime.Object, des
 	if err != nil {
 		return false, nil, errors.WrapIf(err, "failed to create new object based on desired")
 	}
-	key, err := runtimeClient.ObjectKeyFromObject(desired)
+	m, err := meta.Accessor(desired)
 	if err != nil {
 		return false, nil, errors.WrapIf(err, "failed to get object key")
 	}
+	key := client.ObjectKey{Namespace: m.GetNamespace(), Name: m.GetName()}
 	resourceDetails, _, err := r.resourceDetails(desired)
 	if err != nil {
 		return false, nil, errors.WrapIf(err, "failed to get resource details")
 	}
 	log := r.resourceLog(desired, resourceDetails...)
 	traceLog := log.V(2)
-	err = r.Client.Get(context.TODO(), key, current)
+	err = r.Client.Get(context.TODO(), key, current.(client.Object))
 	current.GetObjectKind().SetGroupVersionKind(desired.GetObjectKind().GroupVersionKind())
 	if err != nil && !apierrors.IsNotFound(err) {
 		return false, nil, errors.WrapIfWithDetails(err, "getting resource failed", resourceDetails...)
@@ -507,17 +508,17 @@ func (r *GenericResourceReconciler) CreateIfNotExist(desired runtime.Object, des
 				}
 			}
 		}
-		var createOptions []runtimeClient.CreateOption
+		var createOptions []client.CreateOption
 		if ds, ok := desiredState.(DesiredStateWithCreateOptions); ok {
 			createOptions = append(createOptions, ds.GetCreateOptions()...)
 		}
-		if err := r.Client.Create(context.TODO(), desired, createOptions...); err != nil {
+		if err := r.Client.Create(context.TODO(), desired.(client.Object), createOptions...); err != nil {
 			return false, nil, errors.WrapIfWithDetails(err, "creating resource failed", resourceDetails...)
 		}
 		switch t := desired.DeepCopyObject().(type) {
 		case *v1beta1.CustomResourceDefinition:
 			err = wait.Poll(time.Second*1, time.Second*10, func() (done bool, err error) {
-				err = r.Client.Get(context.TODO(), runtimeClient.ObjectKey{Namespace: t.Namespace, Name: t.Name}, t)
+				err = r.Client.Get(context.TODO(), client.ObjectKey{Namespace: t.Namespace, Name: t.Name}, t)
 				if err != nil {
 					return false, err
 				}
@@ -528,7 +529,7 @@ func (r *GenericResourceReconciler) CreateIfNotExist(desired runtime.Object, des
 			}
 		case *v1.CustomResourceDefinition:
 			err = wait.Poll(time.Second*1, time.Second*10, func() (done bool, err error) {
-				err = r.Client.Get(context.TODO(), runtimeClient.ObjectKey{Namespace: t.Namespace, Name: t.Name}, t)
+				err = r.Client.Get(context.TODO(), client.ObjectKey{Namespace: t.Namespace, Name: t.Name}, t)
 				if err != nil {
 					return false, err
 				}
@@ -550,10 +551,11 @@ func (r *GenericResourceReconciler) delete(desired runtime.Object, desiredState 
 	if err != nil {
 		return false, errors.WrapIf(err, "failed to create new object based on desired")
 	}
-	key, err := runtimeClient.ObjectKeyFromObject(desired)
+	m, err := meta.Accessor(desired)
 	if err != nil {
 		return false, errors.WrapIf(err, "failed to get object key")
 	}
+	key := client.ObjectKey{Namespace: m.GetNamespace(), Name: m.GetName()}
 	resourceDetails, _, err := r.resourceDetails(desired)
 	if err != nil {
 		return false, errors.WrapIf(err, "failed to get resource details")
@@ -561,7 +563,7 @@ func (r *GenericResourceReconciler) delete(desired runtime.Object, desiredState 
 	log := r.resourceLog(desired, resourceDetails...)
 	debugLog := log.V(1)
 	traceLog := log.V(2)
-	err = r.Client.Get(context.TODO(), key, current)
+	err = r.Client.Get(context.TODO(), key, current.(client.Object))
 	if err != nil {
 		// If the resource type does not exist we should be ok to move on
 		if meta.IsNoMatchError(err) || runtime.IsNotRegisteredError(err) {
@@ -589,11 +591,11 @@ func (r *GenericResourceReconciler) delete(desired runtime.Object, desiredState 
 			}
 		}
 	}
-	var deleteOptions []runtimeClient.DeleteOption
+	var deleteOptions []client.DeleteOption
 	if ds, ok := desiredState.(DesiredStateWithDeleteOptions); ok {
 		deleteOptions = append(deleteOptions, ds.GetDeleteOptions()...)
 	}
-	err = r.Client.Delete(context.TODO(), current, deleteOptions...)
+	err = r.Client.Delete(context.TODO(), current.(client.Object), deleteOptions...)
 	if err != nil {
 		return false, errors.WrapIfWithDetails(err, "failed to delete resource", resourceDetails...)
 	}
@@ -627,10 +629,11 @@ func crdReadyV1(crd *v1.CustomResourceDefinition) bool {
 
 func (r *GenericResourceReconciler) resourceDetails(desired runtime.Object) ([]interface{}, schema.GroupVersionKind, error) {
 	gvk := schema.GroupVersionKind{}
-	key, err := runtimeClient.ObjectKeyFromObject(desired)
+	m, err := meta.Accessor(desired)
 	if err != nil {
 		return nil, gvk, errors.WithStackIf(err)
 	}
+	key := client.ObjectKey{Namespace: m.GetNamespace(), Name: m.GetName()}
 	values := []interface{}{"name", key.Name}
 	if key.Namespace != "" {
 		values = append(values, "namespace", key.Namespace)

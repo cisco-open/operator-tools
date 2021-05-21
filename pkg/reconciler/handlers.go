@@ -25,9 +25,9 @@ import (
 	ottypes "github.com/banzaicloud/operator-tools/pkg/types"
 )
 
-func EnqueueByOwnerAnnotationMapper() handler.Mapper {
-	return handler.ToRequestsFunc(func(a handler.MapObject) []reconcile.Request {
-		pieces := strings.SplitN(a.Meta.GetAnnotations()[ottypes.BanzaiCloudRelatedTo], string(types.Separator), 2)
+func EnqueueByOwnerAnnotationMapper() handler.MapFunc {
+	return func(a client.Object) []reconcile.Request {
+		pieces := strings.SplitN(a.GetAnnotations()[ottypes.BanzaiCloudRelatedTo], string(types.Separator), 2)
 		if len(pieces) != 2 {
 			return []reconcile.Request{}
 		}
@@ -38,5 +38,5 @@ func EnqueueByOwnerAnnotationMapper() handler.Mapper {
 				Namespace: pieces[0],
 			}},
 		}
-	})
+	}
 }

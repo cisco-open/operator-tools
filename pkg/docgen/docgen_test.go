@@ -48,10 +48,11 @@ func TestGenParse(t *testing.T) {
 				DestPath:   filepath.Join(currentDir, "../../build/_test/docgen"),
 			},
 			expected: heredoc.Doc(`
-				### Sample
-				| Variable Name | Type | Required | Default | Description |
-				|---|---|---|---|---|
-				| field1 | string | No | - |  |
+					## Sample
+
+					### field1 (string, optional) {#sample-field1}
+					
+					Default: -
 			`),
 		},
 		{
@@ -64,10 +65,11 @@ func TestGenParse(t *testing.T) {
 				},
 			},
 			expected: heredoc.Doc(`
-				### SampleDefault
-				| Variable Name | Type | Required | Default | Description |
-				|---|---|---|---|---|
-				| field1 | string | No | testval |  |
+				## SampleDefault
+
+				### field1 (string, optional) {#sampledefault-field1}
+				
+				Default: testval
 			`),
 		},
 	}

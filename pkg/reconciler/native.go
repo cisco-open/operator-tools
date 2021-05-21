@@ -473,7 +473,7 @@ func (rec *NativeReconciler) purge(excluded map[string]bool, componentId string)
 
 	utils.RuntimeObjects(purgeObjects).Sort(utils.UninstallResourceOrder)
 	for _, o := range purgeObjects {
-		if err := rec.Client.Delete(context.TODO(), o); err != nil && !k8serrors.IsNotFound(err) {
+		if err := rec.Client.Delete(context.TODO(), o.(client.Object)); err != nil && !k8serrors.IsNotFound(err) {
 			allErr = errors.Combine(allErr, err)
 		} else {
 			rec.addReconciledObjectState(ReconciledObjectStatePurged, o.DeepCopyObject())

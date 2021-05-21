@@ -33,14 +33,16 @@ func main() {
 func crds() {
 	lister := docgen.NewSourceLister(
 		map[string]docgen.SourceDir{
-			"secret": {Path: "pkg/secret", DestPath: "docs/types"},
-			"volume": {Path: "pkg/volume", DestPath: "docs/types"},
-			"base":   {Path: "pkg/types", DestPath: "docs/types"},
+			"secret":    {Path: "pkg/secret", DestPath: "docs/types"},
+			"volume":    {Path: "pkg/volume", DestPath: "docs/types"},
+			"base":      {Path: "pkg/types", DestPath: "docs/types"},
+			"overrides": {Path: "pkg/typeoverride", DestPath: "docs/overrides"},
 		},
 		logger.WithName("lister"))
 
 	lister.IncludeSources = []string{
 		".*types$",
+		".*override$",
 	}
 	lister.IgnoredSources = []string{
 		".*",
