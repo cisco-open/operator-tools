@@ -21,12 +21,13 @@ require (
 	github.com/stretchr/testify v1.6.1
 	github.com/wayneashleyberry/terminal-dimensions v1.0.0
 	gopkg.in/yaml.v2 v2.3.0
-	helm.sh/helm/v3 v3.3.4
-	k8s.io/api v0.19.2
-	k8s.io/apiextensions-apiserver v0.19.2
-	k8s.io/apimachinery v0.19.2
-	k8s.io/client-go v0.19.2
+	helm.sh/helm/v3 v3.4.2
+	k8s.io/api v0.19.4
+	k8s.io/apiextensions-apiserver v0.19.4
+	k8s.io/apimachinery v0.19.4
+	k8s.io/client-go v0.19.4
 	k8s.io/utils v0.0.0-20200729134348-d5654de09c73
+	rsc.io/letsencrypt v0.0.3 // indirect
 	sigs.k8s.io/controller-runtime v0.6.2
 	sigs.k8s.io/yaml v1.2.0
 )
