@@ -16,6 +16,7 @@ package templatereconciler
 
 import (
 	"emperror.dev/errors"
+	"helm.sh/helm/v3/pkg/chartutil"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/yaml"
 
@@ -24,8 +25,8 @@ import (
 	"github.com/banzaicloud/operator-tools/pkg/utils"
 )
 
-func orderedChartObjectsWithState(releaseData *ReleaseData, scheme *runtime.Scheme) ([]runtime.Object, reconciler.DesiredState, error) {
-	objects, err := chartObjects(releaseData, scheme)
+func orderedChartObjectsWithState(releaseData *ReleaseData, scheme *runtime.Scheme, caps chartutil.Capabilities) ([]runtime.Object, reconciler.DesiredState, error) {
+	objects, err := chartObjects(releaseData, scheme, caps)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -35,7 +36,7 @@ func orderedChartObjectsWithState(releaseData *ReleaseData, scheme *runtime.Sche
 	return objects, reconciler.StatePresent, nil
 }
 
-func chartObjects(releaseData *ReleaseData, scheme *runtime.Scheme) ([]runtime.Object, error) {
+func chartObjects(releaseData *ReleaseData, scheme *runtime.Scheme, caps chartutil.Capabilities) ([]runtime.Object, error) {
 	chartDefaultValues, err := helm.GetDefaultValues(releaseData.Chart)
 	if err != nil {
 		return nil, errors.WrapIff(err, "could not get chart default values for %s", releaseData.ChartName)
@@ -52,6 +53,7 @@ func chartObjects(releaseData *ReleaseData, scheme *runtime.Scheme) ([]runtime.O
 		IsUpgrade: false,
 		Namespace: releaseData.Namespace,
 		Scheme: scheme,
+		Capabilities: caps,
 	}, releaseData.ChartName)
 	if err != nil {
 		return nil, errors.WrapIff(err, "could not render %s helm manifest objects", releaseData.ChartName)

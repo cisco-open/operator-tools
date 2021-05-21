@@ -36,12 +36,13 @@ import (
 const legacyRequirementsFileName = "requirements.yaml"
 
 type ReleaseOptions struct {
-	Name      string
-	Namespace string
-	Revision  int
-	IsUpgrade bool
-	IsInstall bool
-	Scheme    *runtime.Scheme
+	Name         string
+	Namespace    string
+	Revision     int
+	IsUpgrade    bool
+	IsInstall    bool
+	Scheme       *runtime.Scheme
+	Capabilities chartutil.Capabilities
 }
 
 func GetDefaultValues(fs http.FileSystem) ([]byte, error) {
@@ -82,7 +83,7 @@ func Render(fs http.FileSystem, values map[string]interface{}, releaseOptions Re
 	if err := chartutil.ProcessDependencies(chrt, values); err != nil {
 		return nil, err
 	}
-	renderedValues, err := chartutil.ToRenderValues(chrt, values, renderOpts, nil)
+	renderedValues, err := chartutil.ToRenderValues(chrt, values, renderOpts, &releaseOptions.Capabilities)
 	if err != nil {
 		return nil, err
 	}

@@ -26,6 +26,8 @@ import (
 	"github.com/banzaicloud/operator-tools/pkg/resources"
 	"github.com/banzaicloud/operator-tools/pkg/types"
 	"github.com/go-logr/logr"
+	"helm.sh/helm/v3/pkg/action"
+	"helm.sh/helm/v3/pkg/chartutil"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery"
@@ -64,6 +66,7 @@ type HelmReconciler struct {
 	inventory    *inventory.Inventory
 	opts         []reconciler.NativeReconcilerOpt
 	objectParser *resources.ObjectParser
+	discovery    discovery.DiscoveryInterface
 }
 
 type preConditionsFatalErr struct {
@@ -86,6 +89,7 @@ func NewHelmReconciler(
 		scheme:       scheme,
 		logger:       logger,
 		inventory:    inventory.NewDiscoveryInventory(client, logger, discovery),
+		discovery:    discovery,
 		objectParser: resources.NewObjectParser(scheme),
 		opts:         opts,
 	}
@@ -184,7 +188,26 @@ func (rec *HelmReconciler) reconcile(parent reconciler.ResourceOwner, component 
 	}
 
 	if component.Enabled(parent) {
-		objects, state, err := orderedChartObjectsWithState(releaseData, rec.scheme)
+		serverVersion, err := rec.discovery.ServerVersion()
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to detect server version")
+		}
+
+		apiVersions, err := action.GetVersionSet(rec.discovery)
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to detect supported API versions")
+		}
+
+		capabilities := chartutil.Capabilities{
+			KubeVersion: chartutil.KubeVersion{
+				Version: serverVersion.GitVersion,
+				Major:   serverVersion.Major,
+				Minor:   serverVersion.Minor,
+			},
+			APIVersions: apiVersions,
+		}
+
+		objects, state, err := orderedChartObjectsWithState(releaseData, rec.scheme, capabilities)
 		if err != nil {
 			return nil, err
 		}
