@@ -191,7 +191,7 @@ func (c *Inventory) PrepareDesiredObjects(ns, componentName string, parent recon
 				"couldn't build desired object...",
 				"namespace", ns, "component", componentName)
 		}
-		if state == reconciler.StatePresent {
+		if state != reconciler.StateAbsent {
 			desiredObjects = append(desiredObjects, obj)
 		}
 	}
