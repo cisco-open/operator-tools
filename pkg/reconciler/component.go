@@ -15,6 +15,8 @@
 package reconciler
 
 import (
+	"context"
+
 	"emperror.dev/errors"
 	"github.com/banzaicloud/operator-tools/pkg/types"
 	"github.com/go-logr/logr"
@@ -58,7 +60,7 @@ type Dispatcher struct {
 }
 
 // Reconcile implements reconcile.Reconciler in a generic way from the controller-runtime library
-func (r *Dispatcher) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *Dispatcher) Reconcile(_ context.Context, req ctrl.Request) (ctrl.Result, error) {
 	object, err := r.ResourceGetter(req)
 	if err != nil {
 		return reconcile.Result{}, errors.WithStack(err)
