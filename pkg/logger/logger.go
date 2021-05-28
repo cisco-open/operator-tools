@@ -310,6 +310,7 @@ func (log *logger) initSpinner() {
 	defer log.mux.Unlock()
 	log.spinner = spinner.New(spinner.CharSets[21], 100*time.Millisecond, spinner.WithHiddenCursor(false), spinner.WithWriter(log.out))
 	_ = log.spinner.Color("green")
+	log.spinner.Start()
 }
 
 func (log *logger) stopSpinner() {
