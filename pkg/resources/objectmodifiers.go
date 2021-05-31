@@ -19,6 +19,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -69,6 +70,10 @@ func WorkloadImagePullSecretsModifier(imagePullSecrets ...[]corev1.LocalObjectRe
 func ClearCRDStatusModifier(o runtime.Object) (runtime.Object, error) {
 	if crd, ok := o.(*apiextensionsv1beta1.CustomResourceDefinition); ok {
 		crd.Status = apiextensionsv1beta1.CustomResourceDefinitionStatus{}
+	}
+
+	if crd, ok := o.(*apiextensionsv1.CustomResourceDefinition); ok {
+		crd.Status = apiextensionsv1.CustomResourceDefinitionStatus{}
 	}
 
 	return o, nil

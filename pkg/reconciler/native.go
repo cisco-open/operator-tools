@@ -23,8 +23,8 @@ import (
 	"github.com/banzaicloud/operator-tools/pkg/wait"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	crdv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	crdv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -281,9 +281,9 @@ LOOP:
 			if rec.setControllerRef {
 				skipControllerRef := false
 				switch o.(type) {
-				case *v1beta1.CustomResourceDefinition:
+				case *crdv1.CustomResourceDefinition:
 					skipControllerRef = true
-				case *v1.CustomResourceDefinition:
+				case *crdv1beta1.CustomResourceDefinition:
 					skipControllerRef = true
 				case *corev1.Namespace:
 					skipControllerRef = true
