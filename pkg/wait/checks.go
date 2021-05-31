@@ -16,6 +16,7 @@ package wait
 
 import (
 	appsv1 "k8s.io/api/apps/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -36,19 +37,30 @@ func NonExistsConditionCheck(obj runtime.Object, k8serror error) bool {
 func CRDEstablishedConditionCheck(obj runtime.Object, k8serror error) bool {
 	var resource *apiextensionsv1beta1.CustomResourceDefinition
 	var ok bool
-	if resource, ok = obj.(*apiextensionsv1beta1.CustomResourceDefinition); !ok {
-		return true
-	}
-
-	for _, condition := range resource.Status.Conditions {
-		if condition.Type == apiextensionsv1beta1.Established {
-			if condition.Status == apiextensionsv1beta1.ConditionTrue {
-				return true
+	if resource, ok = obj.(*apiextensionsv1beta1.CustomResourceDefinition); ok {
+		for _, condition := range resource.Status.Conditions {
+			if condition.Type == apiextensionsv1beta1.Established {
+				if condition.Status == apiextensionsv1beta1.ConditionTrue {
+					return true
+				}
 			}
 		}
+		return false
 	}
 
-	return false
+	var resourcev1 *apiextensionsv1.CustomResourceDefinition
+	if resourcev1, ok = obj.(*apiextensionsv1.CustomResourceDefinition); ok {
+		for _, condition := range resourcev1.Status.Conditions {
+			if condition.Type == apiextensionsv1.Established {
+				if condition.Status == apiextensionsv1.ConditionTrue {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	return true
 }
 
 func ReadyReplicasConditionCheck(obj runtime.Object, k8serror error) bool {
