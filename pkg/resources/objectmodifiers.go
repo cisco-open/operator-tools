@@ -15,6 +15,7 @@
 package resources
 
 import (
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -99,6 +100,18 @@ func MutatingWebhookConfigurationModifier(o runtime.Object) (runtime.Object, err
 			obj.Webhooks[i] = wh
 		}
 	}
+	if obj, ok := o.(*admissionregistrationv1.MutatingWebhookConfiguration); ok {
+		allScope := admissionregistrationv1.AllScopes
+		for i, wh := range obj.Webhooks {
+			for l, r := range wh.Rules {
+				if r.Scope == nil {
+					r.Scope = &allScope
+					wh.Rules[l] = r
+				}
+			}
+			obj.Webhooks[i] = wh
+		}
+	}
 
 	return o, nil
 }
@@ -106,6 +119,18 @@ func MutatingWebhookConfigurationModifier(o runtime.Object) (runtime.Object, err
 func ValidatingWebhookConfigurationModifier(o runtime.Object) (runtime.Object, error) {
 	if obj, ok := o.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration); ok {
 		allScope := admissionregistrationv1beta1.AllScopes
+		for i, wh := range obj.Webhooks {
+			for l, r := range wh.Rules {
+				if r.Scope == nil {
+					r.Scope = &allScope
+					wh.Rules[l] = r
+				}
+			}
+			obj.Webhooks[i] = wh
+		}
+	}
+	if obj, ok := o.(*admissionregistrationv1.ValidatingWebhookConfiguration); ok {
+		allScope := admissionregistrationv1.AllScopes
 		for i, wh := range obj.Webhooks {
 			for l, r := range wh.Rules {
 				if r.Scope == nil {
