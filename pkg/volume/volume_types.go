@@ -106,18 +106,12 @@ func (v *KubernetesVolume) ApplyPVCForStatefulSet(containerName string, path str
 		},
 	}
 
-	if spec.VolumeClaimTemplates == nil {
-		spec.VolumeClaimTemplates = make([]corev1.PersistentVolumeClaim, 0)
-	}
 	spec.VolumeClaimTemplates = append(spec.VolumeClaimTemplates, pvc)
 
 	found := false
 	for i, c := range spec.Template.Spec.Containers {
 		if c.Name == containerName {
 			found = true
-			if c.VolumeMounts == nil {
-				c.VolumeMounts = make([]corev1.VolumeMount, 0)
-			}
 			c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
 				Name:      pvc.Name,
 				MountPath: path,
@@ -138,19 +132,12 @@ func (v *KubernetesVolume) ApplyVolumeForPodSpec(volumeName, containerName strin
 		return errors.WrapIf(err, "failed to create volume definition for statefulset")
 	}
 
-	if spec.Volumes == nil {
-		spec.Volumes = make([]corev1.Volume, 0)
-	}
-
 	spec.Volumes = append(spec.Volumes, vol)
 
 	found := false
 	for i, c := range spec.Containers {
 		if c.Name == containerName {
 			found = true
-			if c.VolumeMounts == nil {
-				c.VolumeMounts = make([]corev1.VolumeMount, 0)
-			}
 			c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
 				Name:      volumeName,
 				MountPath: path,

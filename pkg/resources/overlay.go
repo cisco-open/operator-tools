@@ -63,7 +63,7 @@ func PatchYAMLModifier(overlay K8SResourceOverlay, parser *ObjectParser) (Object
 		}, nil
 	}
 
-	opsDefinitions := make([]ypatch.OpDefinition, 0)
+	var opsDefinitions []ypatch.OpDefinition
 	for _, patch := range overlay.Patches {
 		var value interface{}
 		if patch.ParseValue {

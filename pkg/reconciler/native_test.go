@@ -183,7 +183,6 @@ func TestNativeReconcilerKeepsTheSecret(t *testing.T) {
 	assert.Equal(t, purged[1].(*unstructured.Unstructured).GetName(), "asd-0")
 }
 
-
 func TestNativeReconcilerObjectModifier(t *testing.T) {
 	nativeReconciler := createReconcilerForRefTests(
 		reconciler.NativeReconcilerWithModifier(func(o, p runtime.Object) (runtime.Object, error) {
@@ -313,7 +312,7 @@ func createReconcilerForRefTests(opts ...reconciler.NativeReconcilerOpt) *reconc
 		reconciler.NewReconciledComponent(
 			func(parent reconciler.ResourceOwner, object interface{}) []reconciler.ResourceBuilder {
 				parentWithControlNamespace := parent.(reconciler.ResourceOwnerWithControlNamespace)
-				rb := make([]reconciler.ResourceBuilder, 0)
+				var rb []reconciler.ResourceBuilder
 				rb = append(rb, func() (object runtime.Object, state reconciler.DesiredState, e error) {
 					return &corev1.ConfigMap{
 						ObjectMeta: v1.ObjectMeta{
