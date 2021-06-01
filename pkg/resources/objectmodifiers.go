@@ -38,7 +38,7 @@ var DefaultModifiers = []ObjectModifierFunc{
 
 func WorkloadImagePullSecretsModifier(imagePullSecrets ...[]corev1.LocalObjectReference) ObjectModifierFunc {
 	merge := func(existing []corev1.LocalObjectReference, additions ...[]corev1.LocalObjectReference) []corev1.LocalObjectReference {
-		ips := make([]corev1.LocalObjectReference, 0)
+		var ips []corev1.LocalObjectReference
 		ips = append(ips, existing...)
 		for _, addition := range additions {
 			ips = append(ips, addition...)
@@ -65,7 +65,6 @@ func WorkloadImagePullSecretsModifier(imagePullSecrets ...[]corev1.LocalObjectRe
 		return obj, nil
 	}
 }
-
 
 func ClearCRDStatusModifier(o runtime.Object) (runtime.Object, error) {
 	if crd, ok := o.(*apiextensionsv1beta1.CustomResourceDefinition); ok {

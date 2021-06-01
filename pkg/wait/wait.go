@@ -140,9 +140,7 @@ func (c *ResourceConditionChecks) waitForResourceConditions(object runtime.Objec
 	return nil
 }
 
-func (r *ResourceConditionChecks) resourceDetails(desired runtime.Object) []interface{} {
-	values := make([]interface{}, 0)
-
+func (r *ResourceConditionChecks) resourceDetails(desired runtime.Object) (values []interface{}) {
 	m, err := meta.Accessor(desired)
 	key := client.ObjectKey{Namespace: m.GetNamespace(), Name: m.GetName()}
 	if err == nil {
@@ -164,7 +162,7 @@ func (r *ResourceConditionChecks) resourceDetails(desired runtime.Object) []inte
 		"apiVersion", gvk.GroupVersion().String(),
 		"kind", gvk.Kind)
 
-	return values
+	return
 }
 
 func GetFormattedName(name, namespace string, gvk schema.GroupVersionKind) string {

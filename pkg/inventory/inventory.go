@@ -115,10 +115,9 @@ func CreateObjectsInventory(namespace, name string, objects []runtime.Object) (*
 	return &cm, nil
 }
 
-func GetObjectsFromInventory(inventory core.ConfigMap) []runtime.Object {
+func GetObjectsFromInventory(inventory core.ConfigMap) (objects []runtime.Object) {
 	resourceURLs := strings.Split(inventory.Data["refs"], ",")
 
-	objects := make([]runtime.Object, 0)
 	for i := range resourceURLs {
 		if resourceURLs[i] == "" {
 			continue
@@ -137,7 +136,7 @@ func GetObjectsFromInventory(inventory core.ConfigMap) []runtime.Object {
 		objects = append(objects, u)
 	}
 
-	return objects
+	return
 }
 
 // Hand over a GVK list to the native reconcile loop's purge method
