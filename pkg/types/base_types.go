@@ -27,9 +27,10 @@ const (
 	ComponentLabel = "app.kubernetes.io/component"
 	ManagedByLabel = "app.kubernetes.io/managed-by"
 
-	BanzaiCloudManagedComponent = "banzaicloud.io/managed-component"
-	BanzaiCloudOwnedBy          = "banzaicloud.io/owned-by"
-	BanzaiCloudRelatedTo        = "banzaicloud.io/related-to"
+	BanzaiCloudManagedComponent       = "banzaicloud.io/managed-component"
+	BanzaiCloudOwnedBy                = "banzaicloud.io/owned-by"
+	BanzaiCloudRelatedTo              = "banzaicloud.io/related-to"
+	BanzaiCloudCreateOnlyDesiredState = "banzaicloud.io/create-only-desired-state"
 )
 
 type ObjectKey struct {
