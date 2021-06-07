@@ -19,8 +19,6 @@ import (
 	"strings"
 
 	"emperror.dev/errors"
-	"github.com/banzaicloud/operator-tools/pkg/resources"
-	"github.com/banzaicloud/operator-tools/pkg/wait"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	crdv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -39,8 +37,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/banzaicloud/operator-tools/pkg/resources"
 	"github.com/banzaicloud/operator-tools/pkg/types"
 	"github.com/banzaicloud/operator-tools/pkg/utils"
+	"github.com/banzaicloud/operator-tools/pkg/wait"
 )
 
 type ResourceOwner interface {
@@ -56,10 +56,12 @@ type ResourceOwnerWithControlNamespace interface {
 	GetControlNamespace() string
 }
 
-type ResourceBuilders func(parent ResourceOwner, object interface{}) []ResourceBuilder
-type ResourceBuilder func() (runtime.Object, DesiredState, error)
-type ResourceTranslate func(runtime.Object) (parent ResourceOwner, config interface{})
-type PurgeTypesFunc func() []schema.GroupVersionKind
+type (
+	ResourceBuilders  func(parent ResourceOwner, object interface{}) []ResourceBuilder
+	ResourceBuilder   func() (runtime.Object, DesiredState, error)
+	ResourceTranslate func(runtime.Object) (parent ResourceOwner, config interface{})
+	PurgeTypesFunc    func() []schema.GroupVersionKind
+)
 
 func GetResourceBuildersFromObjects(objects []runtime.Object, state DesiredState, modifierFuncs ...resources.ObjectModifierFunc) ([]ResourceBuilder, error) {
 	resources := []ResourceBuilder{}
@@ -306,6 +308,13 @@ LOOP:
 						combinedResult.CombineErr(errors.WrapIf(err, "unable to apply object modifier"))
 						continue LOOP
 					}
+				}
+			}
+
+			// desired state can be overriden to create-only by an annotation
+			if _, ok := objectMeta.GetAnnotations()[types.BanzaiCloudCreateOnlyDesiredState]; ok {
+				if ds, ok := state.(DynamicDesiredState); ok && ds.DesiredState == StatePresent || state == StatePresent {
+					state = StateCreated
 				}
 			}
 
