@@ -24,7 +24,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -312,11 +311,11 @@ func TestNativeReconcilerFailToSetCrossNamespaceControllerRef(t *testing.T) {
 
 func TestCreatedDesiredStateAnnotationWithStaticStatePresent(t *testing.T) {
 	desired := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
+		ObjectMeta: v1.ObjectMeta{
 			Name:      "test-desired-state-with-static-present",
 			Namespace: controlNamespace,
 			Annotations: map[string]string{
-				ottypes.BanzaiCloudCreateOnlyDesiredState: "true",
+				ottypes.BanzaiCloudDesiredStateCreated: "true",
 			},
 		},
 		Data: map[string]string{
@@ -365,11 +364,11 @@ func TestCreatedDesiredStateAnnotationWithStaticStatePresent(t *testing.T) {
 
 func TestCreatedDesiredStateAnnotationWithDynamicStatePresent(t *testing.T) {
 	desired := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
+		ObjectMeta: v1.ObjectMeta{
 			Name:      "test-desired-state-with-dynamic-present",
 			Namespace: controlNamespace,
 			Annotations: map[string]string{
-				ottypes.BanzaiCloudCreateOnlyDesiredState: "true",
+				ottypes.BanzaiCloudDesiredStateCreated: "true",
 			},
 		},
 		Data: map[string]string{
