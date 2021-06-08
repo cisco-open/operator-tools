@@ -308,7 +308,7 @@ LOOP:
 
 			// desired state can be overriden to create-only by an annotation
 			if _, ok := objectMeta.GetAnnotations()[types.BanzaiCloudDesiredStateCreated]; ok {
-				if ds, ok := state.(DynamicDesiredState); ok && ds.DesiredState == StatePresent || state == StatePresent {
+				if _, ok := state.(DesiredState); ok || state == StatePresent {
 					state = StateCreated
 				}
 			}

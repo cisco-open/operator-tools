@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/go-logr/logr"
 	"github.com/spf13/cast"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -188,7 +187,6 @@ func TestNativeReconcilerKeepsTheSecret(t *testing.T) {
 	assert.Equal(t, purged[1].(*unstructured.Unstructured).GetName(), "asd-0")
 }
 
-
 func TestNativeReconcilerObjectModifier(t *testing.T) {
 	nativeReconciler := createReconcilerForRefTests(
 		reconciler.NativeReconcilerWithModifier(func(o, p runtime.Object) (runtime.Object, error) {
@@ -336,7 +334,7 @@ func TestCreatedDesiredStateAnnotationWithStaticStatePresent(t *testing.T) {
 	desiredMutated := desired.DeepCopy()
 	desiredMutated.Data["a"] = "c"
 
-	nr := reconciler.NewNativeReconcilerWithDefaults("test", k8sClient, clientgoscheme.Scheme, logr.DiscardLogger{}, func(parent reconciler.ResourceOwner, object interface{}) []reconciler.ResourceBuilder {
+	nr := reconciler.NewNativeReconcilerWithDefaults("test", k8sClient, clientgoscheme.Scheme, log, func(parent reconciler.ResourceOwner, object interface{}) []reconciler.ResourceBuilder {
 		return []reconciler.ResourceBuilder{
 			func() (runtime.Object, reconciler.DesiredState, error) {
 				return desiredMutated, reconciler.StatePresent, nil
@@ -389,12 +387,10 @@ func TestCreatedDesiredStateAnnotationWithDynamicStatePresent(t *testing.T) {
 	desiredMutated := desired.DeepCopy()
 	desiredMutated.Data["a"] = "c"
 
-	nr := reconciler.NewNativeReconcilerWithDefaults("test", k8sClient, clientgoscheme.Scheme, logr.DiscardLogger{}, func(parent reconciler.ResourceOwner, object interface{}) []reconciler.ResourceBuilder {
+	nr := reconciler.NewNativeReconcilerWithDefaults("test", k8sClient, clientgoscheme.Scheme, log, func(parent reconciler.ResourceOwner, object interface{}) []reconciler.ResourceBuilder {
 		return []reconciler.ResourceBuilder{
 			func() (runtime.Object, reconciler.DesiredState, error) {
-				return desiredMutated, reconciler.DynamicDesiredState{
-					DesiredState: reconciler.StatePresent,
-				}, nil
+				return desiredMutated, reconciler.DesiredStateHook(func(current runtime.Object) error { return nil }), nil
 			},
 		}
 	}, func() []schema.GroupVersionKind {
