@@ -15,9 +15,11 @@
 package reconciler_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/spf13/cast"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -26,9 +28,12 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
+	ottypes "github.com/banzaicloud/operator-tools/pkg/types"
+	"github.com/banzaicloud/operator-tools/pkg/utils"
 )
 
 // FakeResourceOwner object implements the ResourceOwner interface by piggybacking a ConfigMap (oink-oink)
@@ -302,6 +307,114 @@ func TestNativeReconcilerFailToSetCrossNamespaceControllerRef(t *testing.T) {
 	if err != nil {
 		t.Fatalf("got error: %s", err.Error())
 	}
+}
+
+func TestCreatedDesiredStateAnnotationWithStaticStatePresent(t *testing.T) {
+	desired := &corev1.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "test-desired-state-with-static-present",
+			Namespace: controlNamespace,
+			Annotations: map[string]string{
+				ottypes.BanzaiCloudDesiredStateCreated: "true",
+			},
+		},
+		Data: map[string]string{
+			"a": "b",
+		},
+	}
+
+	r := reconciler.NewReconcilerWith(k8sClient)
+	result, err := r.ReconcileResource(desired, reconciler.StatePresent)
+	if result != nil {
+		t.Fatalf("result expected to be nil if everything went smooth")
+	}
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+
+	desiredMutated := desired.DeepCopy()
+	desiredMutated.Data["a"] = "c"
+
+	nr := reconciler.NewNativeReconcilerWithDefaults("test", k8sClient, clientgoscheme.Scheme, logr.DiscardLogger{}, func(parent reconciler.ResourceOwner, object interface{}) []reconciler.ResourceBuilder {
+		return []reconciler.ResourceBuilder{
+			func() (runtime.Object, reconciler.DesiredState, error) {
+				return desiredMutated, reconciler.StatePresent, nil
+			},
+		}
+	}, func() []schema.GroupVersionKind {
+		return nil
+	}, func(_ runtime.Object) (reconciler.ResourceOwner, interface{}) {
+		return nil, nil
+	})
+
+	_, err = nr.Reconcile(desired)
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+
+	created := &corev1.ConfigMap{}
+	if err := k8sClient.Get(context.TODO(), utils.ObjectKeyFromObjectMeta(desired), created); err != nil {
+		t.Fatalf("%+v", err)
+	}
+
+	assert.Equal(t, created.Name, desired.Name)
+	assert.Equal(t, created.Namespace, desired.Namespace)
+	assert.Equal(t, created.Data["a"], desired.Data["a"])
+}
+
+func TestCreatedDesiredStateAnnotationWithDynamicStatePresent(t *testing.T) {
+	desired := &corev1.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "test-desired-state-with-dynamic-present",
+			Namespace: controlNamespace,
+			Annotations: map[string]string{
+				ottypes.BanzaiCloudDesiredStateCreated: "true",
+			},
+		},
+		Data: map[string]string{
+			"a": "b",
+		},
+	}
+
+	r := reconciler.NewReconcilerWith(k8sClient)
+	result, err := r.ReconcileResource(desired, reconciler.StatePresent)
+	if result != nil {
+		t.Fatalf("result expected to be nil if everything went smooth")
+	}
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+
+	desiredMutated := desired.DeepCopy()
+	desiredMutated.Data["a"] = "c"
+
+	nr := reconciler.NewNativeReconcilerWithDefaults("test", k8sClient, clientgoscheme.Scheme, logr.DiscardLogger{}, func(parent reconciler.ResourceOwner, object interface{}) []reconciler.ResourceBuilder {
+		return []reconciler.ResourceBuilder{
+			func() (runtime.Object, reconciler.DesiredState, error) {
+				return desiredMutated, reconciler.DynamicDesiredState{
+					DesiredState: reconciler.StatePresent,
+				}, nil
+			},
+		}
+	}, func() []schema.GroupVersionKind {
+		return nil
+	}, func(_ runtime.Object) (reconciler.ResourceOwner, interface{}) {
+		return nil, nil
+	})
+
+	_, err = nr.Reconcile(desired)
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+
+	created := &corev1.ConfigMap{}
+	if err := k8sClient.Get(context.TODO(), utils.ObjectKeyFromObjectMeta(desired), created); err != nil {
+		t.Fatalf("%+v", err)
+	}
+
+	assert.Equal(t, created.Name, desired.Name)
+	assert.Equal(t, created.Namespace, desired.Namespace)
+	assert.Equal(t, created.Data["a"], desired.Data["a"])
 }
 
 func createReconcilerForRefTests(opts ...reconciler.NativeReconcilerOpt) *reconciler.NativeReconciler {
