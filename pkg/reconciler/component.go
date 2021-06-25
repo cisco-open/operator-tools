@@ -102,7 +102,9 @@ func (r *Dispatcher) Handle(object runtime.Object) (ctrl.Result, error) {
 			}
 		}
 		result, err := cr.Reconcile(object)
+		isSkipped := true
 		if cr, ok := cr.(ComponentWithStatus); ok {
+			isSkipped = cr.IsSkipped(object)
 			if err != nil {
 				if uerr := cr.Update(object, types.ReconcileStatusFailed, err.Error()); uerr != nil {
 					combinedResult.CombineErr(errors.WrapIf(uerr, "unable to update status for component"))
@@ -119,7 +121,7 @@ func (r *Dispatcher) Handle(object runtime.Object) (ctrl.Result, error) {
 				}
 			}
 		}
-		if cr, ok := cr.(ComponentLifecycle); ok {
+		if cr, ok := cr.(ComponentLifecycle); ok && !isSkipped {
 			if err := cr.OnFinished(object); err != nil {
 				combinedResult.Combine(result, errors.WrapIf(err, "failed to notify component on finish"))
 			}
