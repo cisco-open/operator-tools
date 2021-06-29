@@ -242,11 +242,34 @@ func formatRequired(r bool) string {
 func (d *Doc) getValuesFromItem(item *ast.Field) (name, comment, def, required string, err error) {
 	commentWithDefault := ""
 	if item.Doc != nil {
+		// Process comments of objects that become ### level headings
+		isCodeBlock := false
 		for _, line := range item.Doc.List {
 			newLine := strings.TrimPrefix(line.Text, "//")
-			newLine = strings.TrimSpace(newLine)
+
+			if strings.HasPrefix(newLine, " {{< highlight") {
+				commentWithDefault += "\n"
+				isCodeBlock = true
+			}
+
+			// Do not trim spaces when processing a code block to keep indentation, trim only one character
+			if !(isCodeBlock) {
+				newLine = strings.TrimSpace(newLine)
+			} else {
+				newLine = strings.TrimPrefix(newLine, " ")
+			}
+
 			if !strings.HasPrefix(newLine, "+kubebuilder") {
-				commentWithDefault += newLine + "<br>"
+				// Keep newlines in code blocks, but join body text
+				if isCodeBlock {
+					commentWithDefault += newLine + "\n"
+				} else {
+					commentWithDefault += newLine + " "
+				}
+				// Detect the end of code blocks
+				if isCodeBlock && strings.HasPrefix(newLine, " {{< /highlight") {
+					isCodeBlock = false
+				}
 			}
 		}
 	}
