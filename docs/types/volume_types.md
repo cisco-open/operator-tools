@@ -9,7 +9,7 @@
 
 ### host_path (*corev1.HostPathVolumeSource, optional) {#kubernetesvolume-host_path}
 
-Deprecated, use hostPath<br>
+Deprecated, use hostPath 
 
 Default: -
 
@@ -23,7 +23,7 @@ Default: -
 
 ### pvc (*PersistentVolumeClaim, optional) {#kubernetesvolume-pvc}
 
-PersistentVolumeClaim defines the Spec and the Source at the same time.<br>The PVC will be created with the configured spec and the name defined in the source.<br>
+PersistentVolumeClaim defines the Spec and the Source at the same time. The PVC will be created with the configured spec and the name defined in the source. 
 
 Default: -
 
