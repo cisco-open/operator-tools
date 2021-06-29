@@ -72,6 +72,31 @@ func TestGenParse(t *testing.T) {
 				Default: testval
 			`),
 		},
+		{
+			docItem: docgen.DocItem{
+				Name:       "sample-codeblock",
+				SourcePath: filepath.Join(currentDir, "testdata", "sample_codeblock.go"),
+				DestPath:   filepath.Join(currentDir, "../../build/_test/docgen"),
+				DefaultValueFromTagExtractor: func(tag string) string {
+					return docgen.GetPrefixedValue(tag, `asd:\"default:(.*)\"`)
+				},
+			},
+			expected: heredoc.Doc(`
+				## Sample
+
+				### field1 (string, optional) {#sample-field1}
+
+				Description
+				{{< highlight yaml >}}
+				test: code block
+				some: more lines
+					indented: line
+				{{< /highlight >}}
+
+
+				Default: -
+			`),
+		},
 	}
 
 	for _, item := range testData {
