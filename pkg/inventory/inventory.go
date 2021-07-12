@@ -214,7 +214,6 @@ func (c *Inventory) PrepareDesiredObjects(ns, componentName string, parent recon
 	// create inventory of created objects
 	if newInventory, err := CreateObjectsInventory(ns, objectsInventoryName, desiredObjects); err == nil {
 		c.inventoryData.DesiredObjects = desiredObjects
-		newInventory.SetOwnerReferences(parent.GetOwnerReferences())
 		return newInventory, nil
 	}
 
