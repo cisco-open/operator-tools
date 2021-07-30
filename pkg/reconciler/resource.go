@@ -286,7 +286,7 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 	}
 	log := r.resourceLog(desired, resourceDetails...)
 	debugLog := log.V(1)
-	traceLog := log.V(2)
+	traceLog := log.V(3)
 	state := desiredState
 	if ds, ok := desiredState.(DesiredStateWithStaticState); ok {
 		state = ds.DesiredState()
@@ -363,12 +363,15 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 			debugLog.Info("resource is in sync")
 			return nil, nil
 		} else {
-			debugLog.Info("resource diff", "patch", string(patchResult.Patch))
-			traceLog.Info("resource diffs",
-				"patch", string(patchResult.Patch),
-				"current", string(patchResult.Current),
-				"modified", string(patchResult.Modified),
-				"original", string(patchResult.Original))
+			if gvk.Kind == "Secret" {
+				debugLog.Info("resource diff")
+			} else {
+				debugLog.Info("resource diff", "patch", string(patchResult.Patch))
+				traceLog.Info("resource states",
+					"current", string(patchResult.Current),
+					"modified", string(patchResult.Modified),
+					"original", string(patchResult.Original))
+			}
 		}
 
 		if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(desired); err != nil {
