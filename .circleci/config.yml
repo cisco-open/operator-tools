@@ -9,7 +9,7 @@ orbs:
 jobs:
   build:
     docker:
-      - image: circleci/golang:1.15
+      - image: circleci/golang:1.16
         environment:
           GOFLAGS: -mod=readonly
     steps:
