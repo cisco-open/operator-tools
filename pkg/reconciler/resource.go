@@ -172,7 +172,7 @@ func NewGenericReconciler(c client.Client, log logr.Logger, opts ReconcilerOpts)
 	if opts.RecreateEnabledResourceCondition == nil {
 		// only allow a custom set of types and only specific errors
 		opts.RecreateEnabledResourceCondition = func(kind schema.GroupVersionKind, status metav1.Status) bool {
-			if !strings.Contains(status.Message, "immutable") {
+			if !strings.Contains(status.Message, *opts.RecreateErrorMessageSubstring) {
 				return false
 			}
 			for _, gk := range DefaultRecreateEnabledGroupKinds {
