@@ -30,6 +30,8 @@ ignored = [
   # Unsupported VCS
   "cloud.google.com/go",
   "google.golang.org/api",
+
+  "gomodules.xyz/jsonpatch/v2", # Apache2
 ]
 
 [header]

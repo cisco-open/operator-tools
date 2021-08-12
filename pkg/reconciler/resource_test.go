@@ -16,12 +16,15 @@ package reconciler_test
 
 import (
 	"context"
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/banzaicloud/operator-tools/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -90,7 +93,7 @@ func TestNewReconcilerWithUnstructured(t *testing.T) {
 	assert.Equal(t, created.Namespace, controlNamespace)
 }
 
-func TestRecreateObjectFailIfNotAllowed(t *testing.T) {
+func TestRecreateWorkload(t *testing.T) {
 	testData := []struct {
 		name string
 		desired runtime.Object
@@ -100,17 +103,31 @@ func TestRecreateObjectFailIfNotAllowed(t *testing.T) {
 		wantResult func(result *reconcile.Result)
 	}{
 		{
-			name: "fails to recreate service",
-			desired: &corev1.Service{
+			name: "fails to recreate deployment",
+			desired: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test0",
+					Name:      "test-deploy-0",
 					Namespace: testNamespace,
 				},
-				Spec: corev1.ServiceSpec{
-					ClusterIP: "10.0.0.10",
-					Ports: []corev1.ServicePort{
-						{
-							Port: 123,
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"a": "b",
+						},
+					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"a": "b",
+							},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "test",
+									Image: "test",
+								},
+							},
 						},
 					},
 				},
@@ -120,26 +137,42 @@ func TestRecreateObjectFailIfNotAllowed(t *testing.T) {
 				reconciler.WithRecreateEnabledForNothing(),
 			),
 			update: func(object runtime.Object) runtime.Object {
-				object.(*corev1.Service).Spec.ClusterIP = "10.0.0.11"
+				object.(*appsv1.Deployment).Spec.Selector.MatchLabels = map[string]string{
+					"c": "d",
+				}
 				return object
 			},
 			wantError: func(err error) {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), "immutable")
+				require.Contains(t, err.Error(), "resource is not allowed to be recreated")
 			},
 		},
 		{
-			name: "allowed to recreate service by default",
-			desired: &corev1.Service{
+			name: "requeue to recreate deployment",
+			desired: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test1",
+					Name:      "test-deploy-1",
 					Namespace: testNamespace,
 				},
-				Spec: corev1.ServiceSpec{
-					ClusterIP: "10.0.0.20",
-					Ports: []corev1.ServicePort{
-						{
-							Port: 123,
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"a": "b",
+						},
+					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"a": "b",
+							},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "test",
+									Image: "test",
+								},
+							},
 						},
 					},
 				},
@@ -148,26 +181,44 @@ func TestRecreateObjectFailIfNotAllowed(t *testing.T) {
 				reconciler.WithEnableRecreateWorkload(),
 			),
 			update: func(object runtime.Object) runtime.Object {
-				object.(*corev1.Service).Spec.ClusterIP = "10.0.0.21"
+				object.(*appsv1.Deployment).Spec.Selector.MatchLabels = map[string]string{
+					"c": "d",
+				}
 				return object
 			},
 			wantResult: func(result *reconcile.Result) {
-				require.NotNil(t, result)
-				require.True(t, result.Requeue)
+				require.Equal(t, &reconcile.Result{
+					Requeue:      true,
+					RequeueAfter: time.Second * 2,
+				}, result)
 			},
 		},
 		{
-			name: "recreate service immediately",
-			desired: &corev1.Service{
+			name: "delete immediately",
+			desired: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test2",
+					Name:      "test-deploy-2",
 					Namespace: testNamespace,
 				},
-				Spec: corev1.ServiceSpec{
-					ClusterIP: "10.0.0.31",
-					Ports: []corev1.ServicePort{
-						{
-							Port: 123,
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"a": "b",
+						},
+					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"a": "b",
+							},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "test",
+									Image: "test",
+								},
+							},
 						},
 					},
 				},
@@ -177,18 +228,24 @@ func TestRecreateObjectFailIfNotAllowed(t *testing.T) {
 				reconciler.WithRecreateImmediately(),
 			),
 			update: func(object runtime.Object) runtime.Object {
-				object.(*corev1.Service).Spec.ClusterIP = "10.0.0.32"
+				newLabels := map[string]string{
+					"c": "d",
+				}
+				object.(*appsv1.Deployment).Spec.Selector.MatchLabels = newLabels
+				object.(*appsv1.Deployment).Spec.Template.ObjectMeta.Labels = newLabels
 				return object
 			},
 			wantResult: func(result *reconcile.Result) {
 				require.Nil(t, result)
-				svc := &corev1.Service{}
-				err := k8sClient.Get(context.TODO(), types.NamespacedName{
-					Namespace: testNamespace,
-					Name:      "test2",
-				}, svc)
-				require.NoError(t, err)
-				require.Equal(t, svc.Spec.ClusterIP, "10.0.0.32")
+				require.Eventually(t, func() bool {
+					deploy := &appsv1.Deployment{}
+					err := k8sClient.Get(context.TODO(), types.NamespacedName{
+						Namespace: testNamespace,
+						Name:      "test-deploy-2",
+					}, deploy)
+					require.NoError(t, err)
+					return reflect.DeepEqual(deploy.Spec.Selector.MatchLabels, map[string]string{"c": "d"})
+				}, time.Second * 10, time.Second)
 			},
 		},
 	}

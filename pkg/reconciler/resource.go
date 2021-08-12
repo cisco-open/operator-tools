@@ -18,13 +18,11 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strings"
 	"time"
 
 	"emperror.dev/errors"
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	"github.com/banzaicloud/operator-tools/pkg/types"
-	"github.com/banzaicloud/operator-tools/pkg/utils"
 	"github.com/go-logr/logr"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -43,7 +41,7 @@ import (
 )
 
 const (
-	DefaultRecreateRequeueDelay int32              = 10
+	DefaultRecreateRequeueDelay int32              = 2
 	StateCreated                StaticDesiredState = "Created"
 	StateAbsent                 StaticDesiredState = "Absent"
 	StatePresent                StaticDesiredState = "Present"
@@ -51,7 +49,6 @@ const (
 
 var (
 	DefaultRecreateEnabledGroupKinds = []schema.GroupKind{
-		{Group: "", Kind: "Service"},
 		{Group: "apps", Kind: "StatefulSet"},
 		{Group: "apps", Kind: "DaemonSet"},
 		{Group: "apps", Kind: "Deployment"},
@@ -134,8 +131,6 @@ type GenericResourceReconciler struct {
 
 type ResourceReconcilerOption func(*ReconcilerOpts)
 
-type RecreateResourceCondition func(kind schema.GroupVersionKind, status metav1.Status) bool
-
 // Recommended to use NewReconcilerWith + ResourceReconcilerOptions
 type ReconcilerOpts struct {
 	Log    logr.Logger
@@ -144,16 +139,8 @@ type ReconcilerOpts struct {
 	EnableRecreateWorkloadOnImmutableFieldChange bool
 	// Custom log message to help when a workload or service needs to be recreated
 	EnableRecreateWorkloadOnImmutableFieldChangeHelp string
-	// The delay in seconds to wait before checking back after deleting the resource (10s by default)
-	RecreateRequeueDelay *int32
-	// List of callbacks evaluated to decide whether a given gvk is enabled to be recreated or not
+	// Decide whether a given gvk is enabled to be recreated or not
 	RecreateEnabledResourceCondition RecreateResourceCondition
-	// Immediately recreate the resource instead of deleting and returning with a requeue
-	RecreateImmediately bool
-	// Configure the recreate PropagationPolicy. "Orphan" avoids deleting pods simultaneously.
-	RecreatePropagationPolicy client.PropagationPolicy
-	// Check the update error message contains this substring before recreate. Default: "immutable"
-	RecreateErrorMessageSubstring *string
 }
 
 // NewGenericReconciler returns GenericResourceReconciler
@@ -163,26 +150,24 @@ func NewGenericReconciler(c client.Client, log logr.Logger, opts ReconcilerOpts)
 		opts.Scheme = runtime.NewScheme()
 		_ = clientgoscheme.AddToScheme(opts.Scheme)
 	}
-	if opts.RecreateRequeueDelay == nil {
-		opts.RecreateRequeueDelay = utils.IntPointer(DefaultRecreateRequeueDelay)
-	}
-	if opts.RecreateErrorMessageSubstring == nil {
-		opts.RecreateErrorMessageSubstring = utils.StringPointer("immutable")
-	}
 	if opts.RecreateEnabledResourceCondition == nil {
-		// only allow a custom set of types and only specific errors
-		opts.RecreateEnabledResourceCondition = func(kind schema.GroupVersionKind, status metav1.Status) bool {
-			for _, gk := range DefaultRecreateEnabledGroupKinds {
-				if gk == kind.GroupKind() {
-					return true
-				}
-			}
-			return false
-		}
-	}
-	if len(opts.RecreatePropagationPolicy) == 0 {
-		// DO NOT wait until all dependent resources get cleared up
-		opts.RecreatePropagationPolicy = client.PropagationPolicy(metav1.DeletePropagationBackground)
+		// only allow a custom set of errors to result in a recreation strategy
+		opts.RecreateEnabledResourceCondition = FirstMatchingResourceCondition{
+			Conditions: []RecreateResourceCondition{
+				StatefulSetFieldChangeCondition(RecreateConfig{
+					Delete:              true,
+					RecreateImmediately: false,
+					DeletePropagation:   metav1.DeletePropagationOrphan,
+					Delay:               DefaultRecreateRequeueDelay,
+				}),
+				ImmutableFieldChangeCondition(RecreateConfig{
+					Delete:              true,
+					RecreateImmediately: false,
+					DeletePropagation:   metav1.DeletePropagationBackground,
+					Delay:               DefaultRecreateRequeueDelay,
+				}),
+			},
+		}.Condition
 	}
 	return &GenericResourceReconciler{
 		Log:     log,
@@ -200,65 +185,6 @@ func WithLog(log logr.Logger) ResourceReconcilerOption {
 func WithScheme(scheme *runtime.Scheme) ResourceReconcilerOption {
 	return func(o *ReconcilerOpts) {
 		o.Scheme = scheme
-	}
-}
-
-func WithEnableRecreateWorkload() ResourceReconcilerOption {
-	return func(o *ReconcilerOpts) {
-		o.EnableRecreateWorkloadOnImmutableFieldChange = true
-	}
-}
-
-// Apply the given amount of delay before recreating a resource after it has been removed
-func WithRecreateRequeueDelay(delay int32) ResourceReconcilerOption {
-	return func(o *ReconcilerOpts) {
-		o.RecreateRequeueDelay = utils.IntPointer(delay)
-	}
-}
-
-// Use this option for the legacy behaviour
-func WithRecreateEnabledForAll() ResourceReconcilerOption {
-	return func(o *ReconcilerOpts) {
-		o.RecreateEnabledResourceCondition = func(_ schema.GroupVersionKind, _ metav1.Status) bool {
-			return true
-		}
-	}
-}
-
-// Use this option for the legacy behaviour
-func WithRecreateEnabledFor(condition RecreateResourceCondition) ResourceReconcilerOption {
-	return func(o *ReconcilerOpts) {
-		o.RecreateEnabledResourceCondition = condition
-	}
-}
-
-// Matches no GVK
-func WithRecreateEnabledForNothing() ResourceReconcilerOption {
-	return func(o *ReconcilerOpts) {
-		o.RecreateEnabledResourceCondition = func(kind schema.GroupVersionKind, status metav1.Status) bool {
-			return false
-		}
-	}
-}
-
-// Recreate workloads immediately without waiting for dependents to get GCd
-func WithRecreateImmediately() ResourceReconcilerOption {
-	return func(o *ReconcilerOpts) {
-		o.RecreateImmediately = true
-	}
-}
-
-// Recreate only if the error message contains the given substring
-func WithRecreateErrorMessageSubstring(substring string) ResourceReconcilerOption {
-	return func(o *ReconcilerOpts) {
-		o.RecreateErrorMessageSubstring = utils.StringPointer(substring)
-	}
-}
-
-// Disable checking the error message before recreating resources
-func WithRecreateErrorMessageIgnored() ResourceReconcilerOption {
-	return func(o *ReconcilerOpts) {
-		o.RecreateErrorMessageSubstring = utils.StringPointer("")
 	}
 }
 
@@ -398,26 +324,24 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 		}
 		if err := r.Client.Update(context.TODO(), desired.(client.Object), updateOptions...); err != nil {
 			sErr, ok := err.(*apierrors.StatusError)
-			if ok && sErr.ErrStatus.Code == 422 && sErr.ErrStatus.Reason == metav1.StatusReasonInvalid &&
-				// Check the actual error message
-				strings.Contains(sErr.ErrStatus.Message, utils.PointerToString(r.Options.RecreateErrorMessageSubstring)) {
+			if ok && sErr.ErrStatus.Code == 422 && sErr.ErrStatus.Reason == metav1.StatusReasonInvalid {
 				if r.Options.EnableRecreateWorkloadOnImmutableFieldChange {
-					if !r.Options.RecreateEnabledResourceCondition(gvk, sErr.ErrStatus) {
-						return nil, errors.WrapIfWithDetails(err, "resource type is not allowed to be recreated", resourceDetails...)
+					var recreateConfig RecreateConfig
+					if recreateConfig, err = r.Options.RecreateEnabledResourceCondition(gvk, sErr.ErrStatus); err != nil {
+						return nil, errors.WithDetails(err, resourceDetails...)
+					}
+					if !recreateConfig.Delete {
+						return nil, errors.NewWithDetails( "resource is not allowed to be recreated", resourceDetails...)
 					}
 					log.Error(err, "failed to update resource, trying to recreate", resourceDetails...)
-					if r.Options.RecreateImmediately {
-						err := r.Client.Delete(context.TODO(), current.(client.Object),
-							r.Options.RecreatePropagationPolicy,
-						)
-						if err != nil {
+					if recreateConfig.RecreateImmediately {
+						if err := r.Client.Delete(context.TODO(), current.(client.Object), client.PropagationPolicy(recreateConfig.DeletePropagation)); err != nil {
 							return nil, errors.WrapIfWithDetails(err, "failed to delete current resource", resourceDetails...)
 						}
 						if err := metaAccessor.SetResourceVersion(desired, ""); err != nil {
 							return nil, errors.WrapIfWithDetails(err, "unable to clear resourceVersion", resourceDetails...)
 						}
-						created, _, err := r.CreateIfNotExist(desired, desiredState)
-						if err == nil {
+						if created, _, err := r.CreateIfNotExist(desired, desiredState); err == nil {
 							if !created {
 								return nil, errors.New("resource already exists")
 							}
@@ -427,16 +351,12 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 							return nil, errors.WrapIfWithDetails(err, "failed to recreate resource", resourceDetails...)
 						}
 					}
-					err := r.Client.Delete(context.TODO(), current.(client.Object),
-						// wait until all dependent resources get cleared up
-						client.PropagationPolicy(metav1.DeletePropagationForeground),
-					)
-					if err != nil {
+					if err := r.Client.Delete(context.TODO(), current.(client.Object), client.PropagationPolicy(recreateConfig.DeletePropagation)); err != nil {
 						return nil, errors.WrapIfWithDetails(err, "failed to delete current resource", resourceDetails...)
 					}
 					return &reconcile.Result{
 						Requeue:      true,
-						RequeueAfter: time.Second * time.Duration(utils.PointerToInt32(r.Options.RecreateRequeueDelay)),
+						RequeueAfter: time.Second * time.Duration(recreateConfig.Delay),
 					}, nil
 				} else {
 					return nil, errors.WrapIf(sErr, r.Options.EnableRecreateWorkloadOnImmutableFieldChangeHelp)
