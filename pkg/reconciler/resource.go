@@ -150,13 +150,15 @@ type ReconcilerOpts struct {
 	RecreateEnabledResourceCondition RecreateResourceCondition
 	// Immediately recreate the resource instead of deleting and returning with a requeue
 	RecreateImmediately bool
+	// Configure the recreate PropagationPolicy. "Orphan" avoids deleting pods simultaneously.
+	RecreatePropagationPolicy client.PropagationPolicy
 	// Check the update error message contains this substring before recreate. Default: "immutable"
 	RecreateErrorMessageSubstring *string
 }
 
 // NewGenericReconciler returns GenericResourceReconciler
 // Deprecated, use NewReconcilerWith
-func NewGenericReconciler(client client.Client, log logr.Logger, opts ReconcilerOpts) *GenericResourceReconciler {
+func NewGenericReconciler(c client.Client, log logr.Logger, opts ReconcilerOpts) *GenericResourceReconciler {
 	if opts.Scheme == nil {
 		opts.Scheme = runtime.NewScheme()
 		_ = clientgoscheme.AddToScheme(opts.Scheme)
@@ -170,9 +172,6 @@ func NewGenericReconciler(client client.Client, log logr.Logger, opts Reconciler
 	if opts.RecreateEnabledResourceCondition == nil {
 		// only allow a custom set of types and only specific errors
 		opts.RecreateEnabledResourceCondition = func(kind schema.GroupVersionKind, status metav1.Status) bool {
-			if !strings.Contains(status.Message, "immutable") {
-				return false
-			}
 			for _, gk := range DefaultRecreateEnabledGroupKinds {
 				if gk == kind.GroupKind() {
 					return true
@@ -181,9 +180,13 @@ func NewGenericReconciler(client client.Client, log logr.Logger, opts Reconciler
 			return false
 		}
 	}
+	if len(opts.RecreatePropagationPolicy) == 0 {
+		// DO NOT wait until all dependent resources get cleared up
+		opts.RecreatePropagationPolicy = client.PropagationPolicy(metav1.DeletePropagationBackground)
+	}
 	return &GenericResourceReconciler{
 		Log:     log,
-		Client:  client,
+		Client:  c,
 		Options: opts,
 	}
 }
@@ -405,8 +408,7 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 					log.Error(err, "failed to update resource, trying to recreate", resourceDetails...)
 					if r.Options.RecreateImmediately {
 						err := r.Client.Delete(context.TODO(), current.(client.Object),
-							// DO NOT wait until all dependent resources get cleared up
-							client.PropagationPolicy(metav1.DeletePropagationBackground),
+							r.Options.RecreatePropagationPolicy,
 						)
 						if err != nil {
 							return nil, errors.WrapIfWithDetails(err, "failed to delete current resource", resourceDetails...)
