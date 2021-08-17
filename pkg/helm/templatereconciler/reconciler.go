@@ -99,6 +99,10 @@ func NewHelmReconciler(
 	return r
 }
 
+func (rec *HelmReconciler) GetClient() client.Client {
+	return rec.client
+}
+
 func (rec *HelmReconciler) Reconcile(object runtime.Object, component Component) (*reconcile.Result, error) {
 	var ok bool
 	var parent reconciler.ResourceOwner
@@ -173,7 +177,7 @@ func (rec *HelmReconciler) Reconcile(object runtime.Object, component Component)
 	return result, err
 }
 
-func (rec *HelmReconciler) reconcile(parent reconciler.ResourceOwner, component Component, releaseData *ReleaseData) (*reconcile.Result, error) {
+func (rec *HelmReconciler) GetResourceBuilders(parent reconciler.ResourceOwner, component Component, releaseData *ReleaseData, doInventory bool) ([]reconciler.ResourceBuilder, error) {
 	resourceBuilders, err := reconciler.GetResourceBuildersFromObjects([]runtime.Object{
 		&v1.Namespace{
 			TypeMeta: metav1.TypeMeta{
@@ -229,9 +233,24 @@ func (rec *HelmReconciler) reconcile(parent reconciler.ResourceOwner, component 
 			return nil, err
 		}
 
-		resourceBuilders = rec.inventory.Append(releaseData.Namespace, releaseData.ReleaseName, parent, append(resourceBuilders, chartResourceBuilders...))
+		if doInventory {
+			resourceBuilders = rec.inventory.Append(releaseData.Namespace, releaseData.ReleaseName, parent, append(resourceBuilders, chartResourceBuilders...))
+		} else {
+			resourceBuilders = append(resourceBuilders, chartResourceBuilders...)
+		}
 	} else {
-		resourceBuilders = rec.inventory.Append(releaseData.Namespace, releaseData.ReleaseName, parent, resourceBuilders)
+		if doInventory {
+			resourceBuilders = rec.inventory.Append(releaseData.Namespace, releaseData.ReleaseName, parent, resourceBuilders)
+		}
+	}
+
+	return rec.setDesiredStateOverrides(resourceBuilders, releaseData), nil
+}
+
+func (rec *HelmReconciler) reconcile(parent reconciler.ResourceOwner, component Component, releaseData *ReleaseData) (*reconcile.Result, error) {
+	resourceBuilders, err := rec.GetResourceBuilders(parent, component, releaseData, true)
+	if err != nil {
+		return nil, err
 	}
 
 	r := reconciler.NewNativeReconcilerWithDefaults(
@@ -240,7 +259,7 @@ func (rec *HelmReconciler) reconcile(parent reconciler.ResourceOwner, component 
 		rec.scheme,
 		rec.logger,
 		func(_ reconciler.ResourceOwner, _ interface{}) []reconciler.ResourceBuilder {
-			return rec.setDesiredStateOverrides(resourceBuilders, releaseData)
+			return resourceBuilders
 		},
 		rec.inventory.TypesToPurge,
 		func(_ runtime.Object) (reconciler.ResourceOwner, interface{}) {
