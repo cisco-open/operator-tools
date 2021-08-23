@@ -18,7 +18,9 @@ import (
 	"context"
 
 	"emperror.dev/errors"
+	"github.com/banzaicloud/operator-tools/pkg/resources"
 	"github.com/banzaicloud/operator-tools/pkg/types"
+	"github.com/banzaicloud/operator-tools/pkg/utils"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -47,6 +49,21 @@ type ComponentLifecycle interface {
 	OnFinished(object runtime.Object) error
 }
 
+// ComponentReconcilers is a list of component reconcilers that support getting components in Install and Uninstall order.
+type ComponentReconcilers []ComponentReconciler
+
+func (c ComponentReconcilers) Get(order utils.ResourceOrder) []ComponentReconciler {
+	if order != utils.UninstallResourceOrder {
+		return c
+	}
+
+	components := []ComponentReconciler{}
+	for i := len(c) - 1; i >= 0; i-- {
+		components = append(components, c[i])
+	}
+	return components
+}
+
 // Dispatcher orchestrates reconciliation of multiple ComponentReconciler objects
 // focusing on handing off reconciled object to all of its components and calculating an aggregated result to return.
 // It requires a ResourceGetter callback and optionally can leverage a ResourceFilter and a CompletionHandler
@@ -56,7 +73,10 @@ type Dispatcher struct {
 	ResourceGetter       func(req ctrl.Request) (runtime.Object, error)
 	ResourceFilter       func(runtime.Object) (bool, error)
 	CompletionHandler    func(runtime.Object, ctrl.Result, error) (ctrl.Result, error)
-	ComponentReconcilers []ComponentReconciler
+	ComponentReconcilers ComponentReconcilers
+	// ForceResourceOrder can be used to force a given resource ordering regardless of an object being deleted with
+	// finalizers.
+	ForceResourceOrder utils.ResourceOrder
 }
 
 // Reconcile implements reconcile.Reconciler in a generic way from the controller-runtime library
@@ -87,8 +107,22 @@ func (r *Dispatcher) Reconcile(_ context.Context, req ctrl.Request) (ctrl.Result
 // Handle receives a single object and dispatches it to all the components
 // Components need to understand how to interpret the object
 func (r *Dispatcher) Handle(object runtime.Object) (ctrl.Result, error) {
+	isBeingDeleted, err := resources.IsObjectBeingDeleted(object)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	componentExecutionOrder := utils.InstallResourceOrder
+	if isBeingDeleted {
+		componentExecutionOrder = utils.UninstallResourceOrder
+	}
+
+	if r.ForceResourceOrder != "" {
+		componentExecutionOrder = r.ForceResourceOrder
+	}
+
 	combinedResult := &CombinedResult{}
-	for _, cr := range r.ComponentReconcilers {
+	for _, cr := range r.ComponentReconcilers.Get(componentExecutionOrder) {
 		if cr, ok := cr.(ComponentWithStatus); ok {
 			status := types.ReconcileStatusReconciling
 			if cr.IsSkipped(object) {
@@ -101,6 +135,20 @@ func (r *Dispatcher) Handle(object runtime.Object) (ctrl.Result, error) {
 				continue
 			}
 		}
+
+		// Any patch/update command can update the object, thus sequent steps will be
+		// remove steps instead. To work around that let's requeue with the correct order.
+		currentDeletionStatus, err := resources.IsObjectBeingDeleted(object)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		if currentDeletionStatus != isBeingDeleted {
+			// Requeue object so that we can start reconciling in inverse order
+			combinedResult.Combine(&reconcile.Result{Requeue: true, RequeueAfter: 0}, errors.New("object being deleted requeing object"))
+			break
+		}
+
 		result, err := cr.Reconcile(object)
 		if cr, ok := cr.(ComponentWithStatus); ok {
 			if err != nil {
@@ -109,7 +157,7 @@ func (r *Dispatcher) Handle(object runtime.Object) (ctrl.Result, error) {
 				}
 			} else {
 				if result == nil || (!result.Requeue && result.RequeueAfter == 0) {
-					status :=  types.ReconcileStatusRemoved
+					status := types.ReconcileStatusRemoved
 					if cr.IsEnabled(object) {
 						status = types.ReconcileStatusAvailable
 					}
