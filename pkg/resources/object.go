@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"emperror.dev/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -159,4 +160,15 @@ func (p *ObjectParser) removeNonYAMLLines(yms string) string {
 	}
 
 	return strings.TrimSpace(out)
+}
+
+// IsObjectBeingDeleted returns true, if the given object is being deleted with finalizers still
+// existing on it (this is the only case when deleteion timestamp is non-zero)
+func IsObjectBeingDeleted(object runtime.Object) (bool, error) {
+	objMeta, err := meta.Accessor(object)
+	if err != nil {
+		return false, err
+	}
+
+	return !objMeta.GetDeletionTimestamp().IsZero(), nil
 }
