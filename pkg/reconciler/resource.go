@@ -156,13 +156,13 @@ func NewGenericReconciler(c client.Client, log logr.Logger, opts ReconcilerOpts)
 			Conditions: []RecreateResourceCondition{
 				StatefulSetFieldChangeCondition(RecreateConfig{
 					Delete:              true,
-					RecreateImmediately: false,
+					RecreateImmediately: true,
 					DeletePropagation:   metav1.DeletePropagationOrphan,
 					Delay:               DefaultRecreateRequeueDelay,
 				}),
 				ImmutableFieldChangeCondition(RecreateConfig{
 					Delete:              true,
-					RecreateImmediately: false,
+					RecreateImmediately: true,
 					DeletePropagation:   metav1.DeletePropagationBackground,
 					Delay:               DefaultRecreateRequeueDelay,
 				}),
@@ -341,10 +341,13 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 						if err := metaAccessor.SetResourceVersion(desired, ""); err != nil {
 							return nil, errors.WrapIfWithDetails(err, "unable to clear resourceVersion", resourceDetails...)
 						}
+						// wait as requested for example to allow finalizers to act
+						time.Sleep(time.Second * time.Duration(recreateConfig.Delay))
 						if created, _, err := r.CreateIfNotExist(desired, desiredState); err == nil {
 							if !created {
 								return nil, errors.New("resource already exists")
 							}
+							log.Info("resource has been recreated successfully", resourceDetails...)
 							return nil, nil
 						}
 						if err != nil {
