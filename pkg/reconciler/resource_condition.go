@@ -17,6 +17,7 @@ package reconciler
 import (
 	"regexp"
 	"strings"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -26,7 +27,8 @@ type RecreateConfig struct {
 	Delete              bool
 	RecreateImmediately bool
 	DeletePropagation   metav1.DeletionPropagation
-	Delay               int32
+	Delay               time.Duration
+	Timeout             time.Duration
 }
 
 type RecreateResourceCondition func(kind schema.GroupVersionKind, status metav1.Status) (RecreateConfig, error)
@@ -104,7 +106,7 @@ func WithRecreateEnabledForAll() ResourceReconcilerOption {
 				Delete:              true,
 				RecreateImmediately: false,
 				DeletePropagation:   metav1.DeletePropagationForeground,
-				Delay:               DefaultRecreateRequeueDelay,
+				Delay:               time.Second * 10,
 			}, nil
 		}
 	}
@@ -127,7 +129,7 @@ func WithRecreateImmediately() ResourceReconcilerOption {
 				RecreateImmediately: true,
 				Delete:              true,
 				DeletePropagation:   metav1.DeletePropagationBackground,
-				Delay:               DefaultRecreateRequeueDelay,
+				Delay:               time.Second * 1,
 			}, nil
 		}
 	}

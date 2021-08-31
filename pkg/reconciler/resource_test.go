@@ -26,9 +26,11 @@ import (
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -95,11 +97,11 @@ func TestNewReconcilerWithUnstructured(t *testing.T) {
 
 func TestRecreateWorkload(t *testing.T) {
 	testData := []struct {
-		name string
-		desired runtime.Object
+		name       string
+		desired    runtime.Object
 		reconciler reconciler.ResourceReconciler
-		update func(object runtime.Object) runtime.Object
-		wantError func(error)
+		update     func(object runtime.Object) runtime.Object
+		wantError  func(error)
 		wantResult func(result *reconcile.Result)
 	}{
 		{
@@ -124,7 +126,7 @@ func TestRecreateWorkload(t *testing.T) {
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{
 								{
-									Name: "test",
+									Name:  "test",
 									Image: "test",
 								},
 							},
@@ -169,7 +171,7 @@ func TestRecreateWorkload(t *testing.T) {
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{
 								{
-									Name: "test",
+									Name:  "test",
 									Image: "test",
 								},
 							},
@@ -181,16 +183,15 @@ func TestRecreateWorkload(t *testing.T) {
 				reconciler.WithEnableRecreateWorkload(),
 			),
 			update: func(object runtime.Object) runtime.Object {
-				object.(*appsv1.Deployment).Spec.Selector.MatchLabels = map[string]string{
+				newLabels := map[string]string{
 					"c": "d",
 				}
+				object.(*appsv1.Deployment).Spec.Selector.MatchLabels = newLabels
+				object.(*appsv1.Deployment).Spec.Template.ObjectMeta.Labels = newLabels
 				return object
 			},
 			wantResult: func(result *reconcile.Result) {
-				require.Equal(t, &reconcile.Result{
-					Requeue:      true,
-					RequeueAfter: time.Second * 2,
-				}, result)
+				require.Nil(t, result)
 			},
 		},
 		{
@@ -215,7 +216,7 @@ func TestRecreateWorkload(t *testing.T) {
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{
 								{
-									Name: "test",
+									Name:  "test",
 									Image: "test",
 								},
 							},
@@ -245,7 +246,71 @@ func TestRecreateWorkload(t *testing.T) {
 					}, deploy)
 					require.NoError(t, err)
 					return reflect.DeepEqual(deploy.Spec.Selector.MatchLabels, map[string]string{"c": "d"})
-				}, time.Second * 10, time.Second)
+				}, time.Second*10, time.Second)
+			},
+		},
+		{
+			name: "delete with requeue",
+			desired: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-deploy-3",
+					Namespace: testNamespace,
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"a": "b",
+						},
+					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"a": "b",
+							},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "test",
+									Image: "test",
+								},
+							},
+						},
+					},
+				},
+			},
+			reconciler: reconciler.NewReconcilerWith(k8sClient,
+				reconciler.WithEnableRecreateWorkload(),
+				reconciler.WithRecreateEnabledFor(func(kind schema.GroupVersionKind, status metav1.Status) (reconciler.RecreateConfig, error) {
+					return reconciler.RecreateConfig{
+						Delete:              true,
+						RecreateImmediately: false,
+						DeletePropagation:   metav1.DeletePropagationBackground,
+						Delay:               time.Second,
+					}, nil
+				}),
+			),
+			update: func(object runtime.Object) runtime.Object {
+				newLabels := map[string]string{
+					"c": "d",
+				}
+				object.(*appsv1.Deployment).Spec.Selector.MatchLabels = newLabels
+				object.(*appsv1.Deployment).Spec.Template.ObjectMeta.Labels = newLabels
+				return object
+			},
+			wantResult: func(result *reconcile.Result) {
+				require.Equal(t, &reconcile.Result{
+					Requeue:      true,
+					RequeueAfter: time.Second,
+				}, result)
+				require.Eventually(t, func() bool {
+					deploy := &appsv1.Deployment{}
+					err := k8sClient.Get(context.TODO(), types.NamespacedName{
+						Namespace: testNamespace,
+						Name:      "test-deploy-3",
+					}, deploy)
+					return errors.IsNotFound(err)
+				}, time.Second*10, time.Second)
 			},
 		},
 	}
@@ -270,4 +335,3 @@ func TestRecreateWorkload(t *testing.T) {
 		})
 	}
 }
-

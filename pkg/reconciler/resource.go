@@ -41,10 +41,9 @@ import (
 )
 
 const (
-	DefaultRecreateRequeueDelay int32              = 2
-	StateCreated                StaticDesiredState = "Created"
-	StateAbsent                 StaticDesiredState = "Absent"
-	StatePresent                StaticDesiredState = "Present"
+	StateCreated         StaticDesiredState = "Created"
+	StateAbsent          StaticDesiredState = "Absent"
+	StatePresent         StaticDesiredState = "Present"
 )
 
 var (
@@ -158,13 +157,14 @@ func NewGenericReconciler(c client.Client, log logr.Logger, opts ReconcilerOpts)
 					Delete:              true,
 					RecreateImmediately: true,
 					DeletePropagation:   metav1.DeletePropagationOrphan,
-					Delay:               DefaultRecreateRequeueDelay,
+					// need some time until the orphan finalizer runs
+					Delay:               time.Second * 1,
+					Timeout:             time.Second * 3,
 				}),
 				ImmutableFieldChangeCondition(RecreateConfig{
 					Delete:              true,
 					RecreateImmediately: true,
 					DeletePropagation:   metav1.DeletePropagationBackground,
-					Delay:               DefaultRecreateRequeueDelay,
 				}),
 			},
 		}.Condition
@@ -331,7 +331,7 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 						return nil, errors.WithDetails(err, resourceDetails...)
 					}
 					if !recreateConfig.Delete {
-						return nil, errors.NewWithDetails( "resource is not allowed to be recreated", resourceDetails...)
+						return nil, errors.NewWithDetails("resource is not allowed to be recreated", resourceDetails...)
 					}
 					log.Error(err, "failed to update resource, trying to recreate", resourceDetails...)
 					if recreateConfig.RecreateImmediately {
@@ -341,25 +341,28 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 						if err := metaAccessor.SetResourceVersion(desired, ""); err != nil {
 							return nil, errors.WrapIfWithDetails(err, "unable to clear resourceVersion", resourceDetails...)
 						}
-						// wait as requested for example to allow finalizers to act
-						time.Sleep(time.Second * time.Duration(recreateConfig.Delay))
-						if created, _, err := r.CreateIfNotExist(desired, desiredState); err == nil {
-							if !created {
-								return nil, errors.New("resource already exists")
+						if err := wait.PollImmediate(recreateConfig.Delay, recreateConfig.Timeout, func() (done bool, err error) {
+							created, _, err := r.CreateIfNotExist(desired, desiredState)
+							if err == nil {
+								if !created {
+									log.Info("resource still exists or cannot be created", resourceDetails...)
+									return false, nil
+								}
+								log.Info("resource has been recreated successfully", resourceDetails...)
+								return true, nil
 							}
-							log.Info("resource has been recreated successfully", resourceDetails...)
-							return nil, nil
+							return false, errors.WrapIfWithDetails(err, "failed to recreate resource", resourceDetails...)
+						}); err != nil {
+							return &reconcile.Result{}, err
 						}
-						if err != nil {
-							return nil, errors.WrapIfWithDetails(err, "failed to recreate resource", resourceDetails...)
-						}
+						return nil, nil
 					}
 					if err := r.Client.Delete(context.TODO(), current.(client.Object), client.PropagationPolicy(recreateConfig.DeletePropagation)); err != nil {
 						return nil, errors.WrapIfWithDetails(err, "failed to delete current resource", resourceDetails...)
 					}
 					return &reconcile.Result{
 						Requeue:      true,
-						RequeueAfter: time.Second * time.Duration(recreateConfig.Delay),
+						RequeueAfter: recreateConfig.Delay,
 					}, nil
 				} else {
 					return nil, errors.WrapIf(sErr, r.Options.EnableRecreateWorkloadOnImmutableFieldChangeHelp)
