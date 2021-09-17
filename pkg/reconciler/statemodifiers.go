@@ -25,7 +25,11 @@ import (
 func ServiceIPModifier(current, desired runtime.Object) error {
 	if co, ok := current.(*corev1.Service); ok {
 		do := desired.(*corev1.Service)
+		if do.Spec.ClusterIP != "" {
+			return nil
+		}
 		do.Spec.ClusterIP = co.Spec.ClusterIP
+		do.Spec.ClusterIPs = co.Spec.ClusterIPs
 	}
 
 	return nil
