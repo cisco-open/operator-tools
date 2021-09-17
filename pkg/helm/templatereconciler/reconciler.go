@@ -63,13 +63,14 @@ type Component interface {
 }
 
 type HelmReconciler struct {
-	client       client.Client
-	scheme       *runtime.Scheme
-	logger       logr.Logger
-	inventory    *inventory.Inventory
-	opts         []reconciler.NativeReconcilerOpt
-	objectParser *resources.ObjectParser
-	discovery    discovery.DiscoveryInterface
+	client                client.Client
+	scheme                *runtime.Scheme
+	logger                logr.Logger
+	inventory             *inventory.Inventory
+	nativeReconcilerOpts  []reconciler.NativeReconcilerOpt
+	genericReconcilerOpts []reconciler.ResourceReconcilerOption
+	objectParser          *resources.ObjectParser
+	discovery             discovery.DiscoveryInterface
 }
 
 type preConditionsFatalErr struct {
@@ -80,22 +81,62 @@ func NewPreConditionsFatalErr(err error) error {
 	return &preConditionsFatalErr{err}
 }
 
+type HelmReconcilerOpt func(*HelmReconciler)
+
+func WithGenericReconcilerOptions(opts ...reconciler.ResourceReconcilerOption) HelmReconcilerOpt {
+	return func(r *HelmReconciler) {
+		if r.genericReconcilerOpts == nil {
+			r.genericReconcilerOpts = make([]reconciler.ResourceReconcilerOption, 0)
+		}
+		r.genericReconcilerOpts = append(r.genericReconcilerOpts, opts...)
+	}
+}
+
+func WithNativeReconcilerOptions(opts ...reconciler.NativeReconcilerOpt) HelmReconcilerOpt {
+	return func(r *HelmReconciler) {
+		if r.nativeReconcilerOpts == nil {
+			r.nativeReconcilerOpts = make([]reconciler.NativeReconcilerOpt, 0)
+		}
+		r.nativeReconcilerOpts = append(r.nativeReconcilerOpts, opts...)
+	}
+}
+
 func NewHelmReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	logger logr.Logger,
 	discovery discovery.DiscoveryInterface,
-	opts []reconciler.NativeReconcilerOpt,
+	nativeReconcilerOpts []reconciler.NativeReconcilerOpt,
+) *HelmReconciler {
+	return NewHelmReconcilerWith(client, scheme, logger, discovery, WithNativeReconcilerOptions(nativeReconcilerOpts...))
+}
+
+func NewHelmReconcilerWith(
+	client client.Client,
+	scheme *runtime.Scheme,
+	logger logr.Logger,
+	discovery discovery.DiscoveryInterface,
+	opts ...HelmReconcilerOpt,
 ) *HelmReconciler {
 	r := &HelmReconciler{
-		client:       client,
-		scheme:       scheme,
-		logger:       logger,
-		inventory:    inventory.NewDiscoveryInventory(client, logger, discovery),
-		discovery:    discovery,
-		objectParser: resources.NewObjectParser(scheme),
-		opts:         opts,
+		client:                client,
+		scheme:                scheme,
+		logger:                logger,
+		inventory:             inventory.NewDiscoveryInventory(client, logger, discovery),
+		discovery:             discovery,
+		objectParser:          resources.NewObjectParser(scheme),
+		nativeReconcilerOpts:  make([]reconciler.NativeReconcilerOpt, 0),
+		genericReconcilerOpts: make([]reconciler.ResourceReconcilerOption, 0),
 	}
+
+	for _, opt := range opts {
+		opt(r)
+	}
+
+	if len(r.genericReconcilerOpts) == 0 {
+		r.genericReconcilerOpts = append(r.genericReconcilerOpts, reconciler.WithEnableRecreateWorkload())
+	}
+
 	return r
 }
 
@@ -253,19 +294,25 @@ func (rec *HelmReconciler) reconcile(parent reconciler.ResourceOwner, component 
 		return nil, err
 	}
 
-	r := reconciler.NewNativeReconcilerWithDefaults(
+	r := reconciler.NewNativeReconciler(
 		component.Name(),
+		reconciler.NewReconcilerWith(
+			rec.client,
+			append(rec.genericReconcilerOpts, reconciler.WithLog(rec.logger), reconciler.WithScheme(rec.scheme))...,
+		).(*reconciler.GenericResourceReconciler),
 		rec.client,
-		rec.scheme,
-		rec.logger,
-		func(_ reconciler.ResourceOwner, _ interface{}) []reconciler.ResourceBuilder {
-			return resourceBuilders
-		},
-		rec.inventory.TypesToPurge,
+		reconciler.NewReconciledComponent(
+			func(_ reconciler.ResourceOwner, _ interface{}) []reconciler.ResourceBuilder {
+				return resourceBuilders
+			},
+			nil,
+			rec.inventory.TypesToPurge,
+		),
 		func(_ runtime.Object) (reconciler.ResourceOwner, interface{}) {
 			return nil, nil
 		},
-		append(rec.opts, reconciler.NativeReconcilerWithScheme(rec.scheme))...)
+		append(rec.nativeReconcilerOpts, reconciler.NativeReconcilerWithScheme(rec.scheme))...,
+	)
 
 	result, err := r.Reconcile(parent)
 	if err != nil {
