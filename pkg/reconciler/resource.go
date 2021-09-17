@@ -191,6 +191,9 @@ func NewGenericReconciler(c client.Client, log logr.Logger, opts ReconcilerOpts)
 	if opts.RecreateEnabledResourceCondition == nil {
 		// only allow a custom set of types and only specific errors
 		opts.RecreateEnabledResourceCondition = func(kind schema.GroupVersionKind, status metav1.Status) bool {
+			if !strings.Contains(status.Message, utils.PointerToString(opts.RecreateErrorMessageSubstring)) {
+				return false
+			}
 			for _, gk := range DefaultRecreateEnabledGroupKinds {
 				if gk == kind.GroupKind() {
 					return true
@@ -288,7 +291,7 @@ func WithRecreateErrorMessageIgnored() ResourceReconcilerOption {
 	}
 }
 
-func NewReconcilerWith(client client.Client, opts ...func(reconciler *ReconcilerOpts)) ResourceReconciler {
+func NewReconcilerWith(client client.Client, opts ...ResourceReconcilerOption) ResourceReconciler {
 	rec := NewGenericReconciler(client, log.NullLogger{}, ReconcilerOpts{
 		EnableRecreateWorkloadOnImmutableFieldChangeHelp: "recreating object on immutable field change has to be enabled explicitly through the reconciler options",
 	})
