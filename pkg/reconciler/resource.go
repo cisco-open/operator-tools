@@ -292,14 +292,15 @@ func WithRecreateErrorMessageIgnored() ResourceReconcilerOption {
 }
 
 func NewReconcilerWith(client client.Client, opts ...ResourceReconcilerOption) ResourceReconciler {
-	rec := NewGenericReconciler(client, log.NullLogger{}, ReconcilerOpts{
+	options := ReconcilerOpts{
 		EnableRecreateWorkloadOnImmutableFieldChangeHelp: "recreating object on immutable field change has to be enabled explicitly through the reconciler options",
-	})
-	for _, opt := range opts {
-		opt(&rec.Options)
 	}
-	if rec.Options.Log != nil {
-		rec.Log = rec.Options.Log
+	for _, opt := range opts {
+		opt(&options)
+	}
+	rec := NewGenericReconciler(client, log.NullLogger{}, options)
+	if options.Log != nil {
+		rec.Log = options.Log
 	}
 	return rec
 }
