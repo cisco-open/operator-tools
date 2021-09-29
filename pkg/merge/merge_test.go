@@ -84,37 +84,112 @@ func TestMerge(t *testing.T) {
 		},
 	}
 
-	err := Merge(base, overrides)
+	into := &v1.DaemonSet{}
+	err := Merge(base, overrides, into)
 	require.NoError(t, err)
 
-	assert.Len(t, base.Spec.Template.Spec.Containers, 4)
+	assert.Len(t, into.Spec.Template.Spec.Containers, 4)
 
 	// container a has a modified image
-	assert.Equal(t, "container-a", base.Spec.Template.Spec.Containers[0].Name)
-	assert.Equal(t, "image-a-2", base.Spec.Template.Spec.Containers[0].Image)
-	assert.Equal(t, corev1.ResourceRequirements{}, base.Spec.Template.Spec.Containers[0].Resources)
+	assert.Equal(t, "container-a", into.Spec.Template.Spec.Containers[0].Name)
+	assert.Equal(t, "image-a-2", into.Spec.Template.Spec.Containers[0].Image)
+	assert.Equal(t, corev1.ResourceRequirements{}, into.Spec.Template.Spec.Containers[0].Resources)
 
 	// container b has the same image but updated resource requirements
-	assert.Equal(t, "container-b", base.Spec.Template.Spec.Containers[1].Name)
-	assert.Equal(t, "image-b", base.Spec.Template.Spec.Containers[1].Image)
+	assert.Equal(t, "container-b", into.Spec.Template.Spec.Containers[1].Name)
+	assert.Equal(t, "image-b", into.Spec.Template.Spec.Containers[1].Image)
 	assert.Equal(t, corev1.ResourceRequirements{
 		Limits: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("123m"),
 			corev1.ResourceMemory: resource.MustParse("100M"),
 		},
-	}, base.Spec.Template.Spec.Containers[1].Resources)
+	}, into.Spec.Template.Spec.Containers[1].Resources)
 
 	// container d is added as a new item (note that it will come before container-c)
 	assert.Equal(t, corev1.Container{
 		Name:  "container-d",
 		Image: "image-d",
-	}, base.Spec.Template.Spec.Containers[2])
+	}, into.Spec.Template.Spec.Containers[2])
 
 	// container c is not modified (note that it's index will change)
 	assert.Equal(t, corev1.Container{
 		Name:  "container-c",
 		Image: "image-c",
-	}, base.Spec.Template.Spec.Containers[3])
+	}, into.Spec.Template.Spec.Containers[3])
+}
+
+func TestVolume(t *testing.T) {
+	base := &v1.DaemonSet{
+		Spec: v1.DaemonSetSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "container",
+							Image: "image",
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "asd",
+									MountPath: "/asd-path",
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	overrides := &v1.DaemonSet{
+		Spec: v1.DaemonSetSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "container",
+							Image: "image",
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "different",
+									MountPath: "/different-path",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	ds := &v1.DaemonSet{}
+	err := Merge(base, overrides, ds)
+	require.NoError(t, err)
+
+	require.Equal(t,  &v1.DaemonSet{
+		Spec: v1.DaemonSetSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "container",
+							Image: "image",
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "different",
+									MountPath: "/different-path",
+								},
+								{
+									Name:      "asd",
+									MountPath: "/asd-path",
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}, ds)
 }
 
 func TestMergeWithEmbeddedType(t *testing.T) {
@@ -173,37 +248,38 @@ func TestMergeWithEmbeddedType(t *testing.T) {
 		},
 	}
 
-	err := Merge(base, overrides)
+	into := &v1.DaemonSet{}
+	err := Merge(base, overrides, into)
 	require.NoError(t, err)
 
-	assert.Len(t, base.Spec.Template.Spec.Containers, 4)
+	assert.Len(t, into.Spec.Template.Spec.Containers, 4)
 
 	// container a has a modified image
-	assert.Equal(t, "container-a", base.Spec.Template.Spec.Containers[0].Name)
-	assert.Equal(t, "image-a-2", base.Spec.Template.Spec.Containers[0].Image)
-	assert.Equal(t, corev1.ResourceRequirements{}, base.Spec.Template.Spec.Containers[0].Resources)
+	assert.Equal(t, "container-a", into.Spec.Template.Spec.Containers[0].Name)
+	assert.Equal(t, "image-a-2", into.Spec.Template.Spec.Containers[0].Image)
+	assert.Equal(t, corev1.ResourceRequirements{}, into.Spec.Template.Spec.Containers[0].Resources)
 
 	// container b has the same image but updated resource requirements
-	assert.Equal(t, "container-b", base.Spec.Template.Spec.Containers[1].Name)
-	assert.Equal(t, "image-b", base.Spec.Template.Spec.Containers[1].Image)
+	assert.Equal(t, "container-b", into.Spec.Template.Spec.Containers[1].Name)
+	assert.Equal(t, "image-b", into.Spec.Template.Spec.Containers[1].Image)
 	assert.Equal(t, corev1.ResourceRequirements{
 		Limits: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("123m"),
 			corev1.ResourceMemory: resource.MustParse("100M"),
 		},
-	}, base.Spec.Template.Spec.Containers[1].Resources)
+	}, into.Spec.Template.Spec.Containers[1].Resources)
 
 	// container d is added as a new item (note that it will come before container-c)
 	assert.Equal(t, corev1.Container{
 		Name:  "container-d",
 		Image: "image-d",
-	}, base.Spec.Template.Spec.Containers[2])
+	}, into.Spec.Template.Spec.Containers[2])
 
 	// container c is not modified (note that it's index will change)
 	assert.Equal(t, corev1.Container{
 		Name:  "container-c",
 		Image: "image-c",
-	}, base.Spec.Template.Spec.Containers[3])
+	}, into.Spec.Template.Spec.Containers[3])
 }
 
 func TestMergeStatefulSetReplicas(t *testing.T) {
@@ -217,10 +293,12 @@ func TestMergeStatefulSetReplicas(t *testing.T) {
 			Replicas: utils.IntPointer(0),
 		},
 	}
-	err := Merge(base, overrides)
+
+	into := &v1.StatefulSet{}
+	err := Merge(base, overrides, into)
 	require.NoError(t, err)
 
-	assert.Equal(t, *base.Spec.Replicas, int32(0))
+	assert.Equal(t, *into.Spec.Replicas, int32(0))
 }
 
 func TestMergeArrayOverride(t *testing.T) {
@@ -239,10 +317,11 @@ func TestMergeArrayOverride(t *testing.T) {
 		},
 	}
 
-	err := Merge(base, overrides)
+	into := &corev1.Service{}
+	err := Merge(base, overrides, into)
 	require.NoError(t, err)
 
-	require.Equal(t, []string{"c", "d"}, base.Spec.ExternalIPs)
+	require.Equal(t, []string{"c", "d"}, into.Spec.ExternalIPs)
 }
 
 func TestMergeMap(t *testing.T) {
@@ -263,14 +342,15 @@ func TestMergeMap(t *testing.T) {
 		},
 	}
 
-	err := Merge(base, overrides)
+	into := &corev1.Service{}
+	err := Merge(base, overrides, into)
 	require.NoError(t, err)
 
 	require.Equal(t, map[string]string{
 		"a": "1",
 		"b": "3",
 		"c": "4",
-	}, base.ObjectMeta.Labels)
+	}, into.ObjectMeta.Labels)
 }
 
 func TestMergeMapWithEmbeddedType(t *testing.T) {
@@ -291,14 +371,15 @@ func TestMergeMapWithEmbeddedType(t *testing.T) {
 		},
 	}
 
-	err := Merge(base, overrides)
+	into := &corev1.Service{}
+	err := Merge(base, overrides, into)
 	require.NoError(t, err)
 
 	require.Equal(t, map[string]string{
 		"a": "1",
 		"b": "3",
 		"c": "4",
-	}, base.ObjectMeta.Labels)
+	}, into.ObjectMeta.Labels)
 }
 
 func TestMergeService(t *testing.T) {
@@ -344,23 +425,24 @@ func TestMergeService(t *testing.T) {
 					TargetPort: intstr.FromInt(8082),
 				},
 			},
-			Selector:map[string]string{
+			Selector: map[string]string{
 				"b": "3",
 				"c": "4",
 			},
 		},
 	}
 
-	err := Merge(base, overrides)
+	into := &corev1.Service{}
+	err := Merge(base, overrides, into)
 	require.NoError(t, err)
 
 	require.Equal(t, map[string]string{
 		"a": "1",
 		"b": "3",
 		"c": "4",
-	}, base.ObjectMeta.Labels)
+	}, into.ObjectMeta.Labels)
 
-	require.Equal(t, base.Spec, corev1.ServiceSpec{
+	require.Equal(t, into.Spec, corev1.ServiceSpec{
 		Ports: []corev1.ServicePort{
 			{
 				Name:       "http1",
