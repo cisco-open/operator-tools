@@ -62,7 +62,7 @@ func GetDefaultValues(fs http.FileSystem) ([]byte, error) {
 }
 
 func Render(fs http.FileSystem, values map[string]interface{}, releaseOptions ReleaseOptions, chartName string) ([]runtime.Object, error) {
-	files, err := getFiles(fs)
+	files, err := GetFiles(fs)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +159,7 @@ func parseAndAppendObjects(parser func([]byte) (runtime.Object, error), objects 
 	return objects, nil
 }
 
-func getFiles(fs http.FileSystem) ([]*loader.BufferedFile, error) {
+func GetFiles(fs http.FileSystem) ([]*loader.BufferedFile, error) {
 	files := []*loader.BufferedFile{
 		{
 			Name: chartutil.ChartfileName,
