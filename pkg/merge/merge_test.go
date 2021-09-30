@@ -51,6 +51,8 @@ func TestMerge(t *testing.T) {
 						{
 							Name:  "container-c",
 							Image: "image-c",
+							// make sure we keep extra fields on the original slice item
+							Command: []string{"fake"},
 						},
 					},
 				},
@@ -114,7 +116,81 @@ func TestMerge(t *testing.T) {
 	assert.Equal(t, corev1.Container{
 		Name:  "container-c",
 		Image: "image-c",
+		Command: []string{"fake"},
 	}, base.Spec.Template.Spec.Containers[3])
+}
+
+func TestVolume(t *testing.T) {
+	base := &v1.DaemonSet{
+		Spec: v1.DaemonSetSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "container",
+							Image: "image",
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "asd",
+									MountPath: "/asd-path",
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	overrides := &v1.DaemonSet{
+		Spec: v1.DaemonSetSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "container",
+							Image: "image",
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "different",
+									MountPath: "/different-path",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err := Merge(base, overrides)
+	require.NoError(t, err)
+
+	require.Equal(t,  &v1.DaemonSet{
+		Spec: v1.DaemonSetSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "container",
+							Image: "image",
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "different",
+									MountPath: "/different-path",
+								},
+								{
+									Name:      "asd",
+									MountPath: "/asd-path",
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}, base)
 }
 
 func TestMergeWithEmbeddedType(t *testing.T) {

@@ -15,8 +15,10 @@
 package merge
 
 import (
+	"encoding/json"
+	"reflect"
+
 	"emperror.dev/errors"
-	jsoniter "github.com/json-iterator/go"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 )
 
@@ -24,12 +26,12 @@ import (
 // - It intentionally does not remove fields present in base but missing from overrides
 // - It merges slices only if the `patchStrategy:"merge"` tag is present and the `patchMergeKey` identifies the unique field
 func Merge(base, overrides interface{}) error {
-	baseBytes, err := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(base)
+	baseBytes, err := json.Marshal(base)
 	if err != nil {
 		return errors.Wrap(err, "failed to convert current object to byte sequence")
 	}
 
-	overrideBytes, err := jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(overrides)
+	overrideBytes, err := json.Marshal(overrides)
 	if err != nil {
 		return errors.Wrap(err, "failed to convert current object to byte sequence")
 	}
@@ -48,5 +50,14 @@ func Merge(base, overrides interface{}) error {
 		return errors.WrapIf(err, "failed to apply patch")
 	}
 
-	return jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal(merged, base)
+	valueOfBase := reflect.Indirect(reflect.ValueOf(base))
+	into := reflect.New(valueOfBase.Type())
+	if err := json.Unmarshal(merged, into.Interface()); err != nil {
+		return err
+	}
+	if !valueOfBase.CanSet() {
+		return errors.New("unable to set unmarshalled value into base object")
+	}
+	valueOfBase.Set(reflect.Indirect(into))
+	return nil
 }
