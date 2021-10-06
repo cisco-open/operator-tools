@@ -104,6 +104,8 @@ func AggregatedState(componentStatuses []ReconcileStatus) ReconcileStatus {
 	return overallStatus
 }
 
+// +kubebuilder:object:generate=true
+
 // EnabledComponent implements the "enabled component" pattern
 // Embed this type into other component types to avoid unnecessary code duplication
 type EnabledComponent struct {
