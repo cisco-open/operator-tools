@@ -9,6 +9,16 @@ Default: -
 Default: -
 
 
+## EnabledComponent
+
+EnabledComponent implements the "enabled component" pattern
+Embed this type into other component types to avoid unnecessary code duplication
+
+### enabled (*bool, optional) {#enabledcomponent-enabled}
+
+Default: -
+
+
 ## MetaBase
 
 Deprecated
