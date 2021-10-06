@@ -18,6 +18,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/banzaicloud/operator-tools/pkg/utils"
 )
 
 const (
@@ -100,6 +102,27 @@ func AggregatedState(componentStatuses []ReconcileStatus) ReconcileStatus {
 		overallStatus = ReconcileStatusSucceeded
 	}
 	return overallStatus
+}
+
+// EnabledComponent implements the "enabled component" pattern
+// Embed this type into other component types to avoid unnecessary code duplication
+type EnabledComponent struct {
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+// IsDisabled returns true iff the component is explicitly disabled
+func (ec EnabledComponent) IsDisabled() bool {
+	return ec.Enabled != nil && !*ec.Enabled
+}
+
+// IsEnabled returns true iff the component is explicitly enabled
+func (ec EnabledComponent) IsEnabled() bool {
+	return utils.PointerToBool(ec.Enabled)
+}
+
+// IsSkipped returns true iff the component is neither enabled nor disabled explicitly
+func (ec EnabledComponent) IsSkipped() bool {
+	return ec.Enabled == nil
 }
 
 // +kubebuilder:object:generate=true
