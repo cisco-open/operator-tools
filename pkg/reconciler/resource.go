@@ -136,6 +136,8 @@ type ResourceReconcilerOption func(*ReconcilerOpts)
 
 type RecreateResourceCondition func(kind schema.GroupVersionKind, status metav1.Status) bool
 
+type ErrorMessageCondition func(string) bool
+
 // Recommended to use NewReconcilerWith + ResourceReconcilerOptions
 type ReconcilerOpts struct {
 	Log    logr.Logger
@@ -154,6 +156,20 @@ type ReconcilerOpts struct {
 	RecreatePropagationPolicy client.PropagationPolicy
 	// Check the update error message contains this substring before recreate. Default: "immutable"
 	RecreateErrorMessageSubstring *string
+	// Custom logic to decide if an error message indicates a resource should be recreated.
+	// Takes precedence over RecreateErrorMessageSubstring if set.
+	RecreateErrorMessageCondition ErrorMessageCondition
+}
+
+func MatchImmutableErrorMessages(errorMessage string) bool {
+	if strings.Contains(errorMessage, "immutable") {
+		return true
+	}
+	// StatefulSet is a special case because it has a different error message
+	if strings.Contains(errorMessage, "updates to statefulset spec for fields other than") {
+		return true
+	}
+	return false
 }
 
 // NewGenericReconciler returns GenericResourceReconciler
@@ -255,6 +271,13 @@ func WithRecreateErrorMessageSubstring(substring string) ResourceReconcilerOptio
 	}
 }
 
+// Recreate only if the error message contains the given substring
+func WithRecreateErrorMessageCondition(condition ErrorMessageCondition) ResourceReconcilerOption {
+	return func(o *ReconcilerOpts) {
+		o.RecreateErrorMessageCondition = condition
+	}
+}
+
 // Disable checking the error message before recreating resources
 func WithRecreateErrorMessageIgnored() ResourceReconcilerOption {
 	return func(o *ReconcilerOpts) {
@@ -279,6 +302,15 @@ func NewReconcilerWith(client client.Client, opts ...func(reconciler *Reconciler
 func (r *GenericResourceReconciler) CreateResource(desired runtime.Object) error {
 	_, _, err := r.CreateIfNotExist(desired, nil)
 	return err
+}
+
+func (r *GenericResourceReconciler) shouldRecreate(sErr *apierrors.StatusError) bool {
+	// If a condition function is set, use it
+	if r.Options.RecreateErrorMessageCondition != nil {
+		return r.Options.RecreateErrorMessageCondition(sErr.ErrStatus.Message)
+	}
+	// Fall back to substring matching
+	return strings.Contains(sErr.ErrStatus.Message, utils.PointerToString(r.Options.RecreateErrorMessageSubstring))
 }
 
 // ReconcileResource reconciles various kubernetes types
@@ -398,9 +430,7 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 		}
 		if err := r.Client.Update(context.TODO(), desired.(client.Object), updateOptions...); err != nil {
 			sErr, ok := err.(*apierrors.StatusError)
-			if ok && sErr.ErrStatus.Code == 422 && sErr.ErrStatus.Reason == metav1.StatusReasonInvalid &&
-				// Check the actual error message
-				strings.Contains(sErr.ErrStatus.Message, utils.PointerToString(r.Options.RecreateErrorMessageSubstring)) {
+			if ok && (sErr.ErrStatus.Code == 422 && sErr.ErrStatus.Reason == metav1.StatusReasonInvalid) && r.shouldRecreate(sErr) {
 				if r.Options.EnableRecreateWorkloadOnImmutableFieldChange {
 					if !r.Options.RecreateEnabledResourceCondition(gvk, sErr.ErrStatus) {
 						return nil, errors.WrapIfWithDetails(err, "resource type is not allowed to be recreated", resourceDetails...)
