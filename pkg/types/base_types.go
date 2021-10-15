@@ -108,6 +108,7 @@ func AggregatedState(componentStatuses []ReconcileStatus) ReconcileStatus {
 
 // EnabledComponent implements the "enabled component" pattern
 // Embed this type into other component types to avoid unnecessary code duplication
+// NOTE: Don't forget to annotate the embedded field with `json:",inline"` tag for controller-gen
 type EnabledComponent struct {
 	Enabled *bool `json:"enabled,omitempty"`
 }
