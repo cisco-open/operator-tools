@@ -13,6 +13,7 @@ Default: -
 
 EnabledComponent implements the "enabled component" pattern
 Embed this type into other component types to avoid unnecessary code duplication
+NOTE: Don't forget to annotate the embedded field with `json:",inline"` tag for controller-gen
 
 ### enabled (*bool, optional) {#enabledcomponent-enabled}
 
