@@ -57,6 +57,10 @@ bin/licensei-${LICENSEI_VERSION}:
 	curl -sfL https://git.io/licensei | bash -s v${LICENSEI_VERSION}
 	@mv bin/licensei $@
 
+.PHONY: license-cache
+license-cache: bin/licensei ## Generate license cache
+	bin/licensei cache
+
 .PHONY: license-check
 license-check: bin/licensei ## Run license check
 	bin/licensei check
@@ -67,7 +71,7 @@ test: bin/kubebuilder
 	go test ./...
 
 .PHONY: check
-check: test lint license-check check-diff ## Run tests and linters
+check: test lint check-diff ## Run tests and linters
 
 bin/golangci-lint: bin/golangci-lint-${GOLANGCI_VERSION}
 	@ln -sf golangci-lint-${GOLANGCI_VERSION} bin/golangci-lint
