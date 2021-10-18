@@ -22,6 +22,7 @@ import (
 	"github.com/banzaicloud/operator-tools/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -92,11 +93,11 @@ func TestNewReconcilerWithUnstructured(t *testing.T) {
 
 func TestRecreateObjectFailIfNotAllowed(t *testing.T) {
 	testData := []struct {
-		name string
-		desired runtime.Object
+		name       string
+		desired    runtime.Object
 		reconciler reconciler.ResourceReconciler
-		update func(object runtime.Object) runtime.Object
-		wantError func(error)
+		update     func(object runtime.Object) runtime.Object
+		wantError  func(error)
 		wantResult func(result *reconcile.Result)
 	}{
 		{
@@ -191,6 +192,57 @@ func TestRecreateObjectFailIfNotAllowed(t *testing.T) {
 				require.Equal(t, svc.Spec.ClusterIP, "10.0.0.32")
 			},
 		},
+		{
+			name: "recreate statefulset",
+			desired: &appsv1.StatefulSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: testNamespace,
+				},
+				Spec: appsv1.StatefulSetSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app": "test",
+						},
+					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"app": "test",
+							},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "test",
+									Image: "test",
+								},
+							},
+						},
+					},
+					ServiceName: "test",
+				},
+			},
+			reconciler: reconciler.NewReconcilerWith(k8sClient,
+				reconciler.WithEnableRecreateWorkload(),
+				reconciler.WithRecreateErrorMessageCondition(reconciler.MatchImmutableErrorMessages),
+				reconciler.WithRecreateImmediately(),
+			),
+			update: func(object runtime.Object) runtime.Object {
+				object.(*appsv1.StatefulSet).Spec.ServiceName = "test2"
+				return object
+			},
+			wantResult: func(result *reconcile.Result) {
+				require.Nil(t, result)
+				statefulSet := &appsv1.StatefulSet{}
+				err := k8sClient.Get(context.TODO(), types.NamespacedName{
+					Namespace: testNamespace,
+					Name:      "test",
+				}, statefulSet)
+				require.NoError(t, err)
+				require.Equal(t, statefulSet.Spec.ServiceName, "test2")
+			},
+		},
 	}
 
 	for _, tt := range testData {
@@ -213,4 +265,3 @@ func TestRecreateObjectFailIfNotAllowed(t *testing.T) {
 		})
 	}
 }
-
