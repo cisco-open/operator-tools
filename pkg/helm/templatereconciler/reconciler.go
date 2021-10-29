@@ -71,6 +71,7 @@ type HelmReconciler struct {
 	genericReconcilerOpts []reconciler.ResourceReconcilerOption
 	objectParser          *resources.ObjectParser
 	discovery             discovery.DiscoveryInterface
+	manageNamespace       bool
 }
 
 type preConditionsFatalErr struct {
@@ -101,6 +102,12 @@ func WithNativeReconcilerOptions(opts ...reconciler.NativeReconcilerOpt) HelmRec
 	}
 }
 
+func ManageNamespace(manageNamespace bool) HelmReconcilerOpt {
+	return func(r *HelmReconciler) {
+		r.manageNamespace = manageNamespace
+	}
+}
+
 func NewHelmReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
@@ -127,6 +134,7 @@ func NewHelmReconcilerWith(
 		objectParser:          resources.NewObjectParser(scheme),
 		nativeReconcilerOpts:  make([]reconciler.NativeReconcilerOpt, 0),
 		genericReconcilerOpts: make([]reconciler.ResourceReconcilerOption, 0),
+		manageNamespace:       true,
 	}
 
 	for _, opt := range opts {
@@ -219,19 +227,24 @@ func (rec *HelmReconciler) Reconcile(object runtime.Object, component Component)
 }
 
 func (rec *HelmReconciler) GetResourceBuilders(parent reconciler.ResourceOwner, component Component, releaseData *ReleaseData, doInventory bool) ([]reconciler.ResourceBuilder, error) {
-	resourceBuilders, err := reconciler.GetResourceBuildersFromObjects([]runtime.Object{
-		&v1.Namespace{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "Namespace",
-				APIVersion: "v1",
+	var err error
+	resourceBuilders := make([]reconciler.ResourceBuilder, 0)
+
+	if rec.manageNamespace {
+		resourceBuilders, err = reconciler.GetResourceBuildersFromObjects([]runtime.Object{
+			&v1.Namespace{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Namespace",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: releaseData.Namespace,
+				},
 			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name: releaseData.Namespace,
-			},
-		},
-	}, reconciler.StateCreated)
-	if err != nil {
-		return nil, err
+		}, reconciler.StateCreated)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if component.Enabled(parent) {
