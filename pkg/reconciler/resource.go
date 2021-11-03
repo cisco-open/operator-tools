@@ -186,7 +186,7 @@ func NewGenericReconciler(c client.Client, log logr.Logger, opts ReconcilerOpts)
 		opts.RecreateRequeueDelay = utils.IntPointer(DefaultRecreateRequeueDelay)
 	}
 	if opts.RecreateErrorMessageSubstring == nil {
-		opts.RecreateErrorMessageSubstring = utils.StringPointer("immutable")
+		opts.RecreateErrorMessageSubstring = utils.StringPointer("is invalid")
 	}
 	if opts.RecreateEnabledResourceCondition == nil {
 		// only allow a custom set of types and only specific errors
