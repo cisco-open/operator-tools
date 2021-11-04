@@ -186,14 +186,11 @@ func NewGenericReconciler(c client.Client, log logr.Logger, opts ReconcilerOpts)
 		opts.RecreateRequeueDelay = utils.IntPointer(DefaultRecreateRequeueDelay)
 	}
 	if opts.RecreateErrorMessageSubstring == nil {
-		opts.RecreateErrorMessageSubstring = utils.StringPointer("is invalid")
+		opts.RecreateErrorMessageSubstring = utils.StringPointer("immutable")
 	}
 	if opts.RecreateEnabledResourceCondition == nil {
 		// only allow a custom set of types and only specific errors
 		opts.RecreateEnabledResourceCondition = func(kind schema.GroupVersionKind, status metav1.Status) bool {
-			if !strings.Contains(status.Message, utils.PointerToString(opts.RecreateErrorMessageSubstring)) {
-				return false
-			}
 			for _, gk := range DefaultRecreateEnabledGroupKinds {
 				if gk == kind.GroupKind() {
 					return true
