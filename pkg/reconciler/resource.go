@@ -22,9 +22,6 @@ import (
 	"time"
 
 	"emperror.dev/errors"
-	"github.com/banzaicloud/k8s-objectmatcher/patch"
-	"github.com/banzaicloud/operator-tools/pkg/types"
-	"github.com/banzaicloud/operator-tools/pkg/utils"
 	"github.com/go-logr/logr"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -40,6 +37,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/banzaicloud/k8s-objectmatcher/patch"
+	"github.com/banzaicloud/operator-tools/pkg/types"
+	"github.com/banzaicloud/operator-tools/pkg/utils"
 )
 
 const (
@@ -49,14 +50,12 @@ const (
 	StatePresent                StaticDesiredState = "Present"
 )
 
-var (
-	DefaultRecreateEnabledGroupKinds = []schema.GroupKind{
-		{Group: "", Kind: "Service"},
-		{Group: "apps", Kind: "StatefulSet"},
-		{Group: "apps", Kind: "DaemonSet"},
-		{Group: "apps", Kind: "Deployment"},
-	}
-)
+var DefaultRecreateEnabledGroupKinds = []schema.GroupKind{
+	{Group: "", Kind: "Service"},
+	{Group: "apps", Kind: "StatefulSet"},
+	{Group: "apps", Kind: "DaemonSet"},
+	{Group: "apps", Kind: "Deployment"},
+}
 
 type DesiredState interface {
 	BeforeUpdate(current, desired runtime.Object) error
@@ -90,6 +89,10 @@ type DesiredStateWithUpdateOptions interface {
 
 type DesiredStateWithStaticState interface {
 	DesiredState() StaticDesiredState
+}
+
+type DesiredStateWithGetter interface {
+	GetDesiredState() DesiredState
 }
 
 type ResourceReconciler interface {
@@ -285,15 +288,16 @@ func WithRecreateErrorMessageIgnored() ResourceReconcilerOption {
 	}
 }
 
-func NewReconcilerWith(client client.Client, opts ...func(reconciler *ReconcilerOpts)) ResourceReconciler {
-	rec := NewGenericReconciler(client, log.NullLogger{}, ReconcilerOpts{
+func NewReconcilerWith(client client.Client, opts ...ResourceReconcilerOption) ResourceReconciler {
+	options := ReconcilerOpts{
 		EnableRecreateWorkloadOnImmutableFieldChangeHelp: "recreating object on immutable field change has to be enabled explicitly through the reconciler options",
-	})
-	for _, opt := range opts {
-		opt(&rec.Options)
 	}
-	if rec.Options.Log != nil {
-		rec.Log = rec.Options.Log
+	for _, opt := range opts {
+		opt(&options)
+	}
+	rec := NewGenericReconciler(client, log.NullLogger{}, options)
+	if options.Log != nil {
+		rec.Log = options.Log
 	}
 	return rec
 }
@@ -325,6 +329,8 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 	state := desiredState
 	if ds, ok := desiredState.(DesiredStateWithStaticState); ok {
 		state = ds.DesiredState()
+	} else if ds, ok := desiredState.(DesiredStateWithGetter); ok {
+		state = ds.GetDesiredState()
 	}
 	switch state {
 	case StateCreated:

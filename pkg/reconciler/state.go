@@ -17,7 +17,7 @@ package reconciler
 import (
 	"k8s.io/apimachinery/pkg/runtime"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
-	)
+)
 
 type DynamicDesiredState struct {
 	DesiredState     DesiredState
@@ -94,4 +94,134 @@ func (s DynamicDesiredState) GetUpdateOptions() []runtimeClient.UpdateOption {
 
 func (s DynamicDesiredState) GetDeleteOptions() []runtimeClient.DeleteOption {
 	return s.DeleteOptions
+}
+
+type MultipleDesiredStates []DesiredState
+
+func (s MultipleDesiredStates) GetDesiredState() DesiredState {
+	ds := s[len(s)-1]
+	if ds, ok := ds.(DesiredStateWithStaticState); ok {
+		return ds.DesiredState()
+	}
+	if s, ok := ds.(interface {
+		GetDesiredState() DesiredState
+	}); ok {
+		return s.GetDesiredState()
+	}
+
+	return ds
+}
+
+func (s MultipleDesiredStates) BeforeCreate(desired runtime.Object) error {
+	for _, ds := range s {
+		err := ds.BeforeCreate(desired)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s MultipleDesiredStates) BeforeUpdate(current, desired runtime.Object) error {
+	for _, ds := range s {
+		err := ds.BeforeUpdate(current, desired)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s MultipleDesiredStates) BeforeDelete(desired runtime.Object) error {
+	for _, ds := range s {
+		err := ds.BeforeDelete(desired)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s MultipleDesiredStates) GetCreateptions() []runtimeClient.CreateOption {
+	var createOptions []runtimeClient.CreateOption
+	for _, ds := range s {
+		if ds, ok := ds.(DesiredStateWithCreateOptions); ok {
+			createOptions = append(createOptions, ds.GetCreateOptions()...)
+		}
+	}
+
+	return createOptions
+}
+
+func (s MultipleDesiredStates) GetUpdateOptions() []runtimeClient.UpdateOption {
+	var updateOptions []runtimeClient.UpdateOption
+	for _, ds := range s {
+		if ds, ok := ds.(DesiredStateWithUpdateOptions); ok {
+			updateOptions = append(updateOptions, ds.GetUpdateOptions()...)
+		}
+	}
+
+	return updateOptions
+}
+
+func (s MultipleDesiredStates) GetDeleteOptions() []runtimeClient.DeleteOption {
+	var deleteOptions []runtimeClient.DeleteOption
+	for _, ds := range s {
+		if ds, ok := ds.(DesiredStateWithDeleteOptions); ok {
+			deleteOptions = append(deleteOptions, ds.GetDeleteOptions()...)
+		}
+	}
+
+	return deleteOptions
+}
+
+func (s MultipleDesiredStates) ShouldCreate(desired runtime.Object) (bool, error) {
+	for _, ds := range s {
+		if s, ok := ds.(DesiredStateShouldCreate); ok {
+			should, err := s.ShouldCreate(desired)
+			if err != nil {
+				return should, err
+			}
+			if !should {
+				return should, nil
+			}
+		}
+	}
+
+	return true, nil
+}
+
+func (s MultipleDesiredStates) ShouldUpdate(current, desired runtime.Object) (bool, error) {
+	for _, ds := range s {
+		if s, ok := ds.(DesiredStateShouldUpdate); ok {
+			should, err := s.ShouldUpdate(current, desired)
+			if err != nil {
+				return should, err
+			}
+			if !should {
+				return should, nil
+			}
+		}
+	}
+
+	return true, nil
+}
+
+func (s MultipleDesiredStates) ShouldDelete(desired runtime.Object) (bool, error) {
+	for _, ds := range s {
+		if s, ok := ds.(DesiredStateShouldDelete); ok {
+			should, err := s.ShouldDelete(desired)
+			if err != nil {
+				return should, err
+			}
+			if !should {
+				return should, nil
+			}
+		}
+	}
+
+	return true, nil
 }

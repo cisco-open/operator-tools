@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"emperror.dev/errors"
-	"github.com/banzaicloud/operator-tools/pkg/utils"
 	"github.com/go-logr/logr"
 	core "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -34,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
+	"github.com/banzaicloud/operator-tools/pkg/utils"
 )
 
 const (
@@ -171,7 +171,7 @@ func (c *Inventory) PrepareDesiredObjects(ns, componentName string, parent recon
 	var err error
 	var desiredObjects []runtime.Object
 	var objectsInventory core.ConfigMap
-	objectsInventoryName := fmt.Sprintf("%s-%s-object-inventory", ns, componentName)
+	objectsInventoryName := fmt.Sprintf("%s-%s-%s-object-inventory", parent.GetName(), ns, componentName)
 
 	// collect
 	err = c.genericClient.Get(context.TODO(), types.NamespacedName{Namespace: ns, Name: objectsInventoryName}, &objectsInventory)

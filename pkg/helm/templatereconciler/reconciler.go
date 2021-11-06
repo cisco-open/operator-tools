@@ -20,22 +20,23 @@ import (
 	"time"
 
 	"emperror.dev/errors"
+	"github.com/go-logr/logr"
+	"helm.sh/helm/v3/pkg/action"
+	"helm.sh/helm/v3/pkg/chartutil"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/discovery"
+	controllerruntime "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
 	"github.com/banzaicloud/operator-tools/pkg/inventory"
 	"github.com/banzaicloud/operator-tools/pkg/logger"
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/banzaicloud/operator-tools/pkg/resources"
 	"github.com/banzaicloud/operator-tools/pkg/types"
-	"github.com/go-logr/logr"
-	"helm.sh/helm/v3/pkg/action"
-	"helm.sh/helm/v3/pkg/chartutil"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/discovery"
-	controllerruntime "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type ReleaseData struct {
@@ -48,6 +49,8 @@ type ReleaseData struct {
 	Layers []resources.K8SResourceOverlay
 	// Modifiers can be used from client code to modify resources before being applied
 	Modifiers []resources.ObjectModifierFunc
+	// DesiredStateOverrides can be used to override desired states of certain objects
+	DesiredStateOverrides map[reconciler.ObjectKeyWithGVK]reconciler.DesiredState
 }
 
 type Component interface {
@@ -60,13 +63,15 @@ type Component interface {
 }
 
 type HelmReconciler struct {
-	client       client.Client
-	scheme       *runtime.Scheme
-	logger       logr.Logger
-	inventory    *inventory.Inventory
-	opts         []reconciler.NativeReconcilerOpt
-	objectParser *resources.ObjectParser
-	discovery    discovery.DiscoveryInterface
+	client                client.Client
+	scheme                *runtime.Scheme
+	logger                logr.Logger
+	inventory             *inventory.Inventory
+	nativeReconcilerOpts  []reconciler.NativeReconcilerOpt
+	genericReconcilerOpts []reconciler.ResourceReconcilerOption
+	objectParser          *resources.ObjectParser
+	discovery             discovery.DiscoveryInterface
+	manageNamespace       bool
 }
 
 type preConditionsFatalErr struct {
@@ -77,23 +82,74 @@ func NewPreConditionsFatalErr(err error) error {
 	return &preConditionsFatalErr{err}
 }
 
+type HelmReconcilerOpt func(*HelmReconciler)
+
+func WithGenericReconcilerOptions(opts ...reconciler.ResourceReconcilerOption) HelmReconcilerOpt {
+	return func(r *HelmReconciler) {
+		if r.genericReconcilerOpts == nil {
+			r.genericReconcilerOpts = make([]reconciler.ResourceReconcilerOption, 0)
+		}
+		r.genericReconcilerOpts = append(r.genericReconcilerOpts, opts...)
+	}
+}
+
+func WithNativeReconcilerOptions(opts ...reconciler.NativeReconcilerOpt) HelmReconcilerOpt {
+	return func(r *HelmReconciler) {
+		if r.nativeReconcilerOpts == nil {
+			r.nativeReconcilerOpts = make([]reconciler.NativeReconcilerOpt, 0)
+		}
+		r.nativeReconcilerOpts = append(r.nativeReconcilerOpts, opts...)
+	}
+}
+
+func ManageNamespace(manageNamespace bool) HelmReconcilerOpt {
+	return func(r *HelmReconciler) {
+		r.manageNamespace = manageNamespace
+	}
+}
+
 func NewHelmReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	logger logr.Logger,
 	discovery discovery.DiscoveryInterface,
-	opts []reconciler.NativeReconcilerOpt,
+	nativeReconcilerOpts []reconciler.NativeReconcilerOpt,
+) *HelmReconciler {
+	return NewHelmReconcilerWith(client, scheme, logger, discovery, WithNativeReconcilerOptions(nativeReconcilerOpts...))
+}
+
+func NewHelmReconcilerWith(
+	client client.Client,
+	scheme *runtime.Scheme,
+	logger logr.Logger,
+	discovery discovery.DiscoveryInterface,
+	opts ...HelmReconcilerOpt,
 ) *HelmReconciler {
 	r := &HelmReconciler{
-		client:       client,
-		scheme:       scheme,
-		logger:       logger,
-		inventory:    inventory.NewDiscoveryInventory(client, logger, discovery),
-		discovery:    discovery,
-		objectParser: resources.NewObjectParser(scheme),
-		opts:         opts,
+		client:                client,
+		scheme:                scheme,
+		logger:                logger,
+		inventory:             inventory.NewDiscoveryInventory(client, logger, discovery),
+		discovery:             discovery,
+		objectParser:          resources.NewObjectParser(scheme),
+		nativeReconcilerOpts:  make([]reconciler.NativeReconcilerOpt, 0),
+		genericReconcilerOpts: make([]reconciler.ResourceReconcilerOption, 0),
+		manageNamespace:       true,
 	}
+
+	for _, opt := range opts {
+		opt(r)
+	}
+
+	if len(r.genericReconcilerOpts) == 0 {
+		r.genericReconcilerOpts = append(r.genericReconcilerOpts, reconciler.WithEnableRecreateWorkload())
+	}
+
 	return r
+}
+
+func (rec *HelmReconciler) GetClient() client.Client {
+	return rec.client
 }
 
 func (rec *HelmReconciler) Reconcile(object runtime.Object, component Component) (*reconcile.Result, error) {
@@ -170,21 +226,25 @@ func (rec *HelmReconciler) Reconcile(object runtime.Object, component Component)
 	return result, err
 }
 
-func (rec *HelmReconciler) reconcile(parent reconciler.ResourceOwner, component Component, releaseData *ReleaseData) (*reconcile.Result, error) {
-	resourceBuilders, err := reconciler.GetResourceBuildersFromObjects([]runtime.Object{
-		&v1.Namespace{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "Namespace",
-				APIVersion: "v1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name: releaseData.Namespace,
-			},
-		},
-	}, reconciler.StateCreated)
+func (rec *HelmReconciler) GetResourceBuilders(parent reconciler.ResourceOwner, component Component, releaseData *ReleaseData, doInventory bool) ([]reconciler.ResourceBuilder, error) {
+	var err error
+	resourceBuilders := make([]reconciler.ResourceBuilder, 0)
 
-	if err != nil {
-		return nil, err
+	if rec.manageNamespace {
+		resourceBuilders, err = reconciler.GetResourceBuildersFromObjects([]runtime.Object{
+			&v1.Namespace{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Namespace",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: releaseData.Namespace,
+				},
+			},
+		}, reconciler.StateCreated)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if component.Enabled(parent) {
@@ -227,24 +287,44 @@ func (rec *HelmReconciler) reconcile(parent reconciler.ResourceOwner, component 
 			return nil, err
 		}
 
-		resourceBuilders = rec.inventory.Append(releaseData.Namespace, releaseData.ReleaseName, parent, append(resourceBuilders, chartResourceBuilders...))
+		resourceBuilders = append(resourceBuilders, chartResourceBuilders...)
+		if doInventory {
+			resourceBuilders = rec.inventory.Append(releaseData.Namespace, releaseData.ReleaseName, parent, resourceBuilders)
+		}
 	} else {
-		resourceBuilders = rec.inventory.Append(releaseData.Namespace, releaseData.ReleaseName, parent, resourceBuilders)
+		if doInventory {
+			resourceBuilders = rec.inventory.Append(releaseData.Namespace, releaseData.ReleaseName, parent, resourceBuilders)
+		}
 	}
 
-	r := reconciler.NewNativeReconcilerWithDefaults(
+	return rec.setDesiredStateOverrides(resourceBuilders, releaseData), nil
+}
+
+func (rec *HelmReconciler) reconcile(parent reconciler.ResourceOwner, component Component, releaseData *ReleaseData) (*reconcile.Result, error) {
+	resourceBuilders, err := rec.GetResourceBuilders(parent, component, releaseData, true)
+	if err != nil {
+		return nil, err
+	}
+
+	r := reconciler.NewNativeReconciler(
 		component.Name(),
+		reconciler.NewReconcilerWith(
+			rec.client,
+			append(rec.genericReconcilerOpts, reconciler.WithLog(rec.logger), reconciler.WithScheme(rec.scheme))...,
+		).(*reconciler.GenericResourceReconciler),
 		rec.client,
-		rec.scheme,
-		rec.logger,
-		func(_ reconciler.ResourceOwner, _ interface{}) []reconciler.ResourceBuilder {
-			return resourceBuilders
-		},
-		rec.inventory.TypesToPurge,
+		reconciler.NewReconciledComponent(
+			func(_ reconciler.ResourceOwner, _ interface{}) []reconciler.ResourceBuilder {
+				return resourceBuilders
+			},
+			nil,
+			rec.inventory.TypesToPurge,
+		),
 		func(_ runtime.Object) (reconciler.ResourceOwner, interface{}) {
 			return nil, nil
 		},
-		append(rec.opts, reconciler.NativeReconcilerWithScheme(rec.scheme))...)
+		append(rec.nativeReconcilerOpts, reconciler.NativeReconcilerWithScheme(rec.scheme))...,
+	)
 
 	result, err := r.Reconcile(parent)
 	if err != nil {
@@ -265,6 +345,57 @@ func (rec *HelmReconciler) reconcile(parent reconciler.ResourceOwner, component 
 	rec.logger.Info("reconciled")
 
 	return result, nil
+}
+
+func (rec *HelmReconciler) setDesiredStateOverrides(resourceBuilders []reconciler.ResourceBuilder, releaseData *ReleaseData) []reconciler.ResourceBuilder {
+	resources := []reconciler.ResourceBuilder{}
+
+	for _, rb := range resourceBuilders {
+		rb := rb
+		resources = append(resources, func() (runtime.Object, reconciler.DesiredState, error) {
+			o, state, err := rb()
+			if err != nil {
+				return nil, nil, err
+			}
+
+			om, err := meta.Accessor(o)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			var overrideState reconciler.DesiredState
+
+			gvk := o.GetObjectKind().GroupVersionKind()
+
+			if ds, ok := releaseData.DesiredStateOverrides[reconciler.ObjectKeyWithGVK{
+				GVK: gvk,
+			}]; ok {
+				rec.logger.V(2).Info("override object desired state by gvk", "gvk", gvk.String(), "namespace", om.GetNamespace(), "name", om.GetName())
+				overrideState = ds
+			}
+
+			if ds, ok := releaseData.DesiredStateOverrides[reconciler.ObjectKeyWithGVK{
+				ObjectKey: client.ObjectKey{
+					Name:      om.GetName(),
+					Namespace: om.GetNamespace(),
+				},
+				GVK: gvk,
+			}]; ok {
+				rec.logger.V(2).Info("override object desired state by gvk and object key", "gvk", gvk.String(), "namespace", om.GetNamespace(), "name", om.GetName())
+				overrideState = ds
+			}
+
+			if overrideState != nil {
+				state = reconciler.MultipleDesiredStates{
+					state, overrideState,
+				}
+			}
+
+			return o, state, nil
+		})
+	}
+
+	return resources
 }
 
 func (rec HelmReconciler) RegisterWatches(_ *controllerruntime.Builder) {}
