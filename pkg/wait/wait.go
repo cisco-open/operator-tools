@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
-type Backoff wait.Backoff
+type Backoff = wait.Backoff
 
 type ResourceConditionChecks struct {
 	client  client.Client
@@ -69,7 +69,6 @@ func (c *ResourceConditionChecks) WaitForCustomConditionChecks(id string, checkF
 
 		return true, nil
 	})
-
 	if err != nil {
 		return err
 	}
