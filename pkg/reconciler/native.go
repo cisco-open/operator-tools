@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -155,6 +156,8 @@ type NativeReconciler struct {
 	setControllerRef       bool
 	reconciledObjectStates map[reconciledObjectState][]runtime.Object
 	waitBackoff            *wait.Backoff
+	retryBackoff           wait.Backoff
+	retriableErrorFunc     func(error) bool
 	objectModifiers        []resources.ObjectModifierWithParentFunc
 }
 
@@ -187,6 +190,18 @@ func NativeReconcilerWithWait(backoff *wait.Backoff) NativeReconcilerOpt {
 func NativeReconcilerWithModifier(modifierFunc resources.ObjectModifierWithParentFunc) NativeReconcilerOpt {
 	return func(r *NativeReconciler) {
 		r.objectModifiers = append(r.objectModifiers, modifierFunc)
+	}
+}
+
+func NativeReconcilerWithRetryBackoff(backoff wait.Backoff) NativeReconcilerOpt {
+	return func(r *NativeReconciler) {
+		r.retryBackoff = backoff
+	}
+}
+
+func NativeReconcilerWithRetriableErrorFunc(retriableErrorFunc func(error) bool) NativeReconcilerOpt {
+	return func(r *NativeReconciler) {
+		r.retriableErrorFunc = retriableErrorFunc
 	}
 }
 
@@ -236,6 +251,10 @@ func NewNativeReconciler(
 		reconciledComponent:       reconciledComponent,
 		configTranslate:           resourceTranslate,
 		componentName:             componentName,
+
+		// do not retry on errors by default
+		retriableErrorFunc: func(error) bool { return false },
+		retryBackoff:       retry.DefaultRetry,
 	}
 
 	reconciler.initReconciledObjectStates()
@@ -319,7 +338,11 @@ LOOP:
 			}
 
 			var result *reconcile.Result
-			result, err = rec.ReconcileResource(o, state)
+			err = retry.OnError(rec.retryBackoff, rec.retriableErrorFunc, func() error {
+				var err error
+				result, err = rec.ReconcileResource(o, state)
+				return err
+			})
 			if err == nil {
 				resourceID, err := rec.generateResourceID(o)
 				if err != nil {
