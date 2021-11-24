@@ -384,7 +384,7 @@ func (i *Inventory) Append(namespace, component string, parent reconciler.Resour
 			return resourceBuilders, err
 		}
 		// do not try to create the inventory when the namespace is being deleted
-		if ns.GetDeletionTimestamp() == nil {
+		if ns.GetDeletionTimestamp().IsZero() {
 			resourceBuilders = append(resourceBuilders, func() (runtime.Object, reconciler.DesiredState, error) {
 				return objectInventory, reconciler.StatePresent, err
 			})

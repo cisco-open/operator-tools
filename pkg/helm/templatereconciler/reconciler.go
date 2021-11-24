@@ -293,11 +293,9 @@ func (rec *HelmReconciler) GetResourceBuilders(parent reconciler.ResourceOwner, 
 				return nil, err
 			}
 		}
-	} else {
-		if doInventory {
-			if resourceBuilders, err = rec.inventory.Append(releaseData.Namespace, releaseData.ReleaseName, parent, resourceBuilders); err != nil {
-				return nil, err
-			}
+	} else if doInventory {
+		if resourceBuilders, err = rec.inventory.Append(releaseData.Namespace, releaseData.ReleaseName, parent, resourceBuilders); err != nil {
+			return nil, err
 		}
 	}
 
