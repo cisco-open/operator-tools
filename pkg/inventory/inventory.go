@@ -371,12 +371,24 @@ func (c *Inventory) ensureNamespace(namespace string, objects []runtime.Object) 
 	return nil
 }
 
-func (i *Inventory) Append(namespace, component string, parent reconciler.ResourceOwner, resourceBuilders []reconciler.ResourceBuilder) []reconciler.ResourceBuilder {
-	if objectInventory, err := i.PrepareDesiredObjects(namespace, component, parent, resourceBuilders); err == nil {
-		err := i.PrepareDeletableObjects()
-		resourceBuilders = append(resourceBuilders, func() (runtime.Object, reconciler.DesiredState, error) {
-			return objectInventory, reconciler.StatePresent, err
-		})
+func (i *Inventory) Append(namespace, component string, parent reconciler.ResourceOwner, resourceBuilders []reconciler.ResourceBuilder) ([]reconciler.ResourceBuilder, error) {
+	ns := &core.Namespace{}
+	var err error
+	// get the namespace so that we can see if it's under deletion
+	// we don't care if the namespace does not exist, we might be preparing to run this for the first time
+	if err := i.genericClient.Get(context.TODO(), client.ObjectKey{Name: namespace}, ns); client.IgnoreNotFound(err) != nil {
+		return resourceBuilders, err
 	}
-	return resourceBuilders
+	if objectInventory, err := i.PrepareDesiredObjects(namespace, component, parent, resourceBuilders); err == nil {
+		if err := i.PrepareDeletableObjects(); err != nil {
+			return resourceBuilders, err
+		}
+		// do not try to create the inventory when the namespace is being deleted
+		if ns.GetDeletionTimestamp().IsZero() {
+			resourceBuilders = append(resourceBuilders, func() (runtime.Object, reconciler.DesiredState, error) {
+				return objectInventory, reconciler.StatePresent, err
+			})
+		}
+	}
+	return resourceBuilders, err
 }
