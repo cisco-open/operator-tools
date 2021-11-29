@@ -60,7 +60,7 @@ license-check: bin/licensei ## Run license check
 
 .PHONY: test
 test: ${ENVTEST_BINARY_ASSETS}
-	KUBEBUILDER_ASSETS=${ENVTEST_BINARY_ASSETS} go test -v ./...
+	KUBEBUILDER_ASSETS=${ENVTEST_BINARY_ASSETS} go test ./...
 
 .PHONY: check
 check: test lint check-diff ## Run tests and linters
