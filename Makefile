@@ -8,13 +8,19 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
+BIN := ${PWD}/bin
+export PATH := ${BIN}:${PATH}
+
 CONTROLLER_GEN_VERSION = v0.4.1
 CONTROLLER_GEN = $(PWD)/bin/controller-gen
 
 OS = $(shell uname | tr A-Z a-z)
 
-KUBEBUILDER_VERSION = 2.3.1
-export KUBEBUILDER_ASSETS := $(PWD)/bin
+ENVTEST_BIN_DIR := ${BIN}/envtest
+ENVTEST_K8S_VERSION := 1.22.1
+ENVTEST_BINARY_ASSETS := ${ENVTEST_BIN_DIR}/bin
+
+SETUP_ENVTEST := ${BIN}/setup-envtest
 
 # Generate code
 generate: bin/controller-gen
@@ -35,20 +41,6 @@ bin/controller-gen:
 		rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	fi
 
-.PHONY: bin/kubebuilder_$(KUBEBUILDER_VERSION)
-bin/kubebuilder_$(KUBEBUILDER_VERSION):
-	@if ! test -L bin/kubebuilder_$(KUBEBUILDER_VERSION); \
-		then \
-		mkdir -p bin; \
-		curl -L https://github.com/kubernetes-sigs/kubebuilder/releases/download/v$(KUBEBUILDER_VERSION)/kubebuilder_$(KUBEBUILDER_VERSION)_$(OS)_amd64.tar.gz | tar xvz -C bin; \
-		ln -sf kubebuilder_$(KUBEBUILDER_VERSION)_$(OS)_amd64/bin bin/kubebuilder_$(KUBEBUILDER_VERSION); \
-	fi
-
-bin/kubebuilder: bin/kubebuilder_$(KUBEBUILDER_VERSION)
-	@ln -sf kubebuilder_$(KUBEBUILDER_VERSION)/kubebuilder bin/kubebuilder
-	@ln -sf kubebuilder_$(KUBEBUILDER_VERSION)/kube-apiserver bin/kube-apiserver
-	@ln -sf kubebuilder_$(KUBEBUILDER_VERSION)/etcd bin/etcd
-	@ln -sf kubebuilder_$(KUBEBUILDER_VERSION)/kubectl bin/kubectl
 
 bin/licensei: bin/licensei-${LICENSEI_VERSION}
 	@ln -sf licensei-${LICENSEI_VERSION} bin/licensei
@@ -67,8 +59,8 @@ license-check: bin/licensei ## Run license check
 	bin/licensei header
 
 .PHONY: test
-test: bin/kubebuilder
-	go test ./...
+test: ${ENVTEST_BINARY_ASSETS}
+	KUBEBUILDER_ASSETS=${ENVTEST_BINARY_ASSETS} go test -v ./...
 
 .PHONY: check
 check: test lint check-diff ## Run tests and linters
@@ -97,3 +89,26 @@ check-diff: generate-type-docs
 
 generate-type-docs:
 	go run cmd/docs.go
+
+${ENVTEST_BINARY_ASSETS}: ${ENVTEST_BINARY_ASSETS}_${ENVTEST_K8S_VERSION}
+	ln -sf $(notdir $<) $@
+
+${ENVTEST_BINARY_ASSETS}_${ENVTEST_K8S_VERSION}: | ${SETUP_ENVTEST} ${ENVTEST_BIN_DIR}
+	ln -sf $$(${SETUP_ENVTEST} --bin-dir ${ENVTEST_BIN_DIR} use ${ENVTEST_K8S_VERSION} -p path) $@
+
+${SETUP_ENVTEST}: IMPORT_PATH := sigs.k8s.io/controller-runtime/tools/setup-envtest
+${SETUP_ENVTEST}: VERSION := latest
+${SETUP_ENVTEST}: | ${BIN}
+	GOBIN=${BIN} go install ${IMPORT_PATH}@${VERSION}
+
+${ENVTEST_BIN_DIR}: | ${BIN}
+	mkdir -p $@
+
+${BIN}:
+	mkdir -p $@
+
+define go_install_binary
+find ${BIN} -name '$(notdir ${IMPORT_PATH})_*' -exec rm {} +
+GOBIN=${BIN} go install ${IMPORT_PATH}@${VERSION}
+mv ${BIN}/$(notdir ${IMPORT_PATH}) ${BIN}/$(notdir ${IMPORT_PATH})_${VERSION}
+endef
