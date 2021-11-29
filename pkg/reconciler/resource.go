@@ -164,8 +164,21 @@ type ReconcilerOpts struct {
 	RecreateErrorMessageCondition ErrorMessageCondition
 }
 
+func MatchImmutableNoStatefulSet(errorMessage string) bool {
+	if strings.Contains(errorMessage, "immutable") {
+		return true
+	}
+	if strings.Contains(errorMessage, "may not change once set") {
+		return true
+	}
+	return false
+}
+
 func MatchImmutableErrorMessages(errorMessage string) bool {
 	if strings.Contains(errorMessage, "immutable") {
+		return true
+	}
+	if strings.Contains(errorMessage, "may not change once set") {
 		return true
 	}
 	// StatefulSet is a special case because it has a different error message
@@ -186,7 +199,11 @@ func NewGenericReconciler(c client.Client, log logr.Logger, opts ReconcilerOpts)
 		opts.RecreateRequeueDelay = utils.IntPointer(DefaultRecreateRequeueDelay)
 	}
 	if opts.RecreateErrorMessageSubstring == nil {
-		opts.RecreateErrorMessageSubstring = utils.StringPointer("immutable")
+		if opts.RecreateErrorMessageCondition == nil {
+			opts.RecreateErrorMessageCondition = MatchImmutableNoStatefulSet
+		} else {
+			opts.RecreateErrorMessageSubstring = utils.StringPointer("immutable")
+		}
 	}
 	if opts.RecreateEnabledResourceCondition == nil {
 		// only allow a custom set of types and only specific errors

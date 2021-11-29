@@ -126,7 +126,7 @@ func TestRecreateObjectFailIfNotAllowed(t *testing.T) {
 			},
 			wantError: func(err error) {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), "immutable")
+				require.Contains(t, err.Error(), "may not change once set")
 			},
 		},
 		{
@@ -178,7 +178,8 @@ func TestRecreateObjectFailIfNotAllowed(t *testing.T) {
 				reconciler.WithRecreateImmediately(),
 			),
 			update: func(object runtime.Object) runtime.Object {
-				object.(*corev1.Service).Spec.ClusterIP = "10.0.0.32"
+				object.(*corev1.Service).Spec.ClusterIP = "None"
+				object.(*corev1.Service).Spec.ClusterIPs = []string{"None"}
 				return object
 			},
 			wantResult: func(result *reconcile.Result) {
@@ -189,7 +190,7 @@ func TestRecreateObjectFailIfNotAllowed(t *testing.T) {
 					Name:      "test2",
 				}, svc)
 				require.NoError(t, err)
-				require.Equal(t, svc.Spec.ClusterIP, "10.0.0.32")
+				require.Equal(t, svc.Spec.ClusterIP, "None")
 			},
 		},
 		{
