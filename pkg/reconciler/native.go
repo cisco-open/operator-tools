@@ -344,7 +344,7 @@ LOOP:
 				return err
 			})
 			if err == nil {
-				resourceID, err := rec.generateResourceID(o)
+				resourceID, err := rec.generateResourceIDForPurge(o)
 				if err != nil {
 					combinedResult.CombineErr(err)
 					continue
@@ -407,7 +407,7 @@ func (rec *NativeReconciler) generateComponentID(owner runtime.Object) (string, 
 	return strings.Join(identifiers, "-"), ownerMeta, nil
 }
 
-func (rec *NativeReconciler) generateResourceID(resource runtime.Object) (string, error) {
+func (rec *NativeReconciler) generateResourceIDForPurge(resource runtime.Object) (string, error) {
 	resourceMeta, err := meta.Accessor(resource)
 	if err != nil {
 		return "", errors.WrapIf(err, "failed to access owner object meta")
@@ -428,8 +428,7 @@ func (rec *NativeReconciler) generateResourceID(resource runtime.Object) (string
 	if err != nil {
 		return "", errors.WrapIf(err, "")
 	}
-	apiVersion, kind := gvk.ToAPIVersionAndKind()
-	identifiers = append(identifiers, apiVersion, strings.ToLower(kind))
+	identifiers = append(identifiers, strings.ToLower(gvk.GroupKind().String()))
 
 	return strings.Join(identifiers, "-"), nil
 }
@@ -483,7 +482,7 @@ func (rec *NativeReconciler) purge(excluded map[string]bool, componentId string)
 				allErr = errors.Combine(allErr, errors.WrapIf(err, "failed to get object metadata"))
 				continue
 			}
-			resourceID, err := rec.generateResourceID(&o)
+			resourceID, err := rec.generateResourceIDForPurge(&o)
 			if err != nil {
 				allErr = errors.Combine(allErr, err)
 				continue
