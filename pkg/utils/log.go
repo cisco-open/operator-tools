@@ -34,18 +34,18 @@ type logger struct {
 
 var GlobalLogLevel = 0
 
-var Log logr.Logger = logger{
+var Log logr.Logger = logr.New(logger{
 	level: 0,
 	out:   os.Stderr,
 	err:   os.Stderr,
-}
+})
 
 func NewLogger(name string, out, err io.Writer, level int) logr.Logger {
-	return &logger{name: name, err: err, out: out, level: level}
+	return logr.New(&logger{name: name, err: err, out: out, level: level})
 }
 
 // Info implements logr.InfoLogger
-func (log logger) Info(msg string, vals ...interface{}) {
+func (log logger) Info(level int, msg string, vals ...interface{}) {
 	if GlobalLogLevel >= log.level {
 		allVal := append(vals, log.values...)
 		if len(allVal) == 0 {
@@ -56,8 +56,10 @@ func (log logger) Info(msg string, vals ...interface{}) {
 	}
 }
 
+func (logger) Init(logr.RuntimeInfo) {}
+
 // Enabled implements logr.InfoLogger
-func (logger) Enabled() bool {
+func (logger) Enabled(level int) bool {
 	return true
 }
 
@@ -72,7 +74,7 @@ func (log logger) Error(e error, msg string, vals ...interface{}) {
 }
 
 // V implements logr.logger
-func (log logger) V(level int) logr.Logger {
+func (log logger) V(level int) logr.LogSink {
 	return logger{
 		name:   log.name,
 		level:  level,
@@ -83,7 +85,7 @@ func (log logger) V(level int) logr.Logger {
 }
 
 // WithName implements logr.logger
-func (log logger) WithName(name string) logr.Logger {
+func (log logger) WithName(name string) logr.LogSink {
 	return logger{
 		name:   name,
 		level:  log.level,
@@ -94,7 +96,7 @@ func (log logger) WithName(name string) logr.Logger {
 }
 
 // WithValues implements logr.logger
-func (log logger) WithValues(values ...interface{}) logr.Logger {
+func (log logger) WithValues(values ...interface{}) logr.LogSink {
 	return logger{
 		name:   log.name,
 		level:  log.level,

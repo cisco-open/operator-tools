@@ -152,7 +152,7 @@ func New(options ...Option) logr.Logger {
 		opt(l)
 	}
 
-	return l
+	return logr.New(l)
 }
 
 func (log *logger) SetOptions(options ...Option) {
@@ -162,7 +162,7 @@ func (log *logger) SetOptions(options ...Option) {
 }
 
 // Info implements logr.InfoLogger.
-func (log *logger) Info(msg string, vals ...interface{}) {
+func (log *logger) Info(level int, msg string, vals ...interface{}) {
 	if GlobalLogLevel >= log.level {
 		allVal := append(vals, log.values...)
 		if len(allVal) > 0 {
@@ -205,8 +205,10 @@ func (log *logger) Info(msg string, vals ...interface{}) {
 	}
 }
 
+func (log *logger) Init(logr.RuntimeInfo) {}
+
 // Enabled implements logr.InfoLogger.
-func (log *logger) Enabled() bool {
+func (log *logger) Enabled(level int) bool {
 	return true
 }
 
@@ -261,7 +263,7 @@ func (log *logger) printNames() string {
 }
 
 // V implements logr.logger
-func (log *logger) V(level int) logr.InfoLogger {
+func (log *logger) V(level int) logr.LogSink {
 	l := log.copyLogger()
 	l.level = level
 
@@ -269,7 +271,7 @@ func (log *logger) V(level int) logr.InfoLogger {
 }
 
 // WithName implements logr.logger
-func (log *logger) WithName(name string) logr.Logger {
+func (log *logger) WithName(name string) logr.LogSink {
 	l := log.copyLogger()
 	l.names = append(l.names, name)
 
@@ -277,14 +279,14 @@ func (log *logger) WithName(name string) logr.Logger {
 }
 
 // WithValues implements logr.logger
-func (log *logger) WithValues(values ...interface{}) logr.Logger {
+func (log *logger) WithValues(values ...interface{}) logr.LogSink {
 	l := log.copyLogger()
 	l.values = values
 
 	return &l
 }
 
-func (log *logger) ShowTime(f bool) logr.Logger {
+func (log *logger) ShowTime(f bool) logr.LogSink {
 	l := log.copyLogger()
 	l.showTime = f
 
