@@ -19,6 +19,72 @@ import (
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type StaticDesiredState string
+
+func (s StaticDesiredState) BeforeUpdate(current, desired runtime.Object) error {
+	return nil
+}
+
+func (s StaticDesiredState) BeforeCreate(desired runtime.Object) error {
+	return nil
+}
+
+func (s StaticDesiredState) BeforeDelete(current runtime.Object) error {
+	return nil
+}
+
+type DesiredStateHook func(object runtime.Object) error
+
+func (d DesiredStateHook) BeforeUpdate(current, desired runtime.Object) error {
+	return d(current)
+}
+
+func (d DesiredStateHook) BeforeCreate(desired runtime.Object) error {
+	return d(desired)
+}
+
+func (d DesiredStateHook) BeforeDelete(current runtime.Object) error {
+	return d(current)
+}
+
+type DesiredState interface {
+	BeforeUpdate(current, desired runtime.Object) error
+	BeforeCreate(desired runtime.Object) error
+	BeforeDelete(current runtime.Object) error
+}
+
+type DesiredStateShouldCreate interface {
+	ShouldCreate(desired runtime.Object) (bool, error)
+}
+
+type DesiredStateShouldUpdate interface {
+	ShouldUpdate(current, desired runtime.Object) (bool, error)
+}
+
+type DesiredStateShouldDelete interface {
+	ShouldDelete(desired runtime.Object) (bool, error)
+}
+
+type DesiredStateWithDeleteOptions interface {
+	GetDeleteOptions() []runtimeClient.DeleteOption
+}
+
+type DesiredStateWithCreateOptions interface {
+	GetCreateOptions() []runtimeClient.CreateOption
+}
+
+type DesiredStateWithUpdateOptions interface {
+	GetUpdateOptions() []runtimeClient.UpdateOption
+}
+
+type DesiredStateWithStaticState interface {
+	DesiredState() StaticDesiredState
+}
+
+type DesiredStateWithGetter interface {
+	GetDesiredState() DesiredState
+}
+
 type DynamicDesiredState struct {
 	DesiredState     DesiredState
 	BeforeCreateFunc func(desired runtime.Object) error
