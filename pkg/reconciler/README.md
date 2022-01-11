@@ -56,11 +56,39 @@ func example(client runtimeClient.Client, logger logr.Logger, create bool) {
 
 ### Dynamic desired states
 
-Desired states might be
+Dynamic desired state is an object that holds one or more dynamic functions that will be executed at certain points in a desired object's lifecycle.
 
- - the create/update/delete mutation hooks
- - the create/update/delete validation hooks
- - client options
+Dynamic desired states might be triggered before creating, updating or deleting the object. In addition to that the state of the different objects (desired or current) can be mutated and [runtime client options](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/client#hdr-Options) can be fine tuned as well.
+
+A full implementation of all the available interfaces that the `Resource reconciler` cares about are implemented in the DynamicDesiredState struct.
+
+```
+type DynamicDesiredState struct {
+	DesiredState     DesiredState
+	BeforeCreateFunc func(desired runtime.Object) error
+	BeforeUpdateFunc func(current, desired runtime.Object) error
+	BeforeDeleteFunc func(current runtime.Object) error
+	CreateOptions    []runtimeClient.CreateOption
+	UpdateOptions    []runtimeClient.UpdateOption
+	DeleteOptions    []runtimeClient.DeleteOption
+	ShouldCreateFunc func(desired runtime.Object) (bool, error)
+	ShouldUpdateFunc func(current, desired runtime.Object) (bool, error)
+	ShouldDeleteFunc func(desired runtime.Object) (bool, error)
+}
+```
+
+As an example, let's look at the service resource, where any update attempts with an empty `clusterIP` will fail. However, unless the service is headless, the `clusterIP` should only be managed on the server side and will result in errors if we don't set it client side. To overcome this, we can add a `BeforeUpdateFunc` that updates the `clusterIP` field locally to the remote value:
+
+```
+ds := &DynamicDesiredState{}
+ds.BeforeUpdateFunc = func(current, desired runtime.Object) error {
+	if co, ok := current.(*corev1.Service); ok {
+		do := desired.(*corev1.Service)
+		do.Spec.ClusterIP = co.Spec.ClusterIP
+	}
+	return nil
+}
+```
 
 Component reconciler
  - Why this is needed
