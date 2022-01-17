@@ -50,7 +50,7 @@ func NewResourceConditionChecks(client client.Client, backoff Backoff, log logr.
 func (c *ResourceConditionChecks) WaitForCustomConditionChecks(id string, checkFuncs ...CustomResourceConditionCheck) error {
 	log := c.log.WithName(id)
 
-	if l, ok := log.(interface{ Grouped(state bool) }); ok {
+	if l, ok := log.GetSink().(interface{ Grouped(state bool) }); ok {
 		l.Grouped(true)
 		defer l.Grouped(false)
 	}
@@ -85,7 +85,7 @@ func (c *ResourceConditionChecks) WaitForResources(id string, objects []runtime.
 
 	log := c.log.WithName(id)
 
-	if l, ok := log.(interface{ Grouped(state bool) }); ok {
+	if l, ok := log.GetSink().(interface{ Grouped(state bool) }); ok {
 		l.Grouped(true)
 		defer l.Grouped(false)
 	}
@@ -171,7 +171,7 @@ func GetFormattedName(name, namespace string, gvk schema.GroupVersionKind) strin
 	}
 
 	if namespace != "" {
-		namespace = namespace + "/"
+		namespace += "/"
 	}
 	return fmt.Sprintf("%s%s:%s%s", strings.ToLower(gvk.Kind), group, namespace, name)
 }

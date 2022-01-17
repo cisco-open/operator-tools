@@ -24,95 +24,29 @@ import (
 	"github.com/spf13/cast"
 )
 
-type logger struct {
-	level  int
-	name   string
-	values []interface{}
-	out    io.Writer
-	err    io.Writer
-}
-
 var GlobalLogLevel = 0
 
-var Log logr.Logger = logger{
-	level: 0,
-	out:   os.Stderr,
-	err:   os.Stderr,
-}
+var Log = NewLogger("", os.Stderr, os.Stderr, 0)
 
 func NewLogger(name string, out, err io.Writer, level int) logr.Logger {
-	return &logger{name: name, err: err, out: out, level: level}
-}
-
-// Info implements logr.InfoLogger
-func (log logger) Info(msg string, vals ...interface{}) {
-	if GlobalLogLevel >= log.level {
-		allVal := append(vals, log.values...)
-		if len(allVal) == 0 {
-			fmt.Fprintf(log.out, "%s> %s\n", log.name, msg)
-		} else {
-			fmt.Fprintf(log.out, "%s> %s %s\n", log.name, msg, joinAndSeparatePairs(allVal))
-		}
-	}
-}
-
-// Enabled implements logr.InfoLogger
-func (logger) Enabled() bool {
-	return true
-}
-
-// Error implements logr.logger
-func (log logger) Error(e error, msg string, vals ...interface{}) {
-	allVal := append(vals, log.values...)
-	if len(allVal) == 0 {
-		fmt.Fprintf(log.err, "%s> %s %s\n", log.name, msg, getDetailedErr(e))
-	} else {
-		fmt.Fprintf(log.err, "%s> %s %s %s\n", log.name, msg, getDetailedErr(e), joinAndSeparatePairs(allVal))
-	}
-}
-
-// V implements logr.logger
-func (log logger) V(level int) logr.Logger {
-	return logger{
-		name:   log.name,
-		level:  level,
-		values: log.values,
-		out:    log.out,
-		err:    log.err,
-	}
-}
-
-// WithName implements logr.logger
-func (log logger) WithName(name string) logr.Logger {
-	return logger{
+	sink := &logSink{
 		name:   name,
-		level:  log.level,
-		values: log.values,
-		out:    log.out,
-		err:    log.err,
+		values: make([]interface{}, 0),
+		out:    out,
+		err:    err,
 	}
+	return logr.New(sink).V(level)
 }
 
-// WithValues implements logr.logger
-func (log logger) WithValues(values ...interface{}) logr.Logger {
-	return logger{
-		name:   log.name,
-		level:  log.level,
-		values: values,
-		out:    log.out,
-		err:    log.err,
-	}
-}
-
-func joinAndSeparatePairs(vals []interface{}) string {
+func joinAndSeparatePairs(values []interface{}) string {
 	joined := ""
-	for i, v := range vals {
+	for i, v := range values {
 		joined += cast.ToString(v)
 		if i%2 == 0 {
-			joined = joined + ": "
+			joined += ": "
 		} else {
-			if i < len(vals)-1 {
-				joined = joined + ", "
+			if i < len(values)-1 {
+				joined += ", "
 			}
 		}
 	}
@@ -125,4 +59,49 @@ func getDetailedErr(err error) string {
 		return err.Error()
 	}
 	return fmt.Sprintf("%s (%s)", err.Error(), joinAndSeparatePairs(details))
+}
+
+type logSink struct {
+	name   string
+	values []interface{}
+	out    io.Writer
+	err    io.Writer
+}
+
+func (s logSink) Init(logr.RuntimeInfo) {}
+
+func (s logSink) Enabled(level int) bool {
+	return GlobalLogLevel >= level
+}
+
+func (s logSink) Info(level int, msg string, keysAndValues ...interface{}) {
+	if !s.Enabled(level) {
+		return
+	}
+	s.values = append(s.values, keysAndValues...)
+	if len(s.values) == 0 {
+		_, _ = fmt.Fprintf(s.out, "%s> %s\n", s.name, msg)
+	} else {
+		_, _ = fmt.Fprintf(s.out, "%s> %s %s\n", s.name, msg, joinAndSeparatePairs(s.values))
+	}
+}
+
+func (s logSink) Error(err error, msg string, keysAndValues ...interface{}) {
+	s.values = append(s.values, keysAndValues...)
+	if len(s.values) == 0 {
+		_, _ = fmt.Fprintf(s.err, "%s> %s %s\n", s.name, msg, getDetailedErr(err))
+	} else {
+		_, _ = fmt.Fprintf(s.err, "%s> %s %s %s\n", s.name, msg, getDetailedErr(err), joinAndSeparatePairs(s.values))
+	}
+}
+
+func (s logSink) WithValues(keysAndValues ...interface{}) logr.LogSink {
+	l := len(s.values)
+	s.values = append(s.values[:l:l], keysAndValues...)
+	return s
+}
+
+func (s logSink) WithName(name string) logr.LogSink {
+	s.name += name
+	return s
 }
