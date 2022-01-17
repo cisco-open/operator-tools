@@ -11,13 +11,13 @@ endif
 BIN := ${PWD}/bin
 export PATH := ${BIN}:${PATH}
 
-CONTROLLER_GEN_VERSION = v0.4.1
+CONTROLLER_GEN_VERSION = v0.8.0
 CONTROLLER_GEN = $(PWD)/bin/controller-gen
 
 OS = $(shell uname | tr A-Z a-z)
 
 ENVTEST_BIN_DIR := ${BIN}/envtest
-ENVTEST_K8S_VERSION := 1.22.1
+ENVTEST_K8S_VERSION := 1.23.1
 ENVTEST_BINARY_ASSETS := ${ENVTEST_BIN_DIR}/bin
 
 SETUP_ENVTEST := ${BIN}/setup-envtest
