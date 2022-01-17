@@ -14,14 +14,10 @@
 
 package logger
 
-import (
-	"testing"
+import "github.com/fatih/color"
 
-	"github.com/stretchr/testify/require"
-)
-
-func TestJoinAndSeparatePairs(t *testing.T) {
-	type foo string
-	l := newSpinnerLogSink()
-	require.Equal(t, "foo=bar", l.joinAndSeparatePairs([]interface{}{"foo", foo("bar")}))
+type Colors struct {
+	Info  color.Attribute
+	Error color.Attribute
+	Key   color.Attribute
 }
