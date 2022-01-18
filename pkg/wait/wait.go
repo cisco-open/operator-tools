@@ -50,9 +50,11 @@ func NewResourceConditionChecks(client client.Client, backoff Backoff, log logr.
 func (c *ResourceConditionChecks) WaitForCustomConditionChecks(id string, checkFuncs ...CustomResourceConditionCheck) error {
 	log := c.log.WithName(id)
 
-	if l, ok := log.GetSink().(interface{ Grouped(state bool) }); ok {
+	sink := log.GetSink()
+	if l, ok := sink.(interface{ Grouped(state bool) }); ok {
 		l.Grouped(true)
 		defer l.Grouped(false)
+		log = log.WithSink(sink)
 	}
 
 	log.Info("waiting")
@@ -85,9 +87,11 @@ func (c *ResourceConditionChecks) WaitForResources(id string, objects []runtime.
 
 	log := c.log.WithName(id)
 
-	if l, ok := log.GetSink().(interface{ Grouped(state bool) }); ok {
+	sink := log.GetSink()
+	if l, ok := sink.(interface{ Grouped(state bool) }); ok {
 		l.Grouped(true)
 		defer l.Grouped(false)
+		log = log.WithSink(sink)
 	}
 
 	log.Info("waiting")
