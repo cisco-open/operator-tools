@@ -35,7 +35,6 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
@@ -307,16 +306,13 @@ func WithRecreateErrorMessageIgnored() ResourceReconcilerOption {
 
 func NewReconcilerWith(client client.Client, opts ...ResourceReconcilerOption) ResourceReconciler {
 	options := ReconcilerOpts{
+		Log: logr.Discard(),
 		EnableRecreateWorkloadOnImmutableFieldChangeHelp: "recreating object on immutable field change has to be enabled explicitly through the reconciler options",
 	}
 	for _, opt := range opts {
 		opt(&options)
 	}
-	rec := NewGenericReconciler(client, log.NullLogger{}, options)
-	if options.Log != nil {
-		rec.Log = options.Log
-	}
-	return rec
+	return NewGenericReconciler(client, options.Log, options)
 }
 
 // CreateResource creates a resource if it doesn't exist

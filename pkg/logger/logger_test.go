@@ -15,13 +15,33 @@
 package logger
 
 import (
+	"bytes"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/require"
 )
 
-func TestJoinAndSeparatePairs(t *testing.T) {
+func TestInfoLog(t *testing.T) {
 	type foo string
-	l := &logger{}
-	require.Equal(t, "foo=bar", l.joinAndSeparatePairs([]interface{}{"foo", foo("bar")}))
+	var buf bytes.Buffer
+
+	sink := NewSpinnerLogSink(Out(&buf))
+	sink.ShowTime(false)
+	sink.Info(0, "test", "foo", foo("bar"))
+	expected := []byte("\r\x1b[K✓ test foo=bar\n")
+	require.Equal(t, expected, buf.Bytes())
+}
+
+func TestSpinnerLogSinkWithLogrLogger(t *testing.T) {
+	type foo string
+	var buf bytes.Buffer
+
+	sink := NewSpinnerLogSink(Out(&buf))
+	sink.ShowTime(false)
+
+	log := logr.New(sink)
+	log.Info("test", "foo", foo("bar"))
+	expected := []byte("\r\x1b[K✓ test foo=bar\n")
+	require.Equal(t, expected, buf.Bytes())
 }
