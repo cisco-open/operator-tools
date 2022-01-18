@@ -51,7 +51,7 @@ type spinnerLogSink struct {
 	mux sync.Mutex
 }
 
-func newSpinnerLogSink(options ...Option) *spinnerLogSink {
+func NewSpinnerLogSink(options ...Option) *spinnerLogSink {
 	l := &spinnerLogSink{
 		names: []string{},
 		out:   os.Stderr,

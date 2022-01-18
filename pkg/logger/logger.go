@@ -47,7 +47,7 @@ type logger struct {
 }
 
 func New(options ...Option) Logger {
-	sink := newSpinnerLogSink(options...)
+	sink := NewSpinnerLogSink(options...)
 	return &logger{
 		level: 0,
 		sink:  sink,
