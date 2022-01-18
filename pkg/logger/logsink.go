@@ -173,7 +173,7 @@ func (log *SpinnerLogSink) WithName(name string) logr.LogSink {
 // WithValues implements logr.LogSink interface
 func (log *SpinnerLogSink) WithValues(keysAndValues ...interface{}) logr.LogSink {
 	l := log.copyLogger()
-	l.values = append(l.values, keysAndValues)
+	l.values = append(l.values, keysAndValues...)
 
 	return l
 }
