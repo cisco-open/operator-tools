@@ -123,7 +123,7 @@ func (log *spinnerLogSink) Info(level int, msg string, keysAndValues ...interfac
 	}
 }
 
-// Enabled  implements logr.LogSink interface
+// Enabled implements logr.LogSink interface
 func (log *spinnerLogSink) Enabled(level int) bool {
 	return GlobalLogLevel >= level
 }
