@@ -141,9 +141,17 @@ func (log *logger) Grouped(state bool) {
 }
 
 func EnableGroupSession(logger interface{}) func() {
-	if l, ok := logger.(interface{ Grouped(state bool) }); ok {
-		l.Grouped(true)
-		return func() { l.Grouped(false) }
+	var l interface{}
+
+	if lwrap, ok := logger.(interface{ GetSink() logr.LogSink }); ok {
+		l = lwrap.GetSink()
+	} else {
+		l = logger
+	}
+
+	if lgroupable, ok := l.(interface{ Grouped(state bool) }); ok {
+		lgroupable.Grouped(true)
+		return func() { lgroupable.Grouped(false) }
 	}
 	return func() {}
 }
