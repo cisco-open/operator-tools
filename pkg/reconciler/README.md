@@ -77,7 +77,7 @@ type DynamicDesiredState struct {
 }
 ```
 
-As an example, let's look at the service resource, where any update attempts with an empty `clusterIP` will fail. However, unless the service is headless, the `clusterIP` should only be managed on the server side and will result in errors if we don't set it client side. To overcome this, we can add a `BeforeUpdateFunc` that updates the `clusterIP` field locally to the remote value:
+As an example, let's look at the service resource, where any update attempts with an empty `clusterIP` will fail. However, unless the service is headless, the `clusterIP` should only be managed on the server side and will result in an error if it's not set on the client side. To overcome this, we can add a `BeforeUpdateFunc` that updates the `clusterIP` field locally to the remote value as a workaround:
 
 ```
 ds := &DynamicDesiredState{}
