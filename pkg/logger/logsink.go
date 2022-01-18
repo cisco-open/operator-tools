@@ -30,7 +30,7 @@ import (
 	terminal "github.com/wayneashleyberry/terminal-dimensions"
 )
 
-type spinnerLogSink struct {
+type SpinnerLogSink struct {
 	names  []string
 	values []interface{}
 	out    io.Writer
@@ -51,8 +51,8 @@ type spinnerLogSink struct {
 	mux sync.Mutex
 }
 
-func NewSpinnerLogSink(options ...Option) *spinnerLogSink {
-	l := &spinnerLogSink{
+func NewSpinnerLogSink(options ...Option) *SpinnerLogSink {
+	l := &SpinnerLogSink{
 		names: []string{},
 		out:   os.Stderr,
 		err:   os.Stderr,
@@ -76,10 +76,10 @@ func NewSpinnerLogSink(options ...Option) *spinnerLogSink {
 	return l
 }
 
-func (log *spinnerLogSink) Init(_ logr.RuntimeInfo) {}
+func (log *SpinnerLogSink) Init(_ logr.RuntimeInfo) {}
 
 // Info implements logr.LogSink interface
-func (log *spinnerLogSink) Info(level int, msg string, keysAndValues ...interface{}) {
+func (log *SpinnerLogSink) Info(level int, msg string, keysAndValues ...interface{}) {
 	if !log.Enabled(level) {
 		return
 	}
@@ -124,12 +124,12 @@ func (log *spinnerLogSink) Info(level int, msg string, keysAndValues ...interfac
 }
 
 // Enabled implements logr.LogSink interface
-func (log *spinnerLogSink) Enabled(level int) bool {
+func (log *SpinnerLogSink) Enabled(level int) bool {
 	return GlobalLogLevel >= level
 }
 
 // Error implements logr.LogSink interface
-func (log *spinnerLogSink) Error(e error, msg string, keysAndValues ...interface{}) {
+func (log *SpinnerLogSink) Error(e error, msg string, keysAndValues ...interface{}) {
 	allVal := append(keysAndValues, log.values...)
 	if msg != "" {
 		msg = color.New(log.colors.Error).Sprintf("%s: %s", msg, log.getDetailedErr(e))
@@ -163,7 +163,7 @@ func (log *spinnerLogSink) Error(e error, msg string, keysAndValues ...interface
 }
 
 // WithName implements logr.LogSink interface
-func (log *spinnerLogSink) WithName(name string) logr.LogSink {
+func (log *SpinnerLogSink) WithName(name string) logr.LogSink {
 	l := log.copyLogger()
 	l.names = append(l.names, name)
 
@@ -171,27 +171,27 @@ func (log *spinnerLogSink) WithName(name string) logr.LogSink {
 }
 
 // WithValues implements logr.LogSink interface
-func (log *spinnerLogSink) WithValues(keysAndValues ...interface{}) logr.LogSink {
+func (log *SpinnerLogSink) WithValues(keysAndValues ...interface{}) logr.LogSink {
 	l := log.copyLogger()
 	l.values = append(l.values, keysAndValues)
 
 	return l
 }
 
-func (log *spinnerLogSink) SetOptions(options ...Option) {
+func (log *SpinnerLogSink) SetOptions(options ...Option) {
 	for _, opt := range options {
 		opt(log)
 	}
 }
 
-func (log *spinnerLogSink) ShowTime(f bool) *spinnerLogSink {
+func (log *SpinnerLogSink) ShowTime(f bool) *SpinnerLogSink {
 	l := log.copyLogger()
 	l.showTime = f
 
 	return l
 }
 
-func (log *spinnerLogSink) Grouped(state bool) {
+func (log *SpinnerLogSink) Grouped(state bool) {
 	if !log.grouppable {
 		return
 	}
@@ -205,11 +205,11 @@ func (log *spinnerLogSink) Grouped(state bool) {
 	log.grouped = state
 }
 
-func (log *spinnerLogSink) printNames() string {
+func (log *SpinnerLogSink) printNames() string {
 	return strings.Join(log.names, "/")
 }
 
-func (log *spinnerLogSink) initSpinner() {
+func (log *SpinnerLogSink) initSpinner() {
 	log.mux.Lock()
 	defer log.mux.Unlock()
 	log.spinner = spinner.New(
@@ -222,7 +222,7 @@ func (log *spinnerLogSink) initSpinner() {
 	log.spinner.Start()
 }
 
-func (log *spinnerLogSink) stopSpinner() {
+func (log *SpinnerLogSink) stopSpinner() {
 	log.mux.Lock()
 	defer log.mux.Unlock()
 	if log.spinner != nil {
@@ -231,14 +231,14 @@ func (log *spinnerLogSink) stopSpinner() {
 	}
 }
 
-func (log *spinnerLogSink) copyLogger() *spinnerLogSink {
+func (log *SpinnerLogSink) copyLogger() *SpinnerLogSink {
 	names := make([]string, len(log.names))
 	copy(names, log.names)
 
 	values := make([]interface{}, len(log.values))
 	copy(values, log.values)
 
-	return &spinnerLogSink{
+	return &SpinnerLogSink{
 		names:              log.names,
 		values:             log.values,
 		out:                log.out,
@@ -259,7 +259,7 @@ func (log *spinnerLogSink) copyLogger() *spinnerLogSink {
 	}
 }
 
-func (*spinnerLogSink) truncateString(str string, num int) string {
+func (*SpinnerLogSink) truncateString(str string, num int) string {
 	bnoden := str
 	if len(str) > num {
 		if num > 3 { //nolint:gomnd
@@ -270,7 +270,7 @@ func (*spinnerLogSink) truncateString(str string, num int) string {
 	return bnoden
 }
 
-func (log *spinnerLogSink) joinAndSeparatePairs(values []interface{}) string {
+func (log *SpinnerLogSink) joinAndSeparatePairs(values []interface{}) string {
 	joined := ""
 	c := log.colors.Key
 	for i, v := range values {
@@ -292,7 +292,7 @@ func (log *spinnerLogSink) joinAndSeparatePairs(values []interface{}) string {
 	return joined
 }
 
-func (log *spinnerLogSink) getDetailedErr(err error) string {
+func (log *SpinnerLogSink) getDetailedErr(err error) string {
 	if err == nil {
 		return ""
 	}

@@ -18,64 +18,64 @@ import (
 	"io"
 )
 
-type Option func(*spinnerLogSink)
+type Option func(*SpinnerLogSink)
 
 func Out(w io.Writer) Option {
-	return func(l *spinnerLogSink) {
+	return func(l *SpinnerLogSink) {
 		l.out = w
 	}
 }
 
 func Err(w io.Writer) Option {
-	return func(l *spinnerLogSink) {
+	return func(l *SpinnerLogSink) {
 		l.err = w
 	}
 }
 
 func Grouppable() Option {
-	return func(l *spinnerLogSink) {
+	return func(l *SpinnerLogSink) {
 		l.grouppable = true
 	}
 }
 
 func Truncate() Option {
-	return func(l *spinnerLogSink) {
+	return func(l *SpinnerLogSink) {
 		l.truncate = true
 	}
 }
 
 func Color(colors Colors) Option {
-	return func(l *spinnerLogSink) {
+	return func(l *SpinnerLogSink) {
 		l.colors = colors
 	}
 }
 
 func CheckMarkCharacter(m rune) Option {
-	return func(l *spinnerLogSink) {
+	return func(l *SpinnerLogSink) {
 		l.checkMark = m
 	}
 }
 
 func ErrorMarkCharacter(m rune) Option {
-	return func(l *spinnerLogSink) {
+	return func(l *SpinnerLogSink) {
 		l.errorMark = m
 	}
 }
 
 func SeparatorCharacter(m rune) Option {
-	return func(l *spinnerLogSink) {
+	return func(l *SpinnerLogSink) {
 		l.separatorCharacter = m
 	}
 }
 
 func WithName(name string) Option {
-	return func(l *spinnerLogSink) {
+	return func(l *SpinnerLogSink) {
 		l.names = append(l.names, name)
 	}
 }
 
 func WithTime(format string) Option {
-	return func(l *spinnerLogSink) {
+	return func(l *SpinnerLogSink) {
 		l.timeFormat = format
 		l.showTime = true
 	}

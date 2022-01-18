@@ -43,7 +43,7 @@ type Logger interface {
 
 type logger struct {
 	level int
-	sink  *spinnerLogSink
+	sink  *SpinnerLogSink
 }
 
 func New(options ...Option) Logger {
