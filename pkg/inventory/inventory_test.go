@@ -18,7 +18,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/banzaicloud/operator-tools/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,6 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/diff"
+
+	"github.com/banzaicloud/operator-tools/pkg/utils"
 )
 
 func TestCreateObjectsInventory(t *testing.T) {
@@ -65,7 +66,7 @@ func TestCreateObjectsInventory(t *testing.T) {
 		},
 		Immutable: utils.BoolPointer(false),
 		Data: map[string]string{
-			"refs": "/v1/Service/test-ns/test-svc,apps/v1/Deployment/test-ns/test-deployment",
+			referencesKey: "/v1/Service/test-ns/test-svc,apps/v1/Deployment/test-ns/test-deployment",
 		},
 	}
 
@@ -86,7 +87,7 @@ func TestGetObjectsFromInventory(t *testing.T) {
 		},
 		Immutable: utils.BoolPointer(false),
 		Data: map[string]string{
-			"refs": "/v1/Service/test-ns/test-svc,apps/v1/Deployment/test-ns/test-deployment",
+			referencesKey: "/v1/Service/test-ns/test-svc,apps/v1/Deployment/test-ns/test-deployment",
 		},
 	}
 
