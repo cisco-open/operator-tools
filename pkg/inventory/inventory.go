@@ -39,6 +39,8 @@ import (
 const (
 	CustomResourceDefinition = "CustomResourceDefinition"
 	Namespace                = "Namespace"
+
+	referencesKey = "refs"
 )
 
 // State holder between reconcile phases
@@ -108,7 +110,7 @@ func CreateObjectsInventory(namespace, name string, objects []runtime.Object) (*
 		},
 		Immutable: utils.BoolPointer(false),
 		Data: map[string]string{
-			"refs": strings.Join(resourceURLs, ","),
+			referencesKey: strings.Join(resourceURLs, ","),
 		},
 	}
 
@@ -116,7 +118,7 @@ func CreateObjectsInventory(namespace, name string, objects []runtime.Object) (*
 }
 
 func GetObjectsFromInventory(inventory core.ConfigMap) (objects []runtime.Object) {
-	resourceURLs := strings.Split(inventory.Data["refs"], ",")
+	resourceURLs := strings.Split(inventory.Data[referencesKey], ",")
 
 	for i := range resourceURLs {
 		if resourceURLs[i] == "" {
@@ -384,7 +386,9 @@ func (i *Inventory) Append(namespace, component string, parent reconciler.Resour
 			return resourceBuilders, err
 		}
 		// do not try to create the inventory when the namespace is being deleted
-		if ns.GetDeletionTimestamp().IsZero() {
+		// or the parent resource is being deleted
+		// or the objects references are empty
+		if ns.GetDeletionTimestamp().IsZero() && parent.GetDeletionTimestamp().IsZero() && objectInventory.Data[referencesKey] != "" {
 			resourceBuilders = append(resourceBuilders, func() (runtime.Object, reconciler.DesiredState, error) {
 				return objectInventory, reconciler.StatePresent, err
 			})
