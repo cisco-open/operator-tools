@@ -161,6 +161,10 @@ type ReconcilerOpts struct {
 	// Custom logic to decide if an error message indicates a resource should be recreated.
 	// Takes precedence over RecreateErrorMessageSubstring if set.
 	RecreateErrorMessageCondition ErrorMessageCondition
+	// K8s object matcher patch maker implementation
+	PatchMaker patch.Maker
+	// K8s object matcher patch calculate options
+	PatchCalculateOptions []patch.CalculateOption
 }
 
 func MatchImmutableNoStatefulSet(errorMessage string) bool {
@@ -218,6 +222,12 @@ func NewGenericReconciler(c client.Client, log logr.Logger, opts ReconcilerOpts)
 	if len(opts.RecreatePropagationPolicy) == 0 {
 		// DO NOT wait until all dependent resources get cleared up
 		opts.RecreatePropagationPolicy = client.PropagationPolicy(metav1.DeletePropagationBackground)
+	}
+	if opts.PatchMaker == nil {
+		opts.PatchMaker = patch.DefaultPatchMaker
+	}
+	if opts.PatchCalculateOptions == nil {
+		opts.PatchCalculateOptions = []patch.CalculateOption{patch.IgnoreStatusFields()}
 	}
 	return &GenericResourceReconciler{
 		Log:     log,
@@ -301,6 +311,20 @@ func WithRecreateErrorMessageCondition(condition ErrorMessageCondition) Resource
 func WithRecreateErrorMessageIgnored() ResourceReconcilerOption {
 	return func(o *ReconcilerOpts) {
 		o.RecreateErrorMessageSubstring = utils.StringPointer("")
+	}
+}
+
+// Set patch maker implementation
+func WithPatchMaker(maker patch.Maker) ResourceReconcilerOption {
+	return func(o *ReconcilerOpts) {
+		o.PatchMaker = maker
+	}
+}
+
+// Set patch maker calculate options
+func WithPatchCalculateOptions(options ...patch.CalculateOption) ResourceReconcilerOption {
+	return func(o *ReconcilerOpts) {
+		o.PatchCalculateOptions = options
 	}
 }
 
@@ -410,7 +434,7 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 			return nil, errors.WrapIfWithDetails(err, "failed to get desired state dynamically", resourceDetails...)
 		}
 
-		patchResult, err := patch.DefaultPatchMaker.Calculate(current, desired, patch.IgnoreStatusFields())
+		patchResult, err := r.Options.PatchMaker.Calculate(current, desired, r.Options.PatchCalculateOptions...)
 		if err != nil {
 			debugLog.Info("could not match objects", "error", err)
 		} else if patchResult.IsEmpty() {
