@@ -68,14 +68,24 @@ func (PendingStatusPredicate) Update(e event.UpdateEvent) bool {
 
 type SpecChangePredicate struct {
 	predicate.Funcs
+
+	patchMaker       patch.Maker
+	calculateOptions []patch.CalculateOption
 }
 
-func (SpecChangePredicate) Update(e event.UpdateEvent) bool {
+func (p SpecChangePredicate) Update(e event.UpdateEvent) bool {
+	if p.patchMaker == nil {
+		p.patchMaker = patch.DefaultPatchMaker
+	}
+	if p.calculateOptions == nil {
+		p.calculateOptions = []patch.CalculateOption{patch.IgnoreStatusFields(), IgnoreManagedFields()}
+	}
+
 	oldRV := e.ObjectOld.GetResourceVersion()
 	e.ObjectOld.SetResourceVersion(e.ObjectNew.GetResourceVersion())
 	defer e.ObjectOld.SetResourceVersion(oldRV)
 
-	patchResult, err := patch.DefaultPatchMaker.Calculate(e.ObjectOld, e.ObjectNew, patch.IgnoreStatusFields(), IgnoreManagedFields())
+	patchResult, err := p.patchMaker.Calculate(e.ObjectOld, e.ObjectNew, p.calculateOptions...)
 	if err != nil {
 		return true
 	} else if patchResult.IsEmpty() {
