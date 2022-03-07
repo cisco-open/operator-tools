@@ -203,7 +203,7 @@ func NewGenericReconciler(c client.Client, log logr.Logger, opts ReconcilerOpts)
 	}
 	if opts.RecreateErrorMessageSubstring == nil {
 		if opts.RecreateErrorMessageCondition == nil {
-			opts.RecreateErrorMessageCondition = MatchImmutableNoStatefulSet
+			opts.RecreateErrorMessageCondition = MatchImmutableErrorMessages
 		} else {
 			opts.RecreateErrorMessageSubstring = utils.StringPointer("immutable")
 		}
