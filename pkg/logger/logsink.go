@@ -205,6 +205,52 @@ func (log *SpinnerLogSink) Grouped(state bool) {
 	log.grouped = state
 }
 
+func (log *SpinnerLogSink) GetValues() []interface{}{
+	return log.values
+}
+
+func (log *SpinnerLogSink) AddValues(keyAndValues []interface{}){
+	for k, v := range keyAndValues{
+		log.values[k] = v
+	}
+}
+
+func (log *SpinnerLogSink) AddName(name string){
+	log.names = append(log.names, name)
+}
+
+func (log *SpinnerLogSink) GetGrouppable() bool{
+	return log.grouppable
+}
+
+func (log *SpinnerLogSink) SetGrouppable(state bool) {
+	log.grouppable = state
+}
+
+func (log *SpinnerLogSink) GetShowTime() bool {
+	return log.showTime
+}
+
+func (log *SpinnerLogSink) SetShowTime(time bool) {
+	log.showTime = time
+}
+
+func (log *SpinnerLogSink) GetSpinner() *spinner.Spinner{
+	return log.spinner
+}
+
+func (log *SpinnerLogSink) StopSpinner(){
+	log.stopSpinner()
+}
+
+func (log *SpinnerLogSink) InitSpinner(){
+	log.initSpinner()
+}
+
+func (log *SpinnerLogSink) Copy() *SpinnerLogSink{
+	return log.copyLogger()
+}
+
 func (log *SpinnerLogSink) printNames() string {
 	return strings.Join(log.names, "/")
 }
