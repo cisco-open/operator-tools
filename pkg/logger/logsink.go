@@ -30,6 +30,10 @@ import (
 	terminal "github.com/wayneashleyberry/terminal-dimensions"
 )
 
+const (
+	defaultDisableColor = false
+)
+
 type SpinnerLogSink struct {
 	names  []string
 	values []interface{}
@@ -40,11 +44,13 @@ type SpinnerLogSink struct {
 	truncate           bool
 	showTime           bool
 	grouped            bool
+	disableColor       bool
 	checkMark          rune
 	errorMark          rune
 	separatorCharacter rune
 	timeFormat         string
-	colors             Colors
+
+	colors Colors
 
 	spinner *spinner.Spinner
 
@@ -65,6 +71,7 @@ func NewSpinnerLogSink(options ...Option) *SpinnerLogSink {
 			Error: color.FgRed,
 			Key:   color.FgHiGreen,
 		},
+		disableColor: defaultDisableColor,
 
 		mux: sync.Mutex{},
 	}
@@ -80,6 +87,9 @@ func (log *SpinnerLogSink) Init(_ logr.RuntimeInfo) {}
 
 // Info implements logr.LogSink interface
 func (log *SpinnerLogSink) Info(level int, msg string, keysAndValues ...interface{}) {
+
+	colorPrinter := log.getColorPrinter(log.colors.Info)
+
 	if !log.Enabled(level) {
 		return
 	}
@@ -114,7 +124,7 @@ func (log *SpinnerLogSink) Info(level int, msg string, keysAndValues ...interfac
 	if log.spinner != nil {
 		log.spinner.Writer = log.out
 		log.spinner.Suffix = " " + msg // Append text after the spinner
-		log.spinner.FinalMSG = color.New(log.colors.Info).Sprintf("%c", log.checkMark) + log.spinner.Suffix + "\n"
+		log.spinner.FinalMSG = colorPrinter.Sprintf("%c", log.checkMark) + log.spinner.Suffix + "\n"
 	}
 	log.mux.Unlock()
 
@@ -131,10 +141,13 @@ func (log *SpinnerLogSink) Enabled(level int) bool {
 // Error implements logr.LogSink interface
 func (log *SpinnerLogSink) Error(e error, msg string, keysAndValues ...interface{}) {
 	allVal := append(keysAndValues, log.values...)
+
+	colorPrinter := log.getColorPrinter(log.colors.Error)
+
 	if msg != "" {
-		msg = color.New(log.colors.Error).Sprintf("%s: %s", msg, log.getDetailedErr(e))
+		msg = colorPrinter.Sprintf("%s: %s", msg, log.getDetailedErr(e))
 	} else {
-		msg = color.New(log.colors.Error).Sprintf("%s", log.getDetailedErr(e))
+		msg = colorPrinter.Sprintf("%s", log.getDetailedErr(e))
 	}
 	if len(allVal) > 0 {
 		msg = fmt.Sprintf("%s %s", msg, log.joinAndSeparatePairs(allVal))
@@ -157,7 +170,7 @@ func (log *SpinnerLogSink) Error(e error, msg string, keysAndValues ...interface
 
 	log.spinner.Writer = log.err
 	log.spinner.Suffix = " " + msg // Append text after the spinner
-	log.spinner.FinalMSG = color.New(log.colors.Error).Sprintf("%c", log.errorMark) + log.spinner.Suffix + "\n"
+	log.spinner.FinalMSG = colorPrinter.Sprintf("%c", log.errorMark) + log.spinner.Suffix + "\n"
 
 	log.stopSpinner()
 }
@@ -205,21 +218,21 @@ func (log *SpinnerLogSink) Grouped(state bool) {
 	log.grouped = state
 }
 
-func (log *SpinnerLogSink) GetValues() []interface{}{
+func (log *SpinnerLogSink) GetValues() []interface{} {
 	return log.values
 }
 
-func (log *SpinnerLogSink) AddValues(keyAndValues []interface{}){
-	for k, v := range keyAndValues{
+func (log *SpinnerLogSink) AddValues(keyAndValues []interface{}) {
+	for k, v := range keyAndValues {
 		log.values[k] = v
 	}
 }
 
-func (log *SpinnerLogSink) AddName(name string){
+func (log *SpinnerLogSink) AddName(name string) {
 	log.names = append(log.names, name)
 }
 
-func (log *SpinnerLogSink) GetGrouppable() bool{
+func (log *SpinnerLogSink) GetGrouppable() bool {
 	return log.grouppable
 }
 
@@ -235,19 +248,23 @@ func (log *SpinnerLogSink) SetShowTime(time bool) {
 	log.showTime = time
 }
 
-func (log *SpinnerLogSink) GetSpinner() *spinner.Spinner{
+func (log *SpinnerLogSink) SetDisableColor(disableColor bool) {
+	log.disableColor = disableColor
+}
+
+func (log *SpinnerLogSink) GetSpinner() *spinner.Spinner {
 	return log.spinner
 }
 
-func (log *SpinnerLogSink) StopSpinner(){
+func (log *SpinnerLogSink) StopSpinner() {
 	log.stopSpinner()
 }
 
-func (log *SpinnerLogSink) InitSpinner(){
+func (log *SpinnerLogSink) InitSpinner() {
 	log.initSpinner()
 }
 
-func (log *SpinnerLogSink) Copy() *SpinnerLogSink{
+func (log *SpinnerLogSink) Copy() *SpinnerLogSink {
 	return log.copyLogger()
 }
 
@@ -297,6 +314,7 @@ func (log *SpinnerLogSink) copyLogger() *SpinnerLogSink {
 		errorMark:          log.errorMark,
 		separatorCharacter: log.separatorCharacter,
 		colors:             log.colors,
+		disableColor:       log.disableColor,
 
 		grouped: log.grouped,
 		spinner: log.spinner,
@@ -324,7 +342,10 @@ func (log *SpinnerLogSink) joinAndSeparatePairs(values []interface{}) string {
 		if err != nil {
 			s = fmt.Sprintf("%v", v)
 		}
-		joined += color.New(c).Sprint(s)
+
+		colorPrinter := log.getColorPrinter(c)
+		joined += colorPrinter.Sprint(s)
+
 		if i%2 == 0 {
 			c = 0
 			joined += "="
@@ -348,4 +369,13 @@ func (log *SpinnerLogSink) getDetailedErr(err error) string {
 		return err.Error()
 	}
 	return fmt.Sprintf("%s (%s)", err.Error(), log.joinAndSeparatePairs(details))
+}
+
+func (log *SpinnerLogSink) getColorPrinter(attribute color.Attribute) *color.Color {
+	colorPrinter := color.New(attribute)
+	if log.disableColor {
+		colorPrinter.DisableColor()
+	}
+
+	return colorPrinter
 }
