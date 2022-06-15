@@ -223,9 +223,7 @@ func (log *SpinnerLogSink) GetValues() []interface{} {
 }
 
 func (log *SpinnerLogSink) AddValues(keyAndValues []interface{}) {
-	for k, v := range keyAndValues {
-		log.values[k] = v
-	}
+	log.values = append(log.values, keyAndValues...)
 }
 
 func (log *SpinnerLogSink) AddName(name string) {
