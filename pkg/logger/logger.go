@@ -85,9 +85,8 @@ func (log *logger) WithName(name string) Logger {
 
 func (log *logger) WithValues(keysAndValues ...interface{}) Logger {
 	sink := log.sink.copyLogger()
-	for k, v := range keysAndValues {
-		sink.values[k] = v
-	}
+
+	sink.values = keysAndValues
 
 	return &logger{
 		level: log.level,
