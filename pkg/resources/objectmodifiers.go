@@ -37,12 +37,14 @@ var DefaultModifiers = []ObjectModifierFunc{
 	ValidatingWebhookConfigurationModifier,
 }
 
-func WorkloadImagePullSecretsModifier(imagePullSecrets ...[]corev1.LocalObjectReference) ObjectModifierFunc {
-	merge := func(existing []corev1.LocalObjectReference, additions ...[]corev1.LocalObjectReference) []corev1.LocalObjectReference {
+func WorkloadImagePullSecretsModifier(imagePullSecrets ...[]*corev1.LocalObjectReference) ObjectModifierFunc {
+	merge := func(existing []corev1.LocalObjectReference, additions ...[]*corev1.LocalObjectReference) []corev1.LocalObjectReference {
 		var ips []corev1.LocalObjectReference
 		ips = append(ips, existing...)
 		for _, addition := range additions {
-			ips = append(ips, addition...)
+			for _, ad := range addition {
+				ips = append(ips, *ad)
+			}
 		}
 		return ips
 	}
