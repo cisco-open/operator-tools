@@ -291,7 +291,7 @@ func (c *Inventory) sanitizeDesiredObjects(desiredObjects []runtime.Object) erro
 	for i := range desiredObjects {
 		objMeta, err := meta.Accessor(desiredObjects[i])
 		if err != nil {
-			return errors.WrapIfWithDetails(err, "couldn't get meta data access for object", "gvk", desiredObjects[i].GetObjectKind().GroupVersionKind().String(), "name", objMeta.GetName())
+			return errors.WrapIfWithDetails(err, "couldn't get meta data access for object", "gvk", desiredObjects[i].GetObjectKind().GroupVersionKind().String())
 		}
 
 		isClusterScoped, err := c.IsClusterScoped(desiredObjects[i])
@@ -356,7 +356,7 @@ func (c *Inventory) ensureNamespace(namespace string, objects []runtime.Object) 
 	for i := range objects {
 		objMeta, err := meta.Accessor(objects[i])
 		if err != nil {
-			return errors.WrapIfWithDetails(err, "couldn't get meta data access for object", "gvk", objects[i].GetObjectKind().GroupVersionKind().String(), "name", objMeta.GetName())
+			return errors.WrapIfWithDetails(err, "couldn't get meta data access for object", "gvk", objects[i].GetObjectKind().GroupVersionKind().String())
 		}
 
 		isClusterScoped, err := c.IsClusterScoped(objects[i])
