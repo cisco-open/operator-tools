@@ -375,7 +375,6 @@ func (c *Inventory) ensureNamespace(namespace string, objects []runtime.Object) 
 
 func (i *Inventory) Append(namespace, component string, parent reconciler.ResourceOwner, resourceBuilders []reconciler.ResourceBuilder) ([]reconciler.ResourceBuilder, error) {
 	ns := &core.Namespace{}
-	var err error
 	// get the namespace so that we can see if it's under deletion
 	// we don't care if the namespace does not exist, we might be preparing to run this for the first time
 	if err := i.genericClient.Get(context.TODO(), client.ObjectKey{Name: namespace}, ns); client.IgnoreNotFound(err) != nil {
@@ -394,5 +393,5 @@ func (i *Inventory) Append(namespace, component string, parent reconciler.Resour
 			})
 		}
 	}
-	return resourceBuilders, err
+	return resourceBuilders, nil
 }
