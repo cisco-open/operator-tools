@@ -291,7 +291,7 @@ func (c *Inventory) sanitizeDesiredObjects(desiredObjects []runtime.Object) erro
 	for i := range desiredObjects {
 		objMeta, err := meta.Accessor(desiredObjects[i])
 		if err != nil {
-			return errors.WrapIfWithDetails(err, "couldn't get meta data access for object", "gvk", desiredObjects[i].GetObjectKind().GroupVersionKind().String(), "name", objMeta.GetName())
+			return errors.WrapIfWithDetails(err, "couldn't get meta data access for object", "gvk", desiredObjects[i].GetObjectKind().GroupVersionKind().String())
 		}
 
 		isClusterScoped, err := c.IsClusterScoped(desiredObjects[i])
@@ -356,7 +356,7 @@ func (c *Inventory) ensureNamespace(namespace string, objects []runtime.Object) 
 	for i := range objects {
 		objMeta, err := meta.Accessor(objects[i])
 		if err != nil {
-			return errors.WrapIfWithDetails(err, "couldn't get meta data access for object", "gvk", objects[i].GetObjectKind().GroupVersionKind().String(), "name", objMeta.GetName())
+			return errors.WrapIfWithDetails(err, "couldn't get meta data access for object", "gvk", objects[i].GetObjectKind().GroupVersionKind().String())
 		}
 
 		isClusterScoped, err := c.IsClusterScoped(objects[i])
@@ -375,7 +375,6 @@ func (c *Inventory) ensureNamespace(namespace string, objects []runtime.Object) 
 
 func (i *Inventory) Append(namespace, component string, parent reconciler.ResourceOwner, resourceBuilders []reconciler.ResourceBuilder) ([]reconciler.ResourceBuilder, error) {
 	ns := &core.Namespace{}
-	var err error
 	// get the namespace so that we can see if it's under deletion
 	// we don't care if the namespace does not exist, we might be preparing to run this for the first time
 	if err := i.genericClient.Get(context.TODO(), client.ObjectKey{Name: namespace}, ns); client.IgnoreNotFound(err) != nil {
@@ -394,5 +393,5 @@ func (i *Inventory) Append(namespace, component string, parent reconciler.Resour
 			})
 		}
 	}
-	return resourceBuilders, err
+	return resourceBuilders, nil
 }
