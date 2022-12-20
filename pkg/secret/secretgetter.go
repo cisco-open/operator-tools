@@ -29,44 +29,45 @@ import (
 )
 
 type SecretGetter interface {
-	Get() (*K8sSecret, error)
+	Get(objectKey client.ObjectKey) (K8sSecret, error)
 }
 
-type K8sSecret struct {
+type K8sSecret interface {
+	GetToken() []byte
+	GetCACert() []byte
+}
+
+type readerSecretGetter struct {
+	client client.Client
+}
+
+func NewReaderSecretGetter(client client.Client) (SecretGetter, error) {
+	if client == nil {
+		return nil, errors.New("k8s client should be set for reader-secret getter")
+	}
+
+	return &readerSecretGetter{client: client}, nil
+}
+
+type readerSecret struct {
 	Token  []byte
 	CACert []byte
 }
 
-type ReaderSecretGetterOption struct {
-	Client                  client.Client
-	ServiceAccountName      string
-	ServiceAccountNamespace string
+func (r *readerSecret) GetToken() []byte {
+	return r.Token
 }
 
-type readerSecretGetter struct {
-	options *ReaderSecretGetterOption
+func (r *readerSecret) GetCACert() []byte {
+	return r.CACert
 }
 
-func NewReaderSecretGetter(opt *ReaderSecretGetterOption) (SecretGetter, error) {
-	if opt == nil {
-		return nil, errors.New("reader-secret option should be set for constructor")
-	}
-
-	if opt.Client == nil {
-		return nil, errors.New("k8s client should be set for reader-secret getter")
-	}
-
-	if opt.ServiceAccountNamespace == "" || opt.ServiceAccountName == "" {
-		return nil, errors.New("service account name and namespace should be set for reader-secret getter")
-	}
-
-	return &readerSecretGetter{options: opt}, nil
-}
-
-func (r *readerSecretGetter) Get() (*K8sSecret, error) {
+func (r *readerSecretGetter) Get(objectKey client.ObjectKey) (K8sSecret, error) {
 	ctx := context.Background()
 
-	sa, err := r.getReaderSecretServiceAccount(ctx)
+	// fetch SA object so that we can get the Secret object that relates to the SA
+	saObjectKey := objectKey
+	sa, err := r.getReaderSecretServiceAccount(ctx, saObjectKey)
 	if err != nil {
 		return nil, errors.WrapIf(err, "error getting reader secret")
 	}
@@ -77,15 +78,14 @@ func (r *readerSecretGetter) Get() (*K8sSecret, error) {
 	return r.getOrCreateReaderSecretWithServiceAccount(ctx, sa)
 }
 
-func (r *readerSecretGetter) getReaderSecretServiceAccount(ctx context.Context) (*corev1.ServiceAccount, error) {
+func (r *readerSecretGetter) getReaderSecretServiceAccount(ctx context.Context, saObjectKey client.ObjectKey) (*corev1.ServiceAccount, error) {
 	sa := &corev1.ServiceAccount{}
-
 	saRef := types.NamespacedName{
-		Namespace: r.options.ServiceAccountNamespace,
-		Name:      r.options.ServiceAccountName,
+		Namespace: saObjectKey.Namespace,
+		Name:      saObjectKey.Name,
 	}
 
-	err := r.options.Client.Get(ctx, saRef, sa)
+	err := r.client.Get(ctx, saRef, sa)
 	if err != nil {
 		return nil, errors.WrapIff(err, "error getting service account object, service account name: %s, service account namespace: %s",
 			saRef.Name,
@@ -95,7 +95,7 @@ func (r *readerSecretGetter) getReaderSecretServiceAccount(ctx context.Context) 
 	return sa, nil
 }
 
-func (r *readerSecretGetter) getOrCreateReaderSecretWithServiceAccount(ctx context.Context, sa *corev1.ServiceAccount) (*K8sSecret, error) {
+func (r *readerSecretGetter) getOrCreateReaderSecretWithServiceAccount(ctx context.Context, sa *corev1.ServiceAccount) (K8sSecret, error) {
 	secretObj := &corev1.Secret{}
 
 	readerSecretName := sa.Name + "-token"
@@ -107,7 +107,7 @@ func (r *readerSecretGetter) getOrCreateReaderSecretWithServiceAccount(ctx conte
 		Name:      readerSecretName,
 	}
 
-	err := r.options.Client.Get(ctx, secretObjRef, secretObj)
+	err := r.client.Get(ctx, secretObjRef, secretObj)
 	if err != nil && k8sErrors.IsNotFound(err) {
 		secretObj = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -120,7 +120,7 @@ func (r *readerSecretGetter) getOrCreateReaderSecretWithServiceAccount(ctx conte
 			Type: "kubernetes.io/service-account-token",
 		}
 
-		err = r.options.Client.Create(ctx, secretObj)
+		err = r.client.Create(ctx, secretObj)
 		if err != nil {
 			return nil, errors.WrapIfWithDetails(err, "creating kubernetes secret failed", "namespace",
 				secretObjRef.Namespace,
@@ -128,11 +128,17 @@ func (r *readerSecretGetter) getOrCreateReaderSecretWithServiceAccount(ctx conte
 				secretObjRef.Name)
 		}
 
-		// Wait for token-controller to create token for the reader secret
-		return r.waitAndGetReaderSecret(ctx, secretObjRef.Namespace, secretObjRef.Name)
+		// wait for token-controller to create token for the reader secret
+		backoffWaitSecret := wait.Backoff{
+			Duration: time.Second * 3,
+			Factor:   1,
+			Jitter:   0,
+			Steps:    3,
+		}
+		return r.waitAndGetReaderSecret(ctx, secretObjRef.Namespace, secretObjRef.Name, backoffWaitSecret)
 	}
 
-	readerSecret := &K8sSecret{
+	readerSecret := &readerSecret{
 		Token:  secretObj.Data["token"],
 		CACert: secretObj.Data["ca.crt"],
 	}
@@ -140,15 +146,8 @@ func (r *readerSecretGetter) getOrCreateReaderSecretWithServiceAccount(ctx conte
 	return readerSecret, nil
 }
 
-// backoff waiting of the K8s Secret object to be created
-var defaultBackoff = wait.Backoff{
-	Duration: time.Second * 3,
-	Factor:   1,
-	Jitter:   0,
-	Steps:    3,
-}
-
-func (r *readerSecretGetter) waitAndGetReaderSecret(ctx context.Context, secretNamespace string, secretName string) (*K8sSecret, error) {
+func (r *readerSecretGetter) waitAndGetReaderSecret(ctx context.Context, secretNamespace string, secretName string,
+	backoff wait.Backoff) (K8sSecret, error) {
 	var token, caCert []byte
 
 	secretObjRef := types.NamespacedName{
@@ -156,9 +155,9 @@ func (r *readerSecretGetter) waitAndGetReaderSecret(ctx context.Context, secretN
 		Name:      secretName,
 	}
 
-	err := wait.ExponentialBackoff(defaultBackoff, func() (bool, error) {
+	err := wait.ExponentialBackoff(backoff, func() (bool, error) {
 		tokenSecret := &corev1.Secret{}
-		err := r.options.Client.Get(ctx, secretObjRef, tokenSecret)
+		err := r.client.Get(ctx, secretObjRef, tokenSecret)
 		if err != nil {
 			if k8sErrors.IsNotFound(err) {
 				return false, nil
@@ -177,7 +176,7 @@ func (r *readerSecretGetter) waitAndGetReaderSecret(ctx context.Context, secretN
 		return true, nil
 	})
 
-	readerSecret := &K8sSecret{
+	readerSecret := &readerSecret{
 		Token:  token,
 		CACert: caCert,
 	}
