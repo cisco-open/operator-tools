@@ -39,14 +39,41 @@ type K8sSecret interface {
 
 type readerSecretGetter struct {
 	client client.Client
+	// Backoff wait for reader secret to be created
+	backoff *wait.Backoff
 }
 
-func NewReaderSecretGetter(client client.Client) (SecretGetter, error) {
-	if client == nil {
+type ReaderSecretGetterOption = func(r *readerSecretGetter)
+
+func WithBackOff(backoff *wait.Backoff) ReaderSecretGetterOption {
+	return func(rsG *readerSecretGetter) {
+		rsG.backoff = backoff
+	}
+}
+
+var defaultBackoffWaitSecret = &wait.Backoff{
+	Duration: time.Second * 3,
+	Factor:   1,
+	Jitter:   0,
+	Steps:    3,
+}
+
+func NewReaderSecretGetter(client client.Client, opts ...ReaderSecretGetterOption) (SecretGetter, error) {
+	rsGetter := &readerSecretGetter{client: client}
+
+	if rsGetter.client == nil {
 		return nil, errors.New("k8s client should be set for reader-secret getter")
 	}
 
-	return &readerSecretGetter{client: client}, nil
+	for _, opt := range opts {
+		opt(rsGetter)
+	}
+
+	if rsGetter.backoff == nil {
+		rsGetter.backoff = defaultBackoffWaitSecret
+	}
+
+	return rsGetter, nil
 }
 
 type readerSecret struct {
@@ -80,16 +107,11 @@ func (r *readerSecretGetter) Get(objectKey client.ObjectKey) (K8sSecret, error) 
 
 func (r *readerSecretGetter) getReaderSecretServiceAccount(ctx context.Context, saObjectKey client.ObjectKey) (*corev1.ServiceAccount, error) {
 	sa := &corev1.ServiceAccount{}
-	saRef := types.NamespacedName{
-		Namespace: saObjectKey.Namespace,
-		Name:      saObjectKey.Name,
-	}
-
-	err := r.client.Get(ctx, saRef, sa)
+	err := r.client.Get(ctx, saObjectKey, sa)
 	if err != nil {
 		return nil, errors.WrapIff(err, "error getting service account object, service account name: %s, service account namespace: %s",
-			saRef.Name,
-			saRef.Namespace)
+			saObjectKey.Name,
+			saObjectKey.Namespace)
 	}
 
 	return sa, nil
@@ -128,14 +150,7 @@ func (r *readerSecretGetter) getOrCreateReaderSecretWithServiceAccount(ctx conte
 				secretObjRef.Name)
 		}
 
-		// wait for token-controller to create token for the reader secret
-		backoffWaitSecret := wait.Backoff{
-			Duration: time.Second * 3,
-			Factor:   1,
-			Jitter:   0,
-			Steps:    3,
-		}
-		return r.waitAndGetReaderSecret(ctx, secretObjRef.Namespace, secretObjRef.Name, backoffWaitSecret)
+		return r.waitAndGetReaderSecret(ctx, secretObjRef.Namespace, secretObjRef.Name)
 	}
 
 	readerSecret := &readerSecret{
@@ -146,8 +161,7 @@ func (r *readerSecretGetter) getOrCreateReaderSecretWithServiceAccount(ctx conte
 	return readerSecret, nil
 }
 
-func (r *readerSecretGetter) waitAndGetReaderSecret(ctx context.Context, secretNamespace string, secretName string,
-	backoff wait.Backoff) (K8sSecret, error) {
+func (r *readerSecretGetter) waitAndGetReaderSecret(ctx context.Context, secretNamespace string, secretName string) (K8sSecret, error) {
 	var token, caCert []byte
 
 	secretObjRef := types.NamespacedName{
@@ -155,7 +169,8 @@ func (r *readerSecretGetter) waitAndGetReaderSecret(ctx context.Context, secretN
 		Name:      secretName,
 	}
 
-	err := wait.ExponentialBackoff(backoff, func() (bool, error) {
+	backoffWaitForSecretCreation := *r.backoff
+	err := wait.ExponentialBackoff(backoffWaitForSecretCreation, func() (bool, error) {
 		tokenSecret := &corev1.Secret{}
 		err := r.client.Get(ctx, secretObjRef, tokenSecret)
 		if err != nil {
