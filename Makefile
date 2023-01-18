@@ -17,7 +17,7 @@ CONTROLLER_GEN = $(PWD)/bin/controller-gen
 OS = $(shell uname | tr A-Z a-z)
 
 ENVTEST_BIN_DIR := ${BIN}/envtest
-ENVTEST_K8S_VERSION := 1.23.1
+ENVTEST_K8S_VERSION := 1.24.1
 ENVTEST_BINARY_ASSETS := ${ENVTEST_BIN_DIR}/bin
 
 SETUP_ENVTEST := ${BIN}/setup-envtest
@@ -34,11 +34,7 @@ generate: bin/controller-gen
 bin/controller-gen:
 	@ if ! test -x bin/controller-gen; then \
 		set -ex ;\
-		CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
-		cd $$CONTROLLER_GEN_TMP_DIR ;\
-		go mod init tmp ;\
-		GOBIN=$(PWD)/bin go get sigs.k8s.io/controller-tools/cmd/controller-gen@${CONTROLLER_GEN_VERSION} ;\
-		rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
+		GOBIN=$(PWD)/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@${CONTROLLER_GEN_VERSION} ;\
 	fi
 
 
