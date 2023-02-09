@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/banzaicloud/operator-tools/pkg/wait"
+	"github.com/cisco-open/operator-tools/pkg/wait"
 )
 
 var DefaultBackoff = wait.Backoff{
@@ -51,14 +51,14 @@ type ResourceCondition struct {
 type ConditionChecker struct {
 	client client.Client
 	scheme *runtime.Scheme
-	log logr.Logger
+	log    logr.Logger
 }
 
 func NewConditionChecker(client client.Client, scheme *runtime.Scheme, log logr.Logger) *ConditionChecker {
 	return &ConditionChecker{
 		client: client,
 		scheme: scheme,
-		log: log,
+		log:    log,
 	}
 }
 

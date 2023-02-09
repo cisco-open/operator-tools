@@ -18,13 +18,14 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/banzaicloud/operator-tools/pkg/types"
-	"github.com/banzaicloud/operator-tools/pkg/utils"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/cisco-open/operator-tools/pkg/types"
+	"github.com/cisco-open/operator-tools/pkg/utils"
 )
 
 func TestMetaBaseEmptyOverrideOnEmptyObject(t *testing.T) {
@@ -613,7 +614,7 @@ func TestPodSpecOverride(t *testing.T) {
 			spec: v12.PodSpec{
 				Containers: []v12.Container{
 					{
-						Name: "override", // this one will be overridden
+						Name:  "override", // this one will be overridden
 						Image: "original",
 					},
 					{
@@ -625,7 +626,7 @@ func TestPodSpecOverride(t *testing.T) {
 			want: v12.PodSpec{
 				Containers: []v12.Container{
 					{
-						Name: "override",
+						Name:  "override",
 						Image: "override-image",
 					},
 					{
@@ -652,7 +653,7 @@ func TestPodSpecOverride(t *testing.T) {
 			spec: v12.PodSpec{
 				InitContainers: []v12.Container{
 					{
-						Name: "override", // this one will be overridden
+						Name:  "override", // this one will be overridden
 						Image: "original",
 					},
 					{
@@ -664,7 +665,7 @@ func TestPodSpecOverride(t *testing.T) {
 			want: v12.PodSpec{
 				InitContainers: []v12.Container{
 					{
-						Name: "override",
+						Name:  "override",
 						Image: "override-image",
 					},
 					{
@@ -684,7 +685,6 @@ func TestPodSpecOverride(t *testing.T) {
 		})
 	}
 }
-
 
 func TestPodTemplateOverride(t *testing.T) {
 	tests := []struct {
@@ -724,4 +724,3 @@ func TestPodTemplateOverride(t *testing.T) {
 		})
 	}
 }
-

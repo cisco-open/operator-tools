@@ -28,7 +28,7 @@ import (
 // The purpose of this is that now these types can be embedded into CRDs and can be used to provide a convenient override
 // mechanism for resources created inside an operator.
 //
-// For an example see tests in https://github.com/banzaicloud/operator-tools/tree/master/pkg/merge
+// For an example see tests in https://github.com/cisco-open/operator-tools/tree/master/pkg/merge
 
 // +kubebuilder:object:generate=true
 

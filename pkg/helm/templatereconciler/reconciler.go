@@ -32,11 +32,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/banzaicloud/operator-tools/pkg/inventory"
-	"github.com/banzaicloud/operator-tools/pkg/logger"
-	"github.com/banzaicloud/operator-tools/pkg/reconciler"
-	"github.com/banzaicloud/operator-tools/pkg/resources"
-	"github.com/banzaicloud/operator-tools/pkg/types"
+	"github.com/cisco-open/operator-tools/pkg/inventory"
+	"github.com/cisco-open/operator-tools/pkg/logger"
+	"github.com/cisco-open/operator-tools/pkg/reconciler"
+	"github.com/cisco-open/operator-tools/pkg/resources"
+	"github.com/cisco-open/operator-tools/pkg/types"
 )
 
 type ReleaseData struct {

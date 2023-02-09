@@ -20,8 +20,9 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/MakeNowJust/heredoc"
-	"github.com/banzaicloud/operator-tools/pkg/docgen"
-	"github.com/banzaicloud/operator-tools/pkg/utils"
+
+	"github.com/cisco-open/operator-tools/pkg/docgen"
+	"github.com/cisco-open/operator-tools/pkg/utils"
 )
 
 var logger = utils.Log

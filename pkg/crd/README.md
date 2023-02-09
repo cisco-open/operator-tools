@@ -17,7 +17,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/banzaicloud/operator-tools/pkg/crd"
+	"github.com/cisco-open/operator-tools/pkg/crd"
 )
 
 func main() {

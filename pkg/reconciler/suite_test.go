@@ -21,7 +21,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/banzaicloud/operator-tools/pkg/utils"
 	"github.com/go-logr/logr"
 	"github.com/pborman/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -30,6 +29,8 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+
+	"github.com/cisco-open/operator-tools/pkg/utils"
 )
 
 var cfg *rest.Config
@@ -115,3 +116,5 @@ func assertSecretList(t *testing.T, a func(l *corev1.SecretList)) {
 
 	a(l)
 }
+
+

@@ -17,8 +17,6 @@ package merge
 import (
 	"testing"
 
-	"github.com/banzaicloud/operator-tools/pkg/typeoverride"
-	"github.com/banzaicloud/operator-tools/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/apps/v1"
@@ -26,6 +24,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	"github.com/cisco-open/operator-tools/pkg/typeoverride"
+	"github.com/cisco-open/operator-tools/pkg/utils"
 )
 
 func TestMerge(t *testing.T) {
@@ -114,8 +115,8 @@ func TestMerge(t *testing.T) {
 
 	// container c is not modified (note that it's index will change)
 	assert.Equal(t, corev1.Container{
-		Name:  "container-c",
-		Image: "image-c",
+		Name:    "container-c",
+		Image:   "image-c",
 		Command: []string{"fake"},
 	}, base.Spec.Template.Spec.Containers[3])
 }
@@ -166,7 +167,7 @@ func TestVolume(t *testing.T) {
 	err := Merge(base, overrides)
 	require.NoError(t, err)
 
-	require.Equal(t,  &v1.DaemonSet{
+	require.Equal(t, &v1.DaemonSet{
 		Spec: v1.DaemonSetSpec{
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
@@ -420,7 +421,7 @@ func TestMergeService(t *testing.T) {
 					TargetPort: intstr.FromInt(8082),
 				},
 			},
-			Selector:map[string]string{
+			Selector: map[string]string{
 				"b": "3",
 				"c": "4",
 			},

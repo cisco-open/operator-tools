@@ -22,7 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	ottypes "github.com/banzaicloud/operator-tools/pkg/types"
+	ottypes "github.com/cisco-open/operator-tools/pkg/types"
 )
 
 func EnqueueByOwnerAnnotationMapper() handler.MapFunc {

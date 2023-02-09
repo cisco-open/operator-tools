@@ -31,9 +31,9 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 
-	"github.com/banzaicloud/operator-tools/pkg/reconciler"
-	ottypes "github.com/banzaicloud/operator-tools/pkg/types"
-	"github.com/banzaicloud/operator-tools/pkg/utils"
+	"github.com/cisco-open/operator-tools/pkg/reconciler"
+	ottypes "github.com/cisco-open/operator-tools/pkg/types"
+	"github.com/cisco-open/operator-tools/pkg/utils"
 )
 
 // FakeResourceOwner object implements the ResourceOwner interface by piggybacking a ConfigMap (oink-oink)

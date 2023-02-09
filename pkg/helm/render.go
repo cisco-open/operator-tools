@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	"emperror.dev/errors"
-	"github.com/banzaicloud/operator-tools/pkg/resources"
 	"github.com/ghodss/yaml"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -31,6 +30,8 @@ import (
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/engine"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/cisco-open/operator-tools/pkg/resources"
 )
 
 const legacyRequirementsFileName = "requirements.yaml"
