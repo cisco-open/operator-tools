@@ -3,7 +3,7 @@ module github.com/cisco-open/operator-tools
 go 1.17
 
 require (
-	emperror.dev/errors v0.8.0
+	emperror.dev/errors v0.8.1
 	github.com/MakeNowJust/heredoc v1.0.0
 	github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883
 	github.com/banzaicloud/k8s-objectmatcher v1.8.0
@@ -31,6 +31,8 @@ require (
 )
 
 require k8s.io/cli-runtime v0.24.2 // indirect
+
+require github.com/banzaicloud/operator-tools v0.28.10
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
