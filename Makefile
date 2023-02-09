@@ -1,5 +1,5 @@
-LICENSEI_VERSION = 0.2.0
-GOLANGCI_VERSION = 1.21.0
+LICENSEI_VERSION = 0.7.0
+GOLANGCI_VERSION = 1.51.1
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -71,7 +71,7 @@ bin/golangci-lint-${GOLANGCI_VERSION}:
 .PHONY: lint
 lint: export CGO_ENABLED = 1
 lint: bin/golangci-lint ## Run linter
-	bin/golangci-lint run
+	bin/golangci-lint run ${LINTER_FLAGS}
 
 .PHONY: fix
 fix: export CGO_ENABLED = 1
