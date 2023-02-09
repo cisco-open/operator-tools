@@ -144,7 +144,7 @@ func (d *Doc) visitNode(n ast.Node) bool {
 				d.Append(fmt.Sprintf("## %s", getTypeName(generic, typeName.Name.Name)))
 				d.Append("") // Adds a line-break for markdown formatting
 				if getTypeDocs(generic, true) != "" {
-					d.Append(fmt.Sprintf("%s", getTypeDocs(generic, true)))
+					d.Append(getTypeDocs(generic, true))
 				}
 				for i, item := range structure.Fields.List {
 					name, com, def, required, err := d.getValuesFromItem(item)
@@ -163,7 +163,7 @@ func (d *Doc) visitNode(n ast.Node) bool {
 					d.Append(fmt.Sprintf("### %s (%s%s) {#%s}", name, d.normaliseType(item.Type), required_string, anchor))
 					d.Append("")
 					if com != "" {
-						d.Append(fmt.Sprintf("%s", com))
+						d.Append(com)
 						d.Append("")
 					}
 					d.Append(fmt.Sprintf("Default: %s", def))
