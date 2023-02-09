@@ -1,4 +1,4 @@
-module github.com/banzaicloud/operator-tools
+module github.com/cisco-open/operator-tools
 
 go 1.17
 
