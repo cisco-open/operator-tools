@@ -67,6 +67,29 @@ func TestKubernetesVolume_ApplyVolumeForPodSpec(t *testing.T) {
 	assert.Equal(t, "/here", spec.Containers[0].VolumeMounts[0].MountPath)
 }
 
+func TestSecretKubernetesVolume_ApplyVolumeForPodSpec(t *testing.T) {
+	vol := KubernetesVolume{
+		SecretSource: &v1.SecretVolumeSource{
+			SecretName: "secret",
+		},
+	}
+
+	spec := &v1.PodSpec{
+		Containers: []v1.Container{
+			{
+				Name: "test-container",
+			},
+		},
+	}
+
+	if err := vol.ApplyVolumeForPodSpec("vol", "test-container", "/here", spec); err != nil {
+		t.Fatalf("+%v", err)
+	}
+
+	assert.Equal(t, "vol", spec.Containers[0].VolumeMounts[0].Name)
+	assert.Equal(t, "/here", spec.Containers[0].VolumeMounts[0].MountPath)
+}
+
 func TestKubernetesVolume_ApplyPVCForStatefulSet(t *testing.T) {
 	vol := KubernetesVolume{
 		PersistentVolumeClaim: &PersistentVolumeClaim{
