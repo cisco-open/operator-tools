@@ -491,7 +491,7 @@ func (rec *NativeReconciler) purge(excluded map[string]bool, componentId string)
 				continue
 			}
 			if objectMeta.GetAnnotations()[types.BanzaiCloudManagedComponent] == componentId {
-				rec.Log.Info("will prune unmmanaged resource",
+				rec.Log.Info("will prune unmanaged resource",
 					"name", objectMeta.GetName(),
 					"namespace", objectMeta.GetNamespace(),
 					"group", gvk.Group,
