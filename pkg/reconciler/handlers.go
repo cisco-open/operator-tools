@@ -15,6 +15,7 @@
 package reconciler
 
 import (
+	"context"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -26,7 +27,7 @@ import (
 )
 
 func EnqueueByOwnerAnnotationMapper() handler.MapFunc {
-	return func(a client.Object) []reconcile.Request {
+	return func(_ context.Context, a client.Object) []reconcile.Request {
 		pieces := strings.SplitN(a.GetAnnotations()[ottypes.BanzaiCloudRelatedTo], string(types.Separator), 2)
 		if len(pieces) != 2 {
 			return []reconcile.Request{}
