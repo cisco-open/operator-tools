@@ -15,16 +15,17 @@
 package docgen_test
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 
 	"github.com/MakeNowJust/heredoc"
 	"github.com/andreyvit/diff"
+	"github.com/go-logr/logr"
+
 	"github.com/cisco-open/operator-tools/pkg/docgen"
 	"github.com/cisco-open/operator-tools/pkg/utils"
-	"github.com/go-logr/logr"
 )
 
 var logger logr.Logger
@@ -106,7 +107,7 @@ func TestGenParse(t *testing.T) {
 			t.Fatalf("%+v", err)
 		}
 
-		bytes, err := ioutil.ReadFile(filepath.Join(item.docItem.DestPath, item.docItem.Name+".md"))
+		bytes, err := os.ReadFile(filepath.Join(item.docItem.DestPath, item.docItem.Name+".md"))
 		if err != nil {
 			t.Fatalf("%+v", err)
 		}

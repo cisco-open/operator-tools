@@ -21,6 +21,10 @@ Default: -
 
 Default: -
 
+### secret (*corev1.SecretVolumeSource, optional) {#kubernetesvolume-secret}
+
+Default: -
+
 ### pvc (*PersistentVolumeClaim, optional) {#kubernetesvolume-pvc}
 
 PersistentVolumeClaim defines the Spec and the Source at the same time. The PVC will be created with the configured spec and the name defined in the source. 

@@ -595,8 +595,8 @@ func (r *GenericResourceReconciler) CreateIfNotExist(desired runtime.Object, des
 		}
 		switch t := desired.DeepCopyObject().(type) {
 		case *v1beta1.CustomResourceDefinition:
-			err = wait.Poll(time.Second*1, time.Second*10, func() (done bool, err error) {
-				err = r.Client.Get(context.TODO(), client.ObjectKey{Namespace: t.Namespace, Name: t.Name}, t)
+			err = wait.PollUntilContextTimeout(context.TODO(), time.Second*1, time.Second*10, false, func(ctx context.Context) (done bool, err error) {
+				err = r.Client.Get(ctx, client.ObjectKey{Namespace: t.Namespace, Name: t.Name}, t)
 				if err != nil {
 					return false, err
 				}
@@ -606,8 +606,8 @@ func (r *GenericResourceReconciler) CreateIfNotExist(desired runtime.Object, des
 				return false, nil, errors.WrapIfWithDetails(err, "failed to wait for the crd to get ready", resourceDetails...)
 			}
 		case *v1.CustomResourceDefinition:
-			err = wait.Poll(time.Second*1, time.Second*10, func() (done bool, err error) {
-				err = r.Client.Get(context.TODO(), client.ObjectKey{Namespace: t.Namespace, Name: t.Name}, t)
+			err = wait.PollUntilContextTimeout(context.TODO(), time.Second*1, time.Second*10, false, func(ctx context.Context) (done bool, err error) {
+				err = r.Client.Get(ctx, client.ObjectKey{Namespace: t.Namespace, Name: t.Name}, t)
 				if err != nil {
 					return false, err
 				}
