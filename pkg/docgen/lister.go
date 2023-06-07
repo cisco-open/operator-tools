@@ -15,7 +15,7 @@
 package docgen
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -59,7 +59,7 @@ func (sl *SourceLister) ListSources() ([]DocItem, error) {
 
 	for _, key := range orderedMap(sl.Sources).Keys() {
 		p := sl.Sources[key]
-		files, err := ioutil.ReadDir(p.Path)
+		files, err := os.ReadDir(p.Path)
 		if err != nil {
 			return nil, errors.WrapIff(err, "failed to read files from %s", p.Path)
 		}
@@ -82,7 +82,6 @@ func (sl *SourceLister) ListSources() ([]DocItem, error) {
 
 	return sourceList, nil
 }
-
 
 func (sl *SourceLister) isBlacklisted(source string) bool {
 	for _, p := range sl.IgnoredSources {
