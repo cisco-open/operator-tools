@@ -289,7 +289,8 @@ func (d *Doc) getValuesFromItem(item *ast.Field) (name, comment, def, required s
 	result := GetPrefixedValue(commentWithDefault, `\(default:(.*)\)`)
 	if result != "" {
 		ignore := fmt.Sprintf("(default:%s)", result)
-		comment = strings.Replace(commentWithDefault, ignore, "", 1)
+		comment = strings.TrimSpace(strings.Replace(commentWithDefault, ignore, "", 1))
+		result = strings.TrimSpace(result)
 		return nameResult, comment, getLink(result), required, nil
 	}
 

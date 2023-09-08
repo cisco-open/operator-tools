@@ -94,15 +94,15 @@ Default: -
 
 ### minReadySeconds (int32, optional) {#daemonsetspec-minreadyseconds}
 
-The minimum number of seconds for which a newly created DaemonSet pod should be ready without any of its container crashing, for it to be considered available. Defaults to 0 (pod will be considered available as soon as it is ready).  
+The minimum number of seconds for which a newly created DaemonSet pod should be ready without any of its container crashing, for it to be considered available. Defaults to 0 (pod will be considered available as soon as it is ready).
 
-Default:  0
+Default: 0
 
 ### revisionHistoryLimit (*int32, optional) {#daemonsetspec-revisionhistorylimit}
 
-The number of old history to retain to allow rollback. This is a pointer to distinguish between explicit zero and not specified. Defaults to 10.  
+The number of old history to retain to allow rollback. This is a pointer to distinguish between explicit zero and not specified. Defaults to 10.
 
-Default:  10
+Default: 10
 
 
 ## Deployment
@@ -127,9 +127,9 @@ and [PodTemplateSpec replaced by the local variant](#podtemplatespec).
 
 ### replicas (*int32, optional) {#deploymentspec-replicas}
 
-Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.  
+Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.
 
-Default:  1
+Default: 1
 
 ### selector (*metav1.LabelSelector, optional) {#deploymentspec-selector}
 
@@ -151,15 +151,15 @@ Default: -
 
 ### minReadySeconds (int32, optional) {#deploymentspec-minreadyseconds}
 
-Minimum number of seconds for which a newly created pod should be ready without any of its container crashing, for it to be considered available. Defaults to 0 (pod will be considered available as soon as it is ready)  
+Minimum number of seconds for which a newly created pod should be ready without any of its container crashing, for it to be considered available. Defaults to 0 (pod will be considered available as soon as it is ready)
 
-Default:  0
+Default: 0
 
 ### revisionHistoryLimit (*int32, optional) {#deploymentspec-revisionhistorylimit}
 
-The number of old ReplicaSets to retain to allow rollback. This is a pointer to distinguish between explicit zero and not specified. Defaults to 10.  
+The number of old ReplicaSets to retain to allow rollback. This is a pointer to distinguish between explicit zero and not specified. Defaults to 10.
 
-Default:  10
+Default: 10
 
 ### paused (bool, optional) {#deploymentspec-paused}
 
@@ -169,9 +169,9 @@ Default: -
 
 ### progressDeadlineSeconds (*int32, optional) {#deploymentspec-progressdeadlineseconds}
 
-The maximum time in seconds for a deployment to make progress before it is considered to be failed. The deployment controller will continue to process failed deployments and a condition with a ProgressDeadlineExceeded reason will be surfaced in the deployment status. Note that progress will not be estimated during the time a deployment is paused. Defaults to 600s.  
+The maximum time in seconds for a deployment to make progress before it is considered to be failed. The deployment controller will continue to process failed deployments and a condition with a ProgressDeadlineExceeded reason will be surfaced in the deployment status. Note that progress will not be estimated during the time a deployment is paused. Defaults to 600s.
 
-Default:  600
+Default: 600
 
 
 ## StatefulSet
@@ -194,9 +194,9 @@ and [PodTemplateSpec](#podtemplatespec) and [PersistentVolumeClaim replaced by t
 
 ### replicas (*int32, optional) {#statefulsetspec-replicas}
 
-Replicas is the desired number of replicas of the given Template. These are replicas in the sense that they are instantiations of the same Template, but individual replicas also have a consistent identity. If unspecified, defaults to 1.  +optional 
+Replicas is the desired number of replicas of the given Template. These are replicas in the sense that they are instantiations of the same Template, but individual replicas also have a consistent identity. If unspecified, defaults to 1.  +optional
 
-Default:  1
+Default: 1
 
 ### selector (*metav1.LabelSelector, optional) {#statefulsetspec-selector}
 
@@ -224,9 +224,9 @@ Default: -
 
 ### podManagementPolicy (appsv1.PodManagementPolicyType, optional) {#statefulsetspec-podmanagementpolicy}
 
-podManagementPolicy controls how pods are created during initial scale up, when replacing pods on nodes, or when scaling down. The default policy is `OrderedReady`, where pods are created in increasing order (pod-0, then pod-1, etc) and the controller will wait until each pod is ready before continuing. When scaling down, the pods are removed in the opposite order. The alternative policy is `Parallel` which will create pods in parallel to match the desired scale without waiting, and on scale down will delete all pods at once.  +optional 
+podManagementPolicy controls how pods are created during initial scale up, when replacing pods on nodes, or when scaling down. The default policy is `OrderedReady`, where pods are created in increasing order (pod-0, then pod-1, etc) and the controller will wait until each pod is ready before continuing. When scaling down, the pods are removed in the opposite order. The alternative policy is `Parallel` which will create pods in parallel to match the desired scale without waiting, and on scale down will delete all pods at once.  +optional
 
-Default:  OrderedReady
+Default: OrderedReady
 
 ### updateStrategy (appsv1.StatefulSetUpdateStrategy, optional) {#statefulsetspec-updatestrategy}
 
@@ -236,9 +236,9 @@ Default: -
 
 ### revisionHistoryLimit (*int32, optional) {#statefulsetspec-revisionhistorylimit}
 
-revisionHistoryLimit is the maximum number of revisions that will be maintained in the StatefulSet's revision history. The revision history consists of all revisions not represented by a currently applied StatefulSetSpec version. The default value is 10.  
+revisionHistoryLimit is the maximum number of revisions that will be maintained in the StatefulSet's revision history. The revision history consists of all revisions not represented by a currently applied StatefulSetSpec version. The default value is 10.
 
-Default:  10
+Default: 10
 
 
 ## PersistentVolumeClaim
@@ -317,15 +317,15 @@ Default: -
 
 ### restartPolicy (v1.RestartPolicy, optional) {#podspec-restartpolicy}
 
-Restart policy for all containers within the pod. One of Always, OnFailure, Never. Default to Always.  
+Restart policy for all containers within the pod. One of Always, OnFailure, Never. Default to Always.
 
-Default:  Always
+Default: Always
 
 ### terminationGracePeriodSeconds (*int64, optional) {#podspec-terminationgraceperiodseconds}
 
-Optional duration in seconds the pod needs to terminate gracefully. Defaults to 30 seconds.  
+Optional duration in seconds the pod needs to terminate gracefully. Defaults to 30 seconds.
 
-Default:  30
+Default: 30
 
 ### activeDeadlineSeconds (*int64, optional) {#podspec-activedeadlineseconds}
 
@@ -335,9 +335,9 @@ Default: -
 
 ### dnsPolicy (v1.DNSPolicy, optional) {#podspec-dnspolicy}
 
-Set DNS policy for the pod. Defaults to "ClusterFirst".  Valid values are 'ClusterFirstWithHostNet', 'ClusterFirst', 'Default' or 'None'. 
+Set DNS policy for the pod. Defaults to "ClusterFirst".  Valid values are 'ClusterFirstWithHostNet', 'ClusterFirst', 'Default' or 'None'.
 
-Default:  ClusterFirst
+Default: ClusterFirst
 
 ### nodeSelector (map[string]string, optional) {#podspec-nodeselector}
 
@@ -365,27 +365,27 @@ Default: -
 
 ### hostNetwork (bool, optional) {#podspec-hostnetwork}
 
-Host networking requested for this pod. Use the host's network namespace. If this option is set, the ports that will be used must be specified. Default to false.  
+Host networking requested for this pod. Use the host's network namespace. If this option is set, the ports that will be used must be specified. Default to false.
 
-Default:  false
+Default: false
 
 ### hostPID (bool, optional) {#podspec-hostpid}
 
-Use the host's pid namespace. Optional: Default to false.  
+Use the host's pid namespace. Optional: Default to false.
 
-Default:  false
+Default: false
 
 ### hostIPC (bool, optional) {#podspec-hostipc}
 
-Use the host's ipc namespace. Optional: Default to false.  
+Use the host's ipc namespace. Optional: Default to false.
 
-Default:  false
+Default: false
 
 ### shareProcessNamespace (*bool, optional) {#podspec-shareprocessnamespace}
 
-Share a single process namespace between all of the containers in a pod. HostPID and ShareProcessNamespace cannot both be set. Optional: Default to false.  
+Share a single process namespace between all of the containers in a pod. HostPID and ShareProcessNamespace cannot both be set. Optional: Default to false.
 
-Default:  false
+Default: false
 
 ### securityContext (*v1.PodSecurityContext, optional) {#podspec-securitycontext}
 
@@ -467,15 +467,15 @@ Default: -
 
 ### enableServiceLinks (*bool, optional) {#podspec-enableservicelinks}
 
-EnableServiceLinks indicates whether information about services should be injected into pod's environment variables, matching the syntax of Docker links. Optional: Defaults to true.  
+EnableServiceLinks indicates whether information about services should be injected into pod's environment variables, matching the syntax of Docker links. Optional: Defaults to true.
 
-Default:  true
+Default: true
 
 ### preemptionPolicy (*v1.PreemptionPolicy, optional) {#podspec-preemptionpolicy}
 
-PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. Defaults to PreemptLowerPriority if unset.  
+PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. Defaults to PreemptLowerPriority if unset.
 
-Default:  PreemptLowerPriority
+Default: PreemptLowerPriority
 
 ### overhead (v1.ResourceList, optional) {#podspec-overhead}
 
@@ -491,9 +491,9 @@ Default: -
 
 ### setHostnameAsFQDN (*bool, optional) {#podspec-sethostnameasfqdn}
 
-If true the pod's hostname will be configured as the pod's FQDN, rather than the leaf name (the default). Default to false.  +optional 
+If true the pod's hostname will be configured as the pod's FQDN, rather than the leaf name (the default). Default to false.  +optional
 
-Default:  false
+Default: false
 
 
 ## ServiceAccount
