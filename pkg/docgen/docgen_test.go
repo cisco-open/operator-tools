@@ -54,6 +54,8 @@ func TestGenParse(t *testing.T) {
 					### field1 (string, optional) {#sample-field1}
 					
 					Default: -
+					
+					
 			`),
 		},
 		{
@@ -71,6 +73,8 @@ func TestGenParse(t *testing.T) {
 				### field1 (string, optional) {#sampledefault-field1}
 				
 				Default: testval
+
+
 			`),
 		},
 		{
@@ -87,15 +91,48 @@ func TestGenParse(t *testing.T) {
 
 				### field1 (string, optional) {#sample-field1}
 
-				Description
+				Description  
 				{{< highlight yaml >}}
 				test: code block
 				some: more lines
-					indented: line
+				    indented: line
 				{{< /highlight >}}
 
 
 				Default: -
+				
+				
+			`),
+		},
+		{
+			docItem: docgen.DocItem{
+				Name:       "sample-codeblock-blockcomment",
+				SourcePath: filepath.Join(currentDir, "testdata", "sample_codeblock_blockcomment.go"),
+				DestPath:   filepath.Join(currentDir, "../../build/_test/docgen"),
+				DefaultValueFromTagExtractor: func(tag string) string {
+					return docgen.GetPrefixedValue(tag, `asd:\"default:(.*)\"`)
+				},
+			},
+			expected: heredoc.Doc(`
+				## Sample
+
+				Description
+				
+				{{< highlight yaml >}}
+				test: code block
+				some: more lines
+				  indented: line
+				    indented: line
+				
+				  indented: line
+				{{< /highlight >}}
+				
+				
+				### field1 (string, optional) {#sample-field1}
+				
+				Default: -
+				
+				
 			`),
 		},
 	}
@@ -112,7 +149,7 @@ func TestGenParse(t *testing.T) {
 			t.Fatalf("%+v", err)
 		}
 
-		if a, e := diff.TrimLinesInString(string(bytes)), diff.TrimLinesInString(item.expected); a != e {
+		if a, e := string(bytes), item.expected; a != e {
 			t.Errorf("Result does not match (-actual vs +expected):\n%v\nActual: %s", diff.LineDiff(a, e), string(bytes))
 		}
 	}
