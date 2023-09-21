@@ -213,6 +213,10 @@ func getTypeDocs(generic *ast.GenDecl, trimSpace bool) string {
 			if trimSpace {
 				newLine = strings.TrimSpace(newLine)
 			}
+			if strings.HasPrefix(strings.TrimSpace(newLine), "/*") {
+				newLine = strings.TrimPrefix(newLine, "/*")
+				newLine = strings.TrimSuffix(newLine, "*/")
+			}
 			if !strings.HasPrefix(strings.TrimSpace(newLine), "+kubebuilder") &&
 				!strings.HasPrefix(strings.TrimSpace(newLine), "nolint") &&
 				!strings.HasPrefix(strings.TrimSpace(newLine), "+docName") {
