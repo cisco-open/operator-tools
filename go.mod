@@ -13,7 +13,7 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v1.2.4
 	github.com/go-test/deep v1.1.0
-	github.com/iancoleman/orderedmap v0.2.0
+	github.com/iancoleman/orderedmap v0.3.0
 	github.com/pborman/uuid v1.2.1
 	github.com/spf13/cast v1.5.1
 	github.com/stretchr/testify v1.8.4
