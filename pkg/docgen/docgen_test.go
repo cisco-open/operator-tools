@@ -91,6 +91,8 @@ func TestGenParse(t *testing.T) {
 				Field1 is a good field.
 
 				Default: testval
+
+
 			`),
 		},
 		{
@@ -166,7 +168,7 @@ func TestGenParse(t *testing.T) {
 		}
 
 		if a, e := string(bytes), item.expected; a != e {
-			t.Errorf("Result does not match (-actual vs +expected):\n%v\nActual: %s", diff.LineDiff(a, e), string(bytes))
+			t.Errorf("Result does not match (-actual vs +expected):\n%v\nActual: %s\nExpected: %s\n", diff.LineDiff(a, e), string(bytes), item.expected)
 		}
 	}
 }
