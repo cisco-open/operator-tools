@@ -24,6 +24,7 @@ import (
 	"os"
 	filepath2 "path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"emperror.dev/errors"
@@ -51,6 +52,29 @@ type Doc struct {
 
 	RootNode *ast.File
 	Logger   logr.Logger
+}
+
+type FieldSorter []*ast.Field
+
+func (s FieldSorter) Len() int {
+	return len(s)
+}
+
+func (s FieldSorter) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func (s FieldSorter) Less(i, j int) bool {
+	if len(s[i].Names) == 0 && len(s[j].Names) == 0 {
+		return false
+	}
+	if len(s[i].Names) == 0 {
+		return true
+	}
+	if len(s[j].Names) == 0 {
+		return false
+	}
+	return s[i].Names[0].Name < s[j].Names[0].Name
 }
 
 func (d *Doc) Append(line string) {
@@ -146,6 +170,7 @@ func (d *Doc) visitNode(n ast.Node) bool {
 				if getTypeDocs(generic, true) != "" {
 					d.Append(getTypeDocs(generic, true))
 				}
+				sort.Sort(FieldSorter(structure.Fields.List))
 				for i, item := range structure.Fields.List {
 					name, com, def, required, err := d.getValuesFromItem(item)
 					if err != nil {
