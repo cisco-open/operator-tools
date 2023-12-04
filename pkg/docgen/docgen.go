@@ -166,7 +166,9 @@ func (d *Doc) visitNode(n ast.Node) bool {
 						d.Append(com)
 						d.Append("")
 					}
-					d.Append(fmt.Sprintf("Default: %s", def))
+					if len(def) > 0 {
+						d.Append(fmt.Sprintf("Default: %s", def))
+					}
 					d.Append("") // Adds a line-break for markdown formatting
 				}
 				d.Append("") // Adds a line-break for markdown formatting
@@ -298,5 +300,5 @@ func (d *Doc) getValuesFromItem(item *ast.Field) (name, comment, def, required s
 		return nameResult, comment, getLink(result), required, nil
 	}
 
-	return nameResult, getLink(commentWithDefault), "-", required, nil
+	return nameResult, getLink(commentWithDefault), "", required, nil
 }

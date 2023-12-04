@@ -4,11 +4,11 @@ ObjectMeta contains only a [subset of the fields included in k8s.io/apimachinery
 
 ### annotations (map[string]string, optional) {#objectmeta-annotations}
 
-Default: -
+
 
 ### labels (map[string]string, optional) {#objectmeta-labels}
 
-Default: -
+
 
 
 ## Service
@@ -17,13 +17,13 @@ Service is a subset of [Service in k8s.io/api/apps/v1](https://kubernetes.io/doc
 
 ### metadata (ObjectMeta, optional) {#service-metadata}
 
-Default: -
+
 
 ### spec (v1.ServiceSpec, optional) {#service-spec}
 
 Kubernetes [Service Specification](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#servicespec-v1-core) 
 
-Default: -
+
 
 
 ## IngressExtensionsV1beta1
@@ -32,11 +32,11 @@ IngressExtensionsV1beta1 is a subset of Ingress k8s.io/api/extensions/v1beta1 bu
 
 ### metadata (ObjectMeta, optional) {#ingressextensionsv1beta1-metadata}
 
-Default: -
+
 
 ### spec (v1beta1.IngressSpec, optional) {#ingressextensionsv1beta1-spec}
 
-Default: -
+
 
 
 ## IngressNetworkingV1beta1
@@ -45,13 +45,13 @@ IngressExtensionsV1beta1 is a subset of [Ingress in k8s.io/api/networking/v1beta
 
 ### metadata (ObjectMeta, optional) {#ingressnetworkingv1beta1-metadata}
 
-Default: -
+
 
 ### spec (networkingv1beta1.IngressSpec, optional) {#ingressnetworkingv1beta1-spec}
 
 Kubernetes [Ingress Specification](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#ingressclassspec-v1-networking-k8s-io) 
 
-Default: -
+
 
 
 ## DaemonSet
@@ -60,13 +60,13 @@ DaemonSet is a subset of [DaemonSet in k8s.io/api/apps/v1](https://kubernetes.io
 
 ### metadata (ObjectMeta, optional) {#daemonset-metadata}
 
-Default: -
+
 
 ### spec (DaemonSetSpec, optional) {#daemonset-spec}
 
 [Local DaemonSet specification](#daemonset-spec) 
 
-Default: -
+
 
 
 ## DaemonSetSpec
@@ -78,19 +78,19 @@ and [PodTemplateSpec replaced by the local variant](#podtemplatespec).
 
 A label query over pods that are managed by the daemon set. 
 
-Default: -
+
 
 ### template (PodTemplateSpec, optional) {#daemonsetspec-template}
 
 An object that describes the pod that will be created. Note that this is a [local PodTemplateSpec](#podtemplatespec) 
 
-Default: -
+
 
 ### updateStrategy (appsv1.DaemonSetUpdateStrategy, optional) {#daemonsetspec-updatestrategy}
 
 An update strategy to replace existing DaemonSet pods with new pods. 
 
-Default: -
+
 
 ### minReadySeconds (int32, optional) {#daemonsetspec-minreadyseconds}
 
@@ -111,13 +111,13 @@ Deployment is a subset of [Deployment in k8s.io/api/apps/v1](https://kubernetes.
 
 ### metadata (ObjectMeta, optional) {#deployment-metadata}
 
-Default: -
+
 
 ### spec (DeploymentSpec, optional) {#deployment-spec}
 
 The desired behavior of [this deployment](#deploymentspec). 
 
-Default: -
+
 
 
 ## DeploymentSpec
@@ -135,19 +135,19 @@ Default: 1
 
 Label selector for pods. Existing ReplicaSets whose pods are selected by this will be the ones affected by this deployment. It must match the pod template's labels. 
 
-Default: -
+
 
 ### template (PodTemplateSpec, optional) {#deploymentspec-template}
 
 An object that describes the pod that will be created. Note that this is a [local PodTemplateSpec](#podtemplatespec) 
 
-Default: -
+
 
 ### strategy (appsv1.DeploymentStrategy, optional) {#deploymentspec-strategy}
 
 The deployment strategy to use to replace existing pods with new ones. +patchStrategy=retainKeys 
 
-Default: -
+
 
 ### minReadySeconds (int32, optional) {#deploymentspec-minreadyseconds}
 
@@ -165,7 +165,7 @@ Default: 10
 
 Indicates that the deployment is paused. 
 
-Default: -
+
 
 ### progressDeadlineSeconds (*int32, optional) {#deploymentspec-progressdeadlineseconds}
 
@@ -180,11 +180,11 @@ StatefulSet is a subset of [StatefulSet in k8s.io/api/apps/v1](https://kubernete
 
 ### metadata (ObjectMeta, optional) {#statefulset-metadata}
 
-Default: -
+
 
 ### spec (StatefulSetSpec, optional) {#statefulset-spec}
 
-Default: -
+
 
 
 ## StatefulSetSpec
@@ -202,25 +202,25 @@ Default: 1
 
 Selector is a label query over pods that should match the replica count. It must match the pod template's labels. 
 
-Default: -
+
 
 ### template (PodTemplateSpec, optional) {#statefulsetspec-template}
 
 template is the object that describes the pod that will be created if insufficient replicas are detected. Each pod stamped out by the StatefulSet will fulfill this Template, but have a unique identity from the rest of the StatefulSet. 
 
-Default: -
+
 
 ### volumeClaimTemplates ([]PersistentVolumeClaim, optional) {#statefulsetspec-volumeclaimtemplates}
 
 volumeClaimTemplates is a list of claims that pods are allowed to reference. The StatefulSet controller is responsible for mapping network identities to claims in a way that maintains the identity of a pod. Every claim in this list must have at least one matching (by name) volumeMount in one container in the template. A claim in this list takes precedence over any volumes in the template, with the same name. +optional 
 
-Default: -
+
 
 ### serviceName (string, optional) {#statefulsetspec-servicename}
 
 serviceName is the name of the service that governs this StatefulSet. This service must exist before the StatefulSet, and is responsible for the network identity of the set. Pods get DNS/hostnames that follow the pattern: pod-specific-string.serviceName.default.svc.cluster.local where "pod-specific-string" is managed by the StatefulSet controller. 
 
-Default: -
+
 
 ### podManagementPolicy (appsv1.PodManagementPolicyType, optional) {#statefulsetspec-podmanagementpolicy}
 
@@ -232,7 +232,7 @@ Default: OrderedReady
 
 updateStrategy indicates the StatefulSetUpdateStrategy that will be employed to update Pods in the StatefulSet when a revision is made to Template. 
 
-Default: -
+
 
 ### revisionHistoryLimit (*int32, optional) {#statefulsetspec-revisionhistorylimit}
 
@@ -247,11 +247,11 @@ PersistentVolumeClaim is a subset of [PersistentVolumeClaim in k8s.io/api/core/v
 
 ### metadata (EmbeddedPersistentVolumeClaimObjectMeta, optional) {#persistentvolumeclaim-metadata}
 
-Default: -
+
 
 ### spec (v1.PersistentVolumeClaimSpec, optional) {#persistentvolumeclaim-spec}
 
-Default: -
+
 
 
 ## EmbeddedPersistentVolumeClaimObjectMeta
@@ -262,15 +262,15 @@ controller-gen discards embedded ObjectMetadata type fields, so we have to overc
 
 ### name (string, optional) {#embeddedpersistentvolumeclaimobjectmeta-name}
 
-Default: -
+
 
 ### annotations (map[string]string, optional) {#embeddedpersistentvolumeclaimobjectmeta-annotations}
 
-Default: -
+
 
 ### labels (map[string]string, optional) {#embeddedpersistentvolumeclaimobjectmeta-labels}
 
-Default: -
+
 
 
 ## PodTemplateSpec
@@ -280,11 +280,11 @@ It's the same as [PodTemplateSpec in k8s.io/api/core/v1](https://kubernetes.io/d
 
 ### metadata (ObjectMeta, optional) {#podtemplatespec-metadata}
 
-Default: -
+
 
 ### spec (PodSpec, optional) {#podtemplatespec-spec}
 
-Default: -
+
 
 
 ## PodSpec
@@ -295,25 +295,25 @@ PodSpec is a subset of [PodSpec in k8s.io/api/corev1](https://kubernetes.io/docs
 
 List of volumes that can be mounted by containers belonging to the pod. +patchMergeKey=name +patchStrategy=merge,retainKeys 
 
-Default: -
+
 
 ### initContainers ([]v1.Container, optional) {#podspec-initcontainers}
 
 List of initialization containers belonging to the pod. +patchMergeKey=name +patchStrategy=merge 
 
-Default: -
+
 
 ### containers ([]v1.Container, optional) {#podspec-containers}
 
 List of containers belonging to the pod. +patchMergeKey=name +patchStrategy=merge 
 
-Default: -
+
 
 ### ephemeralContainers ([]v1.EphemeralContainer, optional) {#podspec-ephemeralcontainers}
 
 List of ephemeral containers run in this pod. +patchMergeKey=name +patchStrategy=merge 
 
-Default: -
+
 
 ### restartPolicy (v1.RestartPolicy, optional) {#podspec-restartpolicy}
 
@@ -331,7 +331,7 @@ Default: 30
 
 Optional duration in seconds the pod may be active on the node relative to 
 
-Default: -
+
 
 ### dnsPolicy (v1.DNSPolicy, optional) {#podspec-dnspolicy}
 
@@ -343,25 +343,25 @@ Default: ClusterFirst
 
 NodeSelector is a selector which must be true for the pod to fit on a node. 
 
-Default: -
+
 
 ### serviceAccountName (string, optional) {#podspec-serviceaccountname}
 
 ServiceAccountName is the name of the ServiceAccount to use to run this pod. 
 
-Default: -
+
 
 ### automountServiceAccountToken (*bool, optional) {#podspec-automountserviceaccounttoken}
 
 AutomountServiceAccountToken indicates whether a service account token should be automatically mounted. 
 
-Default: -
+
 
 ### nodeName (string, optional) {#podspec-nodename}
 
 NodeName is a request to schedule this pod onto a specific node. 
 
-Default: -
+
 
 ### hostNetwork (bool, optional) {#podspec-hostnetwork}
 
@@ -391,79 +391,79 @@ Default: false
 
 SecurityContext holds pod-level security attributes and common container settings. Optional: Defaults to empty.  See type description for default values of each field. 
 
-Default: -
+
 
 ### imagePullSecrets ([]v1.LocalObjectReference, optional) {#podspec-imagepullsecrets}
 
 ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. +patchMergeKey=name +patchStrategy=merge 
 
-Default: -
+
 
 ### hostname (string, optional) {#podspec-hostname}
 
 Specifies the hostname of the Pod If not specified, the pod's hostname will be set to a system-defined value. 
 
-Default: -
+
 
 ### subdomain (string, optional) {#podspec-subdomain}
 
 If specified, the fully qualified Pod hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>". If not specified, the pod will not have a domainname at all. 
 
-Default: -
+
 
 ### affinity (*v1.Affinity, optional) {#podspec-affinity}
 
 If specified, the pod's scheduling constraints 
 
-Default: -
+
 
 ### schedulerName (string, optional) {#podspec-schedulername}
 
 If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler. 
 
-Default: -
+
 
 ### tolerations ([]v1.Toleration, optional) {#podspec-tolerations}
 
 If specified, the pod's tolerations. 
 
-Default: -
+
 
 ### hostAliases ([]v1.HostAlias, optional) {#podspec-hostaliases}
 
 HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts file if specified. This is only valid for non-hostNetwork pods. +patchMergeKey=ip +patchStrategy=merge 
 
-Default: -
+
 
 ### priorityClassName (string, optional) {#podspec-priorityclassname}
 
 If specified, indicates the pod's priority. 
 
-Default: -
+
 
 ### priority (*int32, optional) {#podspec-priority}
 
 The priority value. Various system components use this field to find the priority of the pod. 
 
-Default: -
+
 
 ### dnsConfig (*v1.PodDNSConfig, optional) {#podspec-dnsconfig}
 
 Specifies the DNS parameters of a pod. 
 
-Default: -
+
 
 ### readinessGates ([]v1.PodReadinessGate, optional) {#podspec-readinessgates}
 
 If specified, all readiness gates will be evaluated for pod readiness. 
 
-Default: -
+
 
 ### runtimeClassName (*string, optional) {#podspec-runtimeclassname}
 
 RuntimeClassName refers to a RuntimeClass object in the node.k8s.io group, which should be used to run this pod. 
 
-Default: -
+
 
 ### enableServiceLinks (*bool, optional) {#podspec-enableservicelinks}
 
@@ -481,13 +481,13 @@ Default: PreemptLowerPriority
 
 Overhead represents the resource overhead associated with running a pod for a given RuntimeClass. 
 
-Default: -
+
 
 ### topologySpreadConstraints ([]v1.TopologySpreadConstraint, optional) {#podspec-topologyspreadconstraints}
 
 TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. +patchMergeKey=topologyKey +patchStrategy=merge +listType=map +listMapKey=topologyKey +listMapKey=whenUnsatisfiable 
 
-Default: -
+
 
 ### setHostnameAsFQDN (*bool, optional) {#podspec-sethostnameasfqdn}
 
@@ -504,24 +504,20 @@ ServiceAccount is a subset of [ServiceAccount in k8s.io/api/core/v1](https://kub
 
 +optional 
 
-Default: -
+
 
 ### secrets ([]v1.ObjectReference, optional) {#serviceaccount-secrets}
 
 +optional +patchMergeKey=name +patchStrategy=merge 
 
-Default: -
+
 
 ### imagePullSecrets ([]v1.LocalObjectReference, optional) {#serviceaccount-imagepullsecrets}
 
 +optional 
 
-Default: -
+
 
 ### automountServiceAccountToken (*bool, optional) {#serviceaccount-automountserviceaccounttoken}
 
 +optional 
-
-Default: -
-
-

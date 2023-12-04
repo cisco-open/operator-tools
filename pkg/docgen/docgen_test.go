@@ -53,7 +53,6 @@ func TestGenParse(t *testing.T) {
 
 					### field1 (string, optional) {#sample-field1}
 					
-					Default: -
 					
 					
 			`),
@@ -116,8 +115,7 @@ func TestGenParse(t *testing.T) {
 				    indented: line
 				{{< /highlight >}}
 
-
-				Default: -
+				
 				
 				
 			`),
@@ -148,7 +146,6 @@ func TestGenParse(t *testing.T) {
 				
 				### field1 (string, optional) {#sample-field1}
 				
-				Default: -
 				
 				
 			`),
