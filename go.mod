@@ -11,7 +11,7 @@ require (
 	github.com/cppforlife/go-patch v0.2.0
 	github.com/fatih/color v1.15.0
 	github.com/ghodss/yaml v1.0.0
-	github.com/go-logr/logr v1.2.4
+	github.com/go-logr/logr v1.3.0
 	github.com/go-test/deep v1.1.0
 	github.com/iancoleman/orderedmap v0.3.0
 	github.com/pborman/uuid v1.2.1
