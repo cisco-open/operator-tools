@@ -22,7 +22,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
-	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -32,7 +31,6 @@ type ObjectModifierWithParentFunc func(o, p runtime.Object) (runtime.Object, err
 
 var DefaultModifiers = []ObjectModifierFunc{
 	ClearCRDStatusModifier,
-	ClusterScopeNamespaceFixModifier,
 	MutatingWebhookConfigurationModifier,
 	ValidatingWebhookConfigurationModifier,
 }
@@ -74,14 +72,6 @@ func ClearCRDStatusModifier(o runtime.Object) (runtime.Object, error) {
 
 	if crd, ok := o.(*apiextensionsv1.CustomResourceDefinition); ok {
 		crd.Status = apiextensionsv1.CustomResourceDefinitionStatus{}
-	}
-
-	return o, nil
-}
-
-func ClusterScopeNamespaceFixModifier(o runtime.Object) (runtime.Object, error) {
-	if obj, ok := o.(*policyv1beta1.PodSecurityPolicy); ok {
-		obj.Namespace = ""
 	}
 
 	return o, nil
