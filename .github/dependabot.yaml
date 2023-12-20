@@ -5,8 +5,16 @@ updates:
     directory: /
     schedule:
       interval: daily
+    groups:
+      gomod:
+        patterns:
+        - "*"
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: daily
+    groups:
+      github-actions:
+        patterns:
+        - "*"
