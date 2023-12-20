@@ -1499,8 +1499,6 @@ spec:
                               type: string
                           type: object
                       type: object
-                    podSecurityPolicyCreate:
-                      type: boolean
                     roleBasedAccessControlCreate:
                       type: boolean
                     securityContext:
@@ -2401,8 +2399,6 @@ spec:
                               type: string
                           type: object
                       type: object
-                    podSecurityPolicyCreate:
-                      type: boolean
                     roleBasedAccessControlCreate:
                       type: boolean
                     securityContext:
