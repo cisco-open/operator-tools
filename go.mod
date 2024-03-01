@@ -16,7 +16,7 @@ require (
 	github.com/iancoleman/orderedmap v0.3.0
 	github.com/pborman/uuid v1.2.1
 	github.com/spf13/cast v1.6.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	github.com/wayneashleyberry/terminal-dimensions v1.1.0
 	gopkg.in/yaml.v2 v2.4.0
 	helm.sh/helm/v3 v3.14.2
