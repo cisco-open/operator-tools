@@ -1,5 +1,5 @@
-LICENSEI_VERSION = 0.7.0
-GOLANGCI_VERSION = 1.51.1
+LICENSEI_VERSION = 0.9.0
+GOLANGCI_VERSION = 1.59.0
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -11,7 +11,7 @@ endif
 BIN := ${PWD}/bin
 export PATH := ${BIN}:${PATH}
 
-CONTROLLER_GEN_VERSION = v0.8.0
+CONTROLLER_GEN_VERSION = v0.15.0
 CONTROLLER_GEN = $(PWD)/bin/controller-gen
 
 OS = $(shell uname | tr A-Z a-z)
