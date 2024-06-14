@@ -6,7 +6,7 @@ require (
 	emperror.dev/errors v0.8.1
 	github.com/MakeNowJust/heredoc v1.0.0
 	github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883
-	github.com/briandowns/spinner v1.23.0
+	github.com/briandowns/spinner v1.23.1
 	github.com/cisco-open/k8s-objectmatcher v1.10.0
 	github.com/cppforlife/go-patch v0.2.0
 	github.com/fatih/color v1.17.0
