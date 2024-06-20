@@ -7,10 +7,14 @@
 ## Configuration
 ## Secret
 
+### mountFrom (*ValueFrom, optional) {#secret-mountfrom}
+
+Refers to a secret value to be used through a volume mount 
+
+
 ### value (string, optional) {#secret-value}
 
 Refers to a non-secret value 
-
 
 
 ### valueFrom (*ValueFrom, optional) {#secret-valuefrom}
@@ -19,13 +23,9 @@ Refers to a secret value to be used directly
 
 
 
-### mountFrom (*ValueFrom, optional) {#secret-mountfrom}
-
-Refers to a secret value to be used through a volume mount 
-
-
-
-
 ## ValueFrom
 
 ### secretKeyRef (*corev1.SecretKeySelector, optional) {#valuefrom-secretkeyref}
+
+
+
