@@ -3,9 +3,7 @@
 ### name (string, optional) {#objectkey-name}
 
 
-
 ### namespace (string, optional) {#objectkey-namespace}
-
 
 
 
@@ -19,7 +17,6 @@ NOTE: Don't forget to annotate the embedded field with `json:",inline"` tag for 
 
 
 
-
 ## MetaBase
 
 Deprecated
@@ -28,9 +25,7 @@ Consider using ObjectMeta in the typeoverrides package combined with the merge p
 ### annotations (map[string]string, optional) {#metabase-annotations}
 
 
-
 ### labels (map[string]string, optional) {#metabase-labels}
-
 
 
 
@@ -42,9 +37,7 @@ Consider using PodTemplateSpec in the typeoverrides package combined with the me
 ### metadata (*MetaBase, optional) {#podtemplatebase-metadata}
 
 
-
 ### spec (*PodSpecBase, optional) {#podtemplatebase-spec}
-
 
 
 
@@ -53,40 +46,31 @@ Consider using PodTemplateSpec in the typeoverrides package combined with the me
 Deprecated
 Consider using Container in the typeoverrides package combined with the merge package
 
-### name (string, optional) {#containerbase-name}
-
-
-
-### resources (*corev1.ResourceRequirements, optional) {#containerbase-resources}
-
+### command ([]string, optional) {#containerbase-command}
 
 
 ### image (string, optional) {#containerbase-image}
 
 
+### livenessProbe (*corev1.Probe, optional) {#containerbase-livenessprobe}
+
+
+### name (string, optional) {#containerbase-name}
+
 
 ### pullPolicy (corev1.PullPolicy, optional) {#containerbase-pullpolicy}
 
 
-
-### command ([]string, optional) {#containerbase-command}
-
+### readinessProbe (*corev1.Probe, optional) {#containerbase-readinessprobe}
 
 
-### volumeMounts ([]corev1.VolumeMount, optional) {#containerbase-volumemounts}
-
+### resources (*corev1.ResourceRequirements, optional) {#containerbase-resources}
 
 
 ### securityContext (*corev1.SecurityContext, optional) {#containerbase-securitycontext}
 
 
-
-### livenessProbe (*corev1.Probe, optional) {#containerbase-livenessprobe}
-
-
-
-### readinessProbe (*corev1.Probe, optional) {#containerbase-readinessprobe}
-
+### volumeMounts ([]corev1.VolumeMount, optional) {#containerbase-volumemounts}
 
 
 
@@ -95,44 +79,34 @@ Consider using Container in the typeoverrides package combined with the merge pa
 Deprecated
 Consider using PodSpec in the typeoverrides package combined with the merge package
 
-### tolerations ([]corev1.Toleration, optional) {#podspecbase-tolerations}
-
-
-
-### nodeSelector (map[string]string, optional) {#podspecbase-nodeselector}
-
-
-
-### serviceAccountName (string, optional) {#podspecbase-serviceaccountname}
-
-
-
 ### affinity (*corev1.Affinity, optional) {#podspecbase-affinity}
-
-
-
-### securityContext (*corev1.PodSecurityContext, optional) {#podspecbase-securitycontext}
-
-
-
-### volumes ([]corev1.Volume, optional) {#podspecbase-volumes}
-
-
-
-### priorityClassName (string, optional) {#podspecbase-priorityclassname}
-
 
 
 ### containers ([]ContainerBase, optional) {#podspecbase-containers}
 
 
+### imagePullSecrets ([]corev1.LocalObjectReference, optional) {#podspecbase-imagepullsecrets}
+
 
 ### initContainers ([]ContainerBase, optional) {#podspecbase-initcontainers}
 
 
+### nodeSelector (map[string]string, optional) {#podspecbase-nodeselector}
 
-### imagePullSecrets ([]corev1.LocalObjectReference, optional) {#podspecbase-imagepullsecrets}
 
+### priorityClassName (string, optional) {#podspecbase-priorityclassname}
+
+
+### securityContext (*corev1.PodSecurityContext, optional) {#podspecbase-securitycontext}
+
+
+### serviceAccountName (string, optional) {#podspecbase-serviceaccountname}
+
+
+### tolerations ([]corev1.Toleration, optional) {#podspecbase-tolerations}
+
+
+### volumes ([]corev1.Volume, optional) {#podspecbase-volumes}
 
 
 
@@ -144,9 +118,7 @@ Consider using Deployment in the typeoverrides package combined with the merge p
 ###  (*MetaBase, required) {#deploymentbase-}
 
 
-
 ### spec (*DeploymentSpecBase, optional) {#deploymentbase-spec}
-
 
 
 
@@ -158,17 +130,13 @@ Consider using DeploymentSpec in the typeoverrides package combined with the mer
 ### replicas (*int32, optional) {#deploymentspecbase-replicas}
 
 
-
 ### selector (*metav1.LabelSelector, optional) {#deploymentspecbase-selector}
-
 
 
 ### strategy (*appsv1.DeploymentStrategy, optional) {#deploymentspecbase-strategy}
 
 
-
 ### template (*PodTemplateBase, optional) {#deploymentspecbase-template}
-
 
 
 
@@ -180,9 +148,7 @@ Consider using StatefulSet in the typeoverrides package combined with the merge 
 ###  (*MetaBase, required) {#statefulsetbase-}
 
 
-
 ### spec (*StatefulsetSpecBase, optional) {#statefulsetbase-spec}
-
 
 
 
@@ -191,24 +157,19 @@ Consider using StatefulSet in the typeoverrides package combined with the merge 
 Deprecated
 Consider using StatefulSetSpec in the typeoverrides package combined with the merge package
 
-### replicas (*int32, optional) {#statefulsetspecbase-replicas}
+### podManagementPolicy (appsv1.PodManagementPolicyType, optional) {#statefulsetspecbase-podmanagementpolicy}
 
+
+### replicas (*int32, optional) {#statefulsetspecbase-replicas}
 
 
 ### selector (*metav1.LabelSelector, optional) {#statefulsetspecbase-selector}
 
 
-
-### podManagementPolicy (appsv1.PodManagementPolicyType, optional) {#statefulsetspecbase-podmanagementpolicy}
-
+### template (*PodTemplateBase, optional) {#statefulsetspecbase-template}
 
 
 ### updateStrategy (*appsv1.StatefulSetUpdateStrategy, optional) {#statefulsetspecbase-updatestrategy}
-
-
-
-### template (*PodTemplateBase, optional) {#statefulsetspecbase-template}
-
 
 
 
@@ -220,9 +181,7 @@ Consider using DaemonSet in the typeoverrides package combined with the merge pa
 ###  (*MetaBase, required) {#daemonsetbase-}
 
 
-
 ### spec (*DaemonSetSpecBase, optional) {#daemonsetbase-spec}
-
 
 
 
@@ -231,20 +190,19 @@ Consider using DaemonSet in the typeoverrides package combined with the merge pa
 Deprecated
 Consider using DaemonSetSpec in the typeoverrides package combined with the merge package
 
+### minReadySeconds (int32, optional) {#daemonsetspecbase-minreadyseconds}
+
+
+### revisionHistoryLimit (*int32, optional) {#daemonsetspecbase-revisionhistorylimit}
+
+
 ### selector (*metav1.LabelSelector, optional) {#daemonsetspecbase-selector}
 
+
+### template (*PodTemplateBase, optional) {#daemonsetspecbase-template}
 
 
 ### updateStrategy (*appsv1.DaemonSetUpdateStrategy, optional) {#daemonsetspecbase-updatestrategy}
 
 
 
-### minReadySeconds (int32, optional) {#daemonsetspecbase-minreadyseconds}
-
-
-
-### revisionHistoryLimit (*int32, optional) {#daemonsetspecbase-revisionhistorylimit}
-
-
-
-### template (*PodTemplateBase, optional) {#daemonsetspecbase-template}

@@ -21,16 +21,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-//nolint:unused,deadcode
 // +docName:"Kubernetes volume abstraction"
 // Refers to different types of volumes to be mounted to pods: emptyDir, hostPath, pvc
 //
 // Leverages core types from kubernetes/api/core/v1
+//
+//nolint:unused,deadcode
 type _docKubernetesVolume interface{}
 
-//nolint:unused,deadcode
 // +name:"KubernetesVolume"
 // +description:"Kubernetes volume abstraction"
+//
+//nolint:unused,deadcode
 type _metaKubernetesVolume interface{}
 
 // +kubebuilder:object:generate=true
@@ -43,7 +45,8 @@ type KubernetesVolume struct {
 	SecretSource   *corev1.SecretVolumeSource   `json:"secret,omitempty"`
 	// PersistentVolumeClaim defines the Spec and the Source at the same time.
 	// The PVC will be created with the configured spec and the name defined in the source.
-	PersistentVolumeClaim *PersistentVolumeClaim `json:"pvc,omitempty"`
+	PersistentVolumeClaim *PersistentVolumeClaim        `json:"pvc,omitempty"`
+	ConfigMapSource       *corev1.ConfigMapVolumeSource `json:"configMap,omitempty"`
 }
 
 // +kubebuilder:object:generate=true
@@ -90,6 +93,11 @@ func (v *KubernetesVolume) GetVolume(name string) (corev1.Volume, error) {
 	} else if v.SecretSource != nil {
 		volume.VolumeSource = corev1.VolumeSource{
 			Secret: v.SecretSource,
+		}
+		return volume, nil
+	} else if v.ConfigMapSource != nil {
+		volume.VolumeSource = corev1.VolumeSource{
+			ConfigMap: v.ConfigMapSource,
 		}
 		return volume, nil
 	}
