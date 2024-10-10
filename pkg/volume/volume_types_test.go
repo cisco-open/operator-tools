@@ -25,8 +25,7 @@ import (
 
 func TestKubernetesVolume_ApplyVolumeForPodSpec_FailNonExistingContainer(t *testing.T) {
 	vol := KubernetesVolume{
-		HostPath: &v1.HostPathVolumeSource{
-		},
+		HostPath: &v1.HostPathVolumeSource{},
 	}
 
 	spec := &v1.PodSpec{
@@ -47,8 +46,7 @@ func TestKubernetesVolume_ApplyVolumeForPodSpec_FailNonExistingContainer(t *test
 
 func TestKubernetesVolume_ApplyVolumeForPodSpec(t *testing.T) {
 	vol := KubernetesVolume{
-		HostPath: &v1.HostPathVolumeSource{
-		},
+		HostPath: &v1.HostPathVolumeSource{},
 	}
 
 	spec := &v1.PodSpec{
@@ -93,10 +91,15 @@ func TestSecretKubernetesVolume_ApplyVolumeForPodSpec(t *testing.T) {
 func TestKubernetesVolume_ApplyPVCForStatefulSet(t *testing.T) {
 	vol := KubernetesVolume{
 		PersistentVolumeClaim: &PersistentVolumeClaim{
-			PersistentVolumeClaimSpec: v1.PersistentVolumeClaimSpec{
-			},
+			PersistentVolumeClaimSpec: v1.PersistentVolumeClaimSpec{},
 			PersistentVolumeSource: v1.PersistentVolumeClaimVolumeSource{
 				ClaimName: "my-claim",
+			},
+			Labels: map[string]string{
+				"test": "label",
+			},
+			Annotations: map[string]string{
+				"test": "annotation",
 			},
 		},
 	}
@@ -122,6 +125,9 @@ func TestKubernetesVolume_ApplyPVCForStatefulSet(t *testing.T) {
 	assert.Len(t, sts.Template.Spec.Volumes, 0)
 
 	assert.Equal(t, "prefix-my-claim", sts.Template.Spec.Containers[0].VolumeMounts[0].Name)
+	assert.Equal(t, vol.PersistentVolumeClaim.Labels, sts.VolumeClaimTemplates[0].Labels)
+	assert.Equal(t, vol.PersistentVolumeClaim.Annotations, sts.VolumeClaimTemplates[0].Annotations)
+
 	assert.Equal(t, "/there", sts.Template.Spec.Containers[0].VolumeMounts[0].MountPath)
 
 	assert.Equal(t, "prefix-my-claim", sts.VolumeClaimTemplates[0].Name)

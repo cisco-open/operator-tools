@@ -19,6 +19,7 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 // +docName:"Kubernetes volume abstraction"
@@ -54,6 +55,8 @@ type KubernetesVolume struct {
 type PersistentVolumeClaim struct {
 	PersistentVolumeClaimSpec corev1.PersistentVolumeClaimSpec         `json:"spec,omitempty"`
 	PersistentVolumeSource    corev1.PersistentVolumeClaimVolumeSource `json:"source,omitempty"`
+	Labels                    map[string]string                        `json:"labels,omitempty"`
+	Annotations               map[string]string                        `json:"annotations,omitempty"`
 }
 
 // `path` is the path in case the hostPath volume type is used and no path has been defined explicitly
@@ -112,8 +115,13 @@ func (v *KubernetesVolume) ApplyPVCForStatefulSet(containerName string, path str
 	if v.PersistentVolumeClaim == nil {
 		return errors.New("PVC definition is missing, unable to apply on statefulset")
 	}
+
+	m := meta(v.PersistentVolumeClaim.PersistentVolumeSource.ClaimName)
+	m.Labels = labels.Merge(m.Labels, v.PersistentVolumeClaim.Labels)
+	m.Annotations = labels.Merge(m.Annotations, v.PersistentVolumeClaim.Annotations)
+
 	pvc := corev1.PersistentVolumeClaim{
-		ObjectMeta: meta(v.PersistentVolumeClaim.PersistentVolumeSource.ClaimName),
+		ObjectMeta: m,
 		Spec:       v.PersistentVolumeClaim.PersistentVolumeClaimSpec,
 		Status: corev1.PersistentVolumeClaimStatus{
 			Phase: corev1.ClaimPending,
