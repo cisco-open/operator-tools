@@ -54,6 +54,8 @@ type KubernetesVolume struct {
 type PersistentVolumeClaim struct {
 	PersistentVolumeClaimSpec corev1.PersistentVolumeClaimSpec         `json:"spec,omitempty"`
 	PersistentVolumeSource    corev1.PersistentVolumeClaimVolumeSource `json:"source,omitempty"`
+	Labels                    map[string]string                        `json:"labels,omitempty"`
+	Annotations               map[string]string                        `json:"annotations,omitempty"`
 }
 
 // `path` is the path in case the hostPath volume type is used and no path has been defined explicitly
@@ -108,12 +110,12 @@ func (v *KubernetesVolume) GetVolume(name string) (corev1.Volume, error) {
 	return volume, nil
 }
 
-func (v *KubernetesVolume) ApplyPVCForStatefulSet(containerName string, path string, spec *v1.StatefulSetSpec, meta func(name string) metav1.ObjectMeta) error {
+func (v *KubernetesVolume) ApplyPVCForStatefulSet(containerName string, path string, spec *v1.StatefulSetSpec, meta func(name string, labels, annotations map[string]string) metav1.ObjectMeta) error {
 	if v.PersistentVolumeClaim == nil {
 		return errors.New("PVC definition is missing, unable to apply on statefulset")
 	}
 	pvc := corev1.PersistentVolumeClaim{
-		ObjectMeta: meta(v.PersistentVolumeClaim.PersistentVolumeSource.ClaimName),
+		ObjectMeta: meta(v.PersistentVolumeClaim.PersistentVolumeSource.ClaimName, v.PersistentVolumeClaim.Labels, v.PersistentVolumeClaim.Annotations),
 		Spec:       v.PersistentVolumeClaim.PersistentVolumeClaimSpec,
 		Status: corev1.PersistentVolumeClaimStatus{
 			Phase: corev1.ClaimPending,
