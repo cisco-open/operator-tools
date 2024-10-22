@@ -9,7 +9,7 @@ require (
 	github.com/briandowns/spinner v1.23.1
 	github.com/cisco-open/k8s-objectmatcher v1.10.0
 	github.com/cppforlife/go-patch v0.2.0
-	github.com/fatih/color v1.17.0
+	github.com/fatih/color v1.18.0
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v1.4.2
 	github.com/go-test/deep v1.1.1
