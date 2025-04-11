@@ -90,6 +90,7 @@ func TestGenParse(t *testing.T) {
 				Field1 is a good field.
 
 
+
 			`),
 		},
 		{
