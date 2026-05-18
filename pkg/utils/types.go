@@ -36,72 +36,16 @@ func MergeLabels(labelGroups ...map[string]string) map[string]string {
 	return mergedLabels
 }
 
-func PointerToBool(b *bool) bool {
-	if b == nil {
-		return false
+// DerefOrZero returns the value referenced by p, or the zero-value of the type
+func DerefOrZero[T any](p *T) T {
+	return DerefOr(p, *new(T))
+}
+
+func DerefOr[T any](p *T, defVal T) T {
+	if p == nil {
+		return defVal
 	}
-
-	return *b
-}
-
-func PointerToUint(i *uint) uint {
-	if i == nil {
-		return 0
-	}
-
-	return *i
-}
-
-func PointerToInt(i *int) int {
-	if i == nil {
-		return 0
-	}
-
-	return *i
-}
-
-func PointerToInt32(i *int32) int32 {
-	if i == nil {
-		return 0
-	}
-
-	return *i
-}
-
-func PointerToString(s *string) string {
-	if s == nil {
-		return ""
-	}
-
-	return *s
-}
-
-// IntPointer converts int32 to *int32
-//
-//go:fix inline
-func IntPointer(i int32) *int32 {
-	return new(i)
-}
-
-// IntPointer converts int64 to *int64
-//
-//go:fix inline
-func IntPointer64(i int64) *int64 {
-	return new(i)
-}
-
-// BoolPointer converts bool to *bool
-//
-//go:fix inline
-func BoolPointer(b bool) *bool {
-	return new(b)
-}
-
-// StringPointer converts string to *string
-//
-//go:fix inline
-func StringPointer(s string) *string {
-	return new(s)
+	return *p
 }
 
 // OrderedStringMap

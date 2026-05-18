@@ -67,7 +67,7 @@ func PatchYAMLModifier(overlay K8SResourceOverlay, parser *ObjectParser) (Object
 	for _, patch := range overlay.Patches {
 		var value any
 		if patch.ParseValue {
-			err := yaml.Unmarshal([]byte(utils.PointerToString(patch.Value)), &value)
+			err := yaml.Unmarshal([]byte(utils.DerefOrZero(patch.Value)), &value)
 			if err != nil {
 				return nil, errors.WrapIf(err, "could not unmarshal value")
 			}

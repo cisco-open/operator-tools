@@ -122,7 +122,7 @@ func (ec EnabledComponent) IsDisabled() bool {
 
 // IsEnabled returns true iff the component is explicitly enabled
 func (ec EnabledComponent) IsEnabled() bool {
-	return utils.PointerToBool(ec.Enabled)
+	return utils.DerefOrZero(ec.Enabled)
 }
 
 // IsSkipped returns true iff the component is neither enabled nor disabled explicitly

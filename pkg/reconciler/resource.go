@@ -347,7 +347,7 @@ func (r *GenericResourceReconciler) shouldRecreate(sErr *apierrors.StatusError) 
 		return r.Options.RecreateErrorMessageCondition(sErr.ErrStatus.Message)
 	}
 	// Fall back to substring matching
-	return strings.Contains(sErr.ErrStatus.Message, utils.PointerToString(r.Options.RecreateErrorMessageSubstring))
+	return strings.Contains(sErr.ErrStatus.Message, utils.DerefOrZero(r.Options.RecreateErrorMessageSubstring))
 }
 
 // ReconcileResource reconciles various kubernetes types
@@ -503,7 +503,7 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 					}
 					return &reconcile.Result{
 						Requeue:      true,
-						RequeueAfter: time.Second * time.Duration(utils.PointerToInt32(r.Options.RecreateRequeueDelay)),
+						RequeueAfter: time.Second * time.Duration(utils.DerefOrZero(r.Options.RecreateRequeueDelay)),
 					}, nil
 				} else {
 					return nil, errors.WrapIf(sErr, r.Options.EnableRecreateWorkloadOnImmutableFieldChangeHelp)
