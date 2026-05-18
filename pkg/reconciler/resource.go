@@ -220,7 +220,7 @@ func NewGenericReconciler(c client.Client, log logr.Logger, opts ReconcilerOpts)
 		opts.RecreatePropagationPolicy = client.PropagationPolicy(metav1.DeletePropagationBackground)
 	}
 	if opts.PatchMaker == nil {
-		opts.PatchMaker = patch.DefaultPatchMaker
+		opts.PatchMaker = NewFallbackPatchMaker(patch.DefaultPatchMaker, patch.DefaultAnnotator, &patch.BaseJSONMergePatcher{})
 	}
 	if opts.PatchCalculateOptions == nil {
 		opts.PatchCalculateOptions = []patch.CalculateOption{patch.IgnoreStatusFields()}
