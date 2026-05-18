@@ -65,14 +65,14 @@ func PatchYAMLModifier(overlay K8SResourceOverlay, parser *ObjectParser) (Object
 
 	var opsDefinitions []ypatch.OpDefinition
 	for _, patch := range overlay.Patches {
-		var value interface{}
+		var value any
 		if patch.ParseValue {
 			err := yaml.Unmarshal([]byte(utils.PointerToString(patch.Value)), &value)
 			if err != nil {
 				return nil, errors.WrapIf(err, "could not unmarshal value")
 			}
 		} else {
-			value = interface{}(patch.Value)
+			value = any(patch.Value)
 		}
 
 		op := ypatch.OpDefinition{
@@ -120,7 +120,7 @@ func PatchYAMLModifier(overlay K8SResourceOverlay, parser *ObjectParser) (Object
 			return o, errors.WrapIf(err, "could not init patch ops from definitions")
 		}
 
-		var in interface{}
+		var in any
 		err = yaml.Unmarshal(y, &in)
 		if err != nil {
 			return o, errors.WrapIf(err, "could not unmarshal resource yaml")

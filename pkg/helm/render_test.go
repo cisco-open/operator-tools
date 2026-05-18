@@ -33,7 +33,7 @@ func TestRenderChartWithCrdsAndTemplates(t *testing.T) {
 	defaultValues, err := GetDefaultValues(chart)
 	require.NoError(t, err)
 
-	valuesMap := map[string]interface{}{}
+	valuesMap := map[string]any{}
 	err = yaml.Unmarshal(defaultValues, &valuesMap)
 	require.NoError(t, err)
 
@@ -54,14 +54,13 @@ func TestRenderChartWithCrdsAndTemplates(t *testing.T) {
 	assert.Equal(t, "loggings.logging.banzaicloud.io", o.GetName())
 }
 
-
 func TestRenderChartWithCrdsOnly(t *testing.T) {
 	chart := http.Dir("testdata/crds-only/logging-operator")
 
 	defaultValues, err := GetDefaultValues(chart)
 	require.NoError(t, err)
 
-	valuesMap := map[string]interface{}{}
+	valuesMap := map[string]any{}
 	err = yaml.Unmarshal(defaultValues, &valuesMap)
 	require.NoError(t, err)
 
@@ -85,7 +84,7 @@ func TestRenderWithScheme(t *testing.T) {
 	defaultValues, err := GetDefaultValues(chart)
 	require.NoError(t, err)
 
-	valuesMap := map[string]interface{}{}
+	valuesMap := map[string]any{}
 	err = yaml.Unmarshal(defaultValues, &valuesMap)
 	require.NoError(t, err)
 
@@ -95,7 +94,7 @@ func TestRenderWithScheme(t *testing.T) {
 	objects, err := Render(chart, valuesMap, ReleaseOptions{
 		Name:      "release-name",
 		Namespace: "release-namespace",
-		Scheme: scheme,
+		Scheme:    scheme,
 	}, "logging-operator")
 	require.NoError(t, err)
 

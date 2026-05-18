@@ -62,7 +62,7 @@ func GetDefaultValues(fs http.FileSystem) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func Render(fs http.FileSystem, values map[string]interface{}, releaseOptions ReleaseOptions, chartName string) ([]runtime.Object, error) {
+func Render(fs http.FileSystem, values map[string]any, releaseOptions ReleaseOptions, chartName string) ([]runtime.Object, error) {
 	files, err := GetFiles(fs)
 	if err != nil {
 		return nil, err
@@ -143,7 +143,7 @@ func parseAndAppendObjects(parser func([]byte) (runtime.Object, error), objects 
 		// convert yaml to json
 		json, err := yaml.YAMLToJSON([]byte(yamlDoc))
 		if err != nil {
-			return nil, errors.WrapIfWithDetails(err, "unable to convert yaml to json", map[string]interface{}{"templatePath": path})
+			return nil, errors.WrapIfWithDetails(err, "unable to convert yaml to json", map[string]any{"templatePath": path})
 		}
 
 		if string(json) == "null" {

@@ -62,8 +62,8 @@ func TestNewReconcilerWith(t *testing.T) {
 
 func TestNewReconcilerWithUnstructured(t *testing.T) {
 	desired := &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"metadata": map[string]interface{}{
+		Object: map[string]any{
+			"metadata": map[string]any{
 				"name":      "test",
 				"namespace": controlNamespace,
 			},
@@ -248,7 +248,6 @@ func TestRecreateObjectFailIfNotAllowed(t *testing.T) {
 	}
 
 	for _, tt := range testData {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := tt.reconciler.ReconcileResource(tt.desired, reconciler.StatePresent)
 			require.NoError(t, err)

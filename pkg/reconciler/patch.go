@@ -39,12 +39,12 @@ func IgnoreManagedFields() patch.CalculateOption {
 }
 
 func deleteManagedFields(obj []byte) ([]byte, error) {
-	var objectMap map[string]interface{}
+	var objectMap map[string]any
 	err := json.Unmarshal(obj, &objectMap)
 	if err != nil {
 		return []byte{}, errors.WrapIf(err, "could not unmarshal byte sequence")
 	}
-	if metadata, ok := objectMap["metadata"].(map[string]interface{}); ok {
+	if metadata, ok := objectMap["metadata"].(map[string]any); ok {
 		delete(metadata, "managedFields")
 		objectMap["metadata"] = metadata
 	}

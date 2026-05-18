@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 
@@ -199,24 +200,19 @@ func NewGenericReconciler(c client.Client, log logr.Logger, opts ReconcilerOpts)
 		_ = clientgoscheme.AddToScheme(opts.Scheme)
 	}
 	if opts.RecreateRequeueDelay == nil {
-		opts.RecreateRequeueDelay = utils.IntPointer(DefaultRecreateRequeueDelay)
+		opts.RecreateRequeueDelay = new(DefaultRecreateRequeueDelay)
 	}
 	if opts.RecreateErrorMessageSubstring == nil {
 		if opts.RecreateErrorMessageCondition == nil {
 			opts.RecreateErrorMessageCondition = MatchImmutableErrorMessages
 		} else {
-			opts.RecreateErrorMessageSubstring = utils.StringPointer("immutable")
+			opts.RecreateErrorMessageSubstring = new("immutable")
 		}
 	}
 	if opts.RecreateEnabledResourceCondition == nil {
 		// only allow a custom set of types and only specific errors
 		opts.RecreateEnabledResourceCondition = func(kind schema.GroupVersionKind, status metav1.Status) bool {
-			for _, gk := range DefaultRecreateEnabledGroupKinds {
-				if gk == kind.GroupKind() {
-					return true
-				}
-			}
-			return false
+			return slices.Contains(DefaultRecreateEnabledGroupKinds, kind.GroupKind())
 		}
 	}
 	if len(opts.RecreatePropagationPolicy) == 0 {
@@ -257,7 +253,7 @@ func WithEnableRecreateWorkload() ResourceReconcilerOption {
 // Apply the given amount of delay before recreating a resource after it has been removed
 func WithRecreateRequeueDelay(delay int32) ResourceReconcilerOption {
 	return func(o *ReconcilerOpts) {
-		o.RecreateRequeueDelay = utils.IntPointer(delay)
+		o.RecreateRequeueDelay = new(delay)
 	}
 }
 
@@ -296,7 +292,7 @@ func WithRecreateImmediately() ResourceReconcilerOption {
 // Recreate only if the error message contains the given substring
 func WithRecreateErrorMessageSubstring(substring string) ResourceReconcilerOption {
 	return func(o *ReconcilerOpts) {
-		o.RecreateErrorMessageSubstring = utils.StringPointer(substring)
+		o.RecreateErrorMessageSubstring = new(substring)
 	}
 }
 
@@ -310,7 +306,7 @@ func WithRecreateErrorMessageCondition(condition ErrorMessageCondition) Resource
 // Disable checking the error message before recreating resources
 func WithRecreateErrorMessageIgnored() ResourceReconcilerOption {
 	return func(o *ReconcilerOpts) {
-		o.RecreateErrorMessageSubstring = utils.StringPointer("")
+		o.RecreateErrorMessageSubstring = new("")
 	}
 }
 
@@ -496,9 +492,7 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 							}
 							return nil, nil
 						}
-						if err != nil {
-							return nil, errors.WrapIfWithDetails(err, "failed to recreate resource", resourceDetails...)
-						}
+						return nil, errors.WrapIfWithDetails(err, "failed to recreate resource", resourceDetails...)
 					}
 					err := r.Client.Delete(context.TODO(), current.(client.Object),
 						// wait until all dependent resources get cleared up
@@ -705,14 +699,14 @@ func crdReadyV1(crd *v1.CustomResourceDefinition) bool {
 	return false
 }
 
-func (r *GenericResourceReconciler) resourceDetails(desired runtime.Object) ([]interface{}, schema.GroupVersionKind, error) {
+func (r *GenericResourceReconciler) resourceDetails(desired runtime.Object) ([]any, schema.GroupVersionKind, error) {
 	gvk := schema.GroupVersionKind{}
 	m, err := meta.Accessor(desired)
 	if err != nil {
 		return nil, gvk, errors.WithStackIf(err)
 	}
 	key := client.ObjectKey{Namespace: m.GetNamespace(), Name: m.GetName()}
-	values := []interface{}{"name", key.Name}
+	values := []any{"name", key.Name}
 	if key.Namespace != "" {
 		values = append(values, "namespace", key.Namespace)
 	}
@@ -731,7 +725,7 @@ func (r *GenericResourceReconciler) resourceDetails(desired runtime.Object) ([]i
 	return values, gvk, nil
 }
 
-func (r *GenericResourceReconciler) resourceLog(desired runtime.Object, details ...interface{}) logr.Logger {
+func (r *GenericResourceReconciler) resourceLog(_ runtime.Object, details ...any) logr.Logger {
 	if len(details) > 0 {
 		return r.Log.WithValues(details...)
 	}

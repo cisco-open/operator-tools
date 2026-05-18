@@ -233,7 +233,7 @@ func getTypeName(generic *ast.GenDecl, defaultName string) string {
 }
 
 func getTypeDocs(generic *ast.GenDecl, trimSpace bool) string {
-	comment := ""
+	var comment strings.Builder
 	if generic.Doc != nil {
 		for _, line := range generic.Doc.List {
 			newLine := strings.TrimPrefix(line.Text, "//")
@@ -247,11 +247,11 @@ func getTypeDocs(generic *ast.GenDecl, trimSpace bool) string {
 			if !strings.HasPrefix(strings.TrimSpace(newLine), "+kubebuilder") &&
 				!strings.HasPrefix(strings.TrimSpace(newLine), "nolint") &&
 				!strings.HasPrefix(strings.TrimSpace(newLine), "+docName") {
-				comment += newLine + "\n"
+				comment.WriteString(newLine + "\n")
 			}
 		}
 	}
-	return comment
+	return comment.String()
 }
 
 func getLink(def string) string {
@@ -271,7 +271,7 @@ func formatRequired(r bool) string {
 }
 
 func (d *Doc) getValuesFromItem(item *ast.Field) (name, comment, def, required string, err error) {
-	commentWithDefault := ""
+	var commentWithDefault strings.Builder
 	if item.Doc != nil {
 		// Process comments of objects that become ### level headings
 		isCodeBlock := false
@@ -279,7 +279,7 @@ func (d *Doc) getValuesFromItem(item *ast.Field) (name, comment, def, required s
 			newLine := strings.TrimPrefix(line.Text, "//")
 
 			if strings.HasPrefix(newLine, " {{< highlight") {
-				commentWithDefault += "\n"
+				commentWithDefault.WriteString("\n")
 				isCodeBlock = true
 			}
 
@@ -293,9 +293,9 @@ func (d *Doc) getValuesFromItem(item *ast.Field) (name, comment, def, required s
 			if !strings.HasPrefix(newLine, "+kubebuilder") {
 				// Keep newlines in code blocks, but join body text
 				if isCodeBlock {
-					commentWithDefault += newLine + "\n"
+					commentWithDefault.WriteString(newLine + "\n")
 				} else {
-					commentWithDefault += newLine + " "
+					commentWithDefault.WriteString(newLine + " ")
 				}
 				// Detect the end of code blocks
 				if isCodeBlock && strings.HasPrefix(newLine, " {{< /highlight") {
@@ -315,15 +315,15 @@ func (d *Doc) getValuesFromItem(item *ast.Field) (name, comment, def, required s
 	nameResult := GetPrefixedValue(tag, `json:\"([^,\"]*).*\"`)
 	required = formatRequired(!strings.Contains(GetPrefixedValue(tag, `json:\"(.*)\"`), "omitempty"))
 	if tagResult != "" {
-		return nameResult, getLink(commentWithDefault), tagResult, required, nil
+		return nameResult, getLink(commentWithDefault.String()), tagResult, required, nil
 	}
-	result := GetPrefixedValue(commentWithDefault, `\(default:(.*)\)`)
+	result := GetPrefixedValue(commentWithDefault.String(), `\(default:(.*)\)`)
 	if result != "" {
 		ignore := fmt.Sprintf("(default:%s)", result)
-		comment = strings.TrimSpace(strings.Replace(commentWithDefault, ignore, "", 1))
+		comment = strings.TrimSpace(strings.Replace(commentWithDefault.String(), ignore, "", 1))
 		result = strings.TrimSpace(result)
 		return nameResult, comment, getLink(result), required, nil
 	}
 
-	return nameResult, getLink(commentWithDefault), "", required, nil
+	return nameResult, getLink(commentWithDefault.String()), "", required, nil
 }

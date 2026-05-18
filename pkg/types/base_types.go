@@ -15,6 +15,8 @@
 package types
 
 import (
+	"maps"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -145,17 +147,13 @@ func (base *MetaBase) Merge(meta metav1.ObjectMeta) metav1.ObjectMeta {
 		if meta.Annotations == nil {
 			meta.Annotations = make(map[string]string)
 		}
-		for key, val := range base.Annotations {
-			meta.Annotations[key] = val
-		}
+		maps.Copy(meta.Annotations, base.Annotations)
 	}
 	if len(base.Labels) > 0 {
 		if meta.Labels == nil {
 			meta.Labels = make(map[string]string)
 		}
-		for key, val := range base.Labels {
-			meta.Labels[key] = val
-		}
+		maps.Copy(meta.Labels, base.Labels)
 	}
 	return meta
 }
@@ -468,9 +466,7 @@ func mergeSelectors(base, spec *metav1.LabelSelector) *metav1.LabelSelector {
 		if spec.MatchLabels == nil {
 			spec.MatchLabels = make(map[string]string)
 		}
-		for k, v := range base.MatchLabels {
-			spec.MatchLabels[k] = v
-		}
+		maps.Copy(spec.MatchLabels, base.MatchLabels)
 	}
 	if base.MatchExpressions != nil {
 		spec.MatchExpressions = append(spec.MatchExpressions, base.MatchExpressions...)

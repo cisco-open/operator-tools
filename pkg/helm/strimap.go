@@ -14,7 +14,9 @@
 
 package helm
 
-type Strimap = map[string]interface{}
+import "maps"
+
+type Strimap = map[string]any
 
 type StrimapBuilder Strimap
 
@@ -36,9 +38,7 @@ func (s StrimapBuilder) Getin(strs ...string) Strimap {
 
 func MergeMaps(a, b Strimap) Strimap {
 	out := make(Strimap, len(a))
-	for k, v := range a {
-		out[k] = v
-	}
+	maps.Copy(out, a)
 	for k, v := range b {
 		if v, ok := v.(Strimap); ok {
 			if bv, ok := out[k]; ok {

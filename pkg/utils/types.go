@@ -17,6 +17,8 @@ package utils
 import (
 	"fmt"
 	"hash/fnv"
+	"maps"
+	"slices"
 	"sort"
 
 	"emperror.dev/errors"
@@ -29,9 +31,7 @@ import (
 func MergeLabels(labelGroups ...map[string]string) map[string]string {
 	mergedLabels := make(map[string]string)
 	for _, labels := range labelGroups {
-		for k, v := range labels {
-			mergedLabels[k] = v
-		}
+		maps.Copy(mergedLabels, labels)
 	}
 	return mergedLabels
 }
@@ -77,23 +77,31 @@ func PointerToString(s *string) string {
 }
 
 // IntPointer converts int32 to *int32
+//
+//go:fix inline
 func IntPointer(i int32) *int32 {
-	return &i
+	return new(i)
 }
 
 // IntPointer converts int64 to *int64
+//
+//go:fix inline
 func IntPointer64(i int64) *int64 {
-	return &i
+	return new(i)
 }
 
 // BoolPointer converts bool to *bool
+//
+//go:fix inline
 func BoolPointer(b bool) *bool {
-	return &b
+	return new(b)
 }
 
 // StringPointer converts string to *string
+//
+//go:fix inline
 func StringPointer(s string) *string {
-	return &s
+	return new(s)
 }
 
 // OrderedStringMap
@@ -108,12 +116,7 @@ func OrderedStringMap(original map[string]string) *orderedmap.OrderedMap {
 
 // Contains check if a string item exists in []string
 func Contains(s []string, e string) bool {
-	for _, i := range s {
-		if i == e {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(s, e)
 }
 
 // Hash32 calculate for string

@@ -36,7 +36,7 @@ const (
 
 type SpinnerLogSink struct {
 	names  []string
-	values []interface{}
+	values []any
 	out    io.Writer
 	err    io.Writer
 
@@ -86,7 +86,7 @@ func NewSpinnerLogSink(options ...Option) *SpinnerLogSink {
 func (log *SpinnerLogSink) Init(_ logr.RuntimeInfo) {}
 
 // Info implements logr.LogSink interface
-func (log *SpinnerLogSink) Info(level int, msg string, keysAndValues ...interface{}) {
+func (log *SpinnerLogSink) Info(level int, msg string, keysAndValues ...any) {
 
 	colorPrinter := log.getColorPrinter(log.colors.Info)
 
@@ -139,7 +139,7 @@ func (log *SpinnerLogSink) Enabled(level int) bool {
 }
 
 // Error implements logr.LogSink interface
-func (log *SpinnerLogSink) Error(e error, msg string, keysAndValues ...interface{}) {
+func (log *SpinnerLogSink) Error(e error, msg string, keysAndValues ...any) {
 	allVal := append(keysAndValues, log.values...)
 
 	colorPrinter := log.getColorPrinter(log.colors.Error)
@@ -184,7 +184,7 @@ func (log *SpinnerLogSink) WithName(name string) logr.LogSink {
 }
 
 // WithValues implements logr.LogSink interface
-func (log *SpinnerLogSink) WithValues(keysAndValues ...interface{}) logr.LogSink {
+func (log *SpinnerLogSink) WithValues(keysAndValues ...any) logr.LogSink {
 	l := log.copyLogger()
 	l.values = append(l.values, keysAndValues...)
 
@@ -218,11 +218,11 @@ func (log *SpinnerLogSink) Grouped(state bool) {
 	log.grouped = state
 }
 
-func (log *SpinnerLogSink) GetValues() []interface{} {
+func (log *SpinnerLogSink) GetValues() []any {
 	return log.values
 }
 
-func (log *SpinnerLogSink) AddValues(keyAndValues []interface{}) {
+func (log *SpinnerLogSink) AddValues(keyAndValues []any) {
 	log.values = append(log.values, keyAndValues...)
 }
 
@@ -296,7 +296,7 @@ func (log *SpinnerLogSink) copyLogger() *SpinnerLogSink {
 	names := make([]string, len(log.names))
 	copy(names, log.names)
 
-	values := make([]interface{}, len(log.values))
+	values := make([]any, len(log.values))
 	copy(values, log.values)
 
 	return &SpinnerLogSink{
@@ -332,8 +332,8 @@ func (*SpinnerLogSink) truncateString(str string, num int) string {
 	return bnoden
 }
 
-func (log *SpinnerLogSink) joinAndSeparatePairs(values []interface{}) string {
-	joined := ""
+func (log *SpinnerLogSink) joinAndSeparatePairs(values []any) string {
+	var joined strings.Builder
 	c := log.colors.Key
 	for i, v := range values {
 		s, err := cast.ToStringE(v)
@@ -342,19 +342,19 @@ func (log *SpinnerLogSink) joinAndSeparatePairs(values []interface{}) string {
 		}
 
 		colorPrinter := log.getColorPrinter(c)
-		joined += colorPrinter.Sprint(s)
+		joined.WriteString(colorPrinter.Sprint(s))
 
 		if i%2 == 0 {
 			c = 0
-			joined += "="
+			joined.WriteString("=")
 		} else {
 			c = log.colors.Key
 			if i < len(values)-1 {
-				joined += ", "
+				joined.WriteString(", ")
 			}
 		}
 	}
-	return joined
+	return joined.String()
 }
 
 func (log *SpinnerLogSink) getDetailedErr(err error) string {

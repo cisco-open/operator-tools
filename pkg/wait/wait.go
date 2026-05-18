@@ -143,7 +143,7 @@ func (c *ResourceConditionChecks) waitForResourceConditions(object runtime.Objec
 	return nil
 }
 
-func (r *ResourceConditionChecks) resourceDetails(desired runtime.Object) (values []interface{}) {
+func (r *ResourceConditionChecks) resourceDetails(desired runtime.Object) (values []any) {
 	m, err := meta.Accessor(desired)
 	key := client.ObjectKey{Namespace: m.GetNamespace(), Name: m.GetName()}
 	if err == nil {

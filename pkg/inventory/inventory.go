@@ -33,7 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/cisco-open/operator-tools/pkg/reconciler"
-	"github.com/cisco-open/operator-tools/pkg/utils"
 )
 
 const (
@@ -108,7 +107,7 @@ func CreateObjectsInventory(namespace, name string, objects []runtime.Object) (*
 			Namespace: namespace,
 			Name:      name,
 		},
-		Immutable: utils.BoolPointer(false),
+		Immutable: new(false),
 		Data: map[string]string{
 			referencesKey: strings.Join(resourceURLs, ","),
 		},

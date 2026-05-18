@@ -58,9 +58,9 @@ type ResourceOwnerWithControlNamespace interface {
 }
 
 type (
-	ResourceBuilders  func(parent ResourceOwner, object interface{}) []ResourceBuilder
+	ResourceBuilders  func(parent ResourceOwner, object any) []ResourceBuilder
 	ResourceBuilder   func() (runtime.Object, DesiredState, error)
-	ResourceTranslate func(runtime.Object) (parent ResourceOwner, config interface{})
+	ResourceTranslate func(runtime.Object) (parent ResourceOwner, config any)
 	PurgeTypesFunc    func() []schema.GroupVersionKind
 )
 
@@ -70,7 +70,6 @@ func GetResourceBuildersFromObjects(objects []runtime.Object, state DesiredState
 	utils.RuntimeObjects(objects).Sort(utils.InstallResourceOrder)
 
 	for _, o := range objects {
-		o := o
 		for _, modifierFunc := range modifierFuncs {
 			var err error
 			o, err = modifierFunc(o)
@@ -104,7 +103,7 @@ func GetResourceBuildersFromObjects(objects []runtime.Object, state DesiredState
 }
 
 type NativeReconciledComponent interface {
-	ResourceBuilders(parent ResourceOwner, object interface{}) []ResourceBuilder
+	ResourceBuilders(parent ResourceOwner, object any) []ResourceBuilder
 	RegisterWatches(*builder.Builder)
 	PurgeTypes() []schema.GroupVersionKind
 }
@@ -131,7 +130,7 @@ func NewReconciledComponent(b ResourceBuilders, w func(b *builder.Builder), p fu
 	}
 }
 
-func (d *DefaultReconciledComponent) ResourceBuilders(parent ResourceOwner, object interface{}) []ResourceBuilder {
+func (d *DefaultReconciledComponent) ResourceBuilders(parent ResourceOwner, object any) []ResourceBuilder {
 	return d.builders(parent, object)
 }
 
@@ -243,7 +242,7 @@ func NewNativeReconciler(
 	rec *GenericResourceReconciler,
 	client client.Client,
 	reconciledComponent NativeReconciledComponent,
-	resourceTranslate func(runtime.Object) (parent ResourceOwner, config interface{}),
+	resourceTranslate func(runtime.Object) (parent ResourceOwner, config any),
 	opts ...NativeReconcilerOpt) *NativeReconciler {
 	reconciler := &NativeReconciler{
 		GenericResourceReconciler: rec,

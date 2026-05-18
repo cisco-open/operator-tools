@@ -38,7 +38,7 @@ func (log *LogrAdapter) V(level int) Logger {
 	}
 }
 
-func (log *LogrAdapter) WithValues(keysAndValues ...interface{}) Logger {
+func (log *LogrAdapter) WithValues(keysAndValues ...any) Logger {
 	return &LogrAdapter{
 		Logger: log.Logger.WithValues(keysAndValues...),
 	}

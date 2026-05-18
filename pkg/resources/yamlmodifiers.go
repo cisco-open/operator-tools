@@ -25,8 +25,8 @@ func ReplaceAPIVersionYAMLModifier(from, to string) YAMLModifierFuncs {
 	return func(y []byte) []byte {
 		y = bytes.ReplaceAll(
 			y,
-			[]byte(fmt.Sprintf("apiVersion: %s", from)),
-			[]byte(fmt.Sprintf("apiVersion: %s", to)),
+			fmt.Appendf(nil, "apiVersion: %s", from),
+			fmt.Appendf(nil, "apiVersion: %s", to),
 		)
 
 		return y
