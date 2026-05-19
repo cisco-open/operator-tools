@@ -33,6 +33,12 @@ PersistentVolumeClaim defines the Spec and the Source at the same time. The PVC 
 
 ## PersistentVolumeClaim
 
+### annotations (map[string]string, optional) {#persistentvolumeclaim-annotations}
+
+
+### labels (map[string]string, optional) {#persistentvolumeclaim-labels}
+
+
 ### spec (corev1.PersistentVolumeClaimSpec, optional) {#persistentvolumeclaim-spec}
 
 
