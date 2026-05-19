@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 
 	"emperror.dev/errors"
-
 	"github.com/cisco-open/k8s-objectmatcher/patch"
 )
 

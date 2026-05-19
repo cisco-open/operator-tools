@@ -346,7 +346,7 @@ func TestMergeMap(t *testing.T) {
 		"a": "1",
 		"b": "3",
 		"c": "4",
-	}, base.ObjectMeta.Labels)
+	}, base.Labels)
 }
 
 func TestMergeMapWithEmbeddedType(t *testing.T) {
@@ -374,7 +374,7 @@ func TestMergeMapWithEmbeddedType(t *testing.T) {
 		"a": "1",
 		"b": "3",
 		"c": "4",
-	}, base.ObjectMeta.Labels)
+	}, base.Labels)
 }
 
 func TestMergeService(t *testing.T) {
@@ -434,7 +434,7 @@ func TestMergeService(t *testing.T) {
 		"a": "1",
 		"b": "3",
 		"c": "4",
-	}, base.ObjectMeta.Labels)
+	}, base.Labels)
 
 	require.Equal(t, base.Spec, corev1.ServiceSpec{
 		Ports: []corev1.ServicePort{

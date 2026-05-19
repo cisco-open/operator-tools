@@ -16,10 +16,9 @@ package reconciler
 
 import (
 	"emperror.dev/errors"
+	"github.com/cisco-open/k8s-objectmatcher/patch"
 	json "github.com/json-iterator/go"
 	"k8s.io/apimachinery/pkg/runtime"
-
-	"github.com/cisco-open/k8s-objectmatcher/patch"
 )
 
 // FallbackPatchMaker falls back to a three-way JSON merge patch when the

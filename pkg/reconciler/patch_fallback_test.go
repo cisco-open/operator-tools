@@ -70,7 +70,7 @@ func (r *flattenedResource) GetObjectKind() schema.ObjectKind {
 }
 
 func (r *flattenedResource) DeepCopyObject() runtime.Object {
-	out := &flattenedResource{TypeMeta: r.TypeMeta, ObjectMeta: *r.ObjectMeta.DeepCopy()}
+	out := &flattenedResource{TypeMeta: r.TypeMeta, ObjectMeta: *r.DeepCopy()}
 	r.Spec.DeepCopyInto(&out.Spec)
 	return out
 }

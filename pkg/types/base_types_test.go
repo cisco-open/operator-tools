@@ -22,13 +22,12 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cisco-open/operator-tools/pkg/types"
 )
 
 func TestMetaBaseEmptyOverrideOnEmptyObject(t *testing.T) {
-	original := v1.ObjectMeta{}
+	original := metav1.ObjectMeta{}
 	overrides := types.MetaBase{}
 
 	result := overrides.Merge(original)
@@ -43,7 +42,7 @@ func TestMetaBaseEmptyOverrideOnEmptyObject(t *testing.T) {
 }
 
 func TestMetaBaseOverrideOnEmptyObject(t *testing.T) {
-	original := v1.ObjectMeta{}
+	original := metav1.ObjectMeta{}
 	overrides := types.MetaBase{
 		Annotations: map[string]string{
 			"annotation": "a",
@@ -65,7 +64,7 @@ func TestMetaBaseOverrideOnEmptyObject(t *testing.T) {
 }
 
 func TestMetaBaseOverrideOnExistingObject(t *testing.T) {
-	original := v1.ObjectMeta{
+	original := metav1.ObjectMeta{
 		Annotations: map[string]string{
 			"annotation": "a",
 		},
@@ -176,7 +175,8 @@ func TestDeploymentBaseOverride(t *testing.T) {
 			base: &types.DeploymentSpecBase{
 				Strategy: &appsv1.DeploymentStrategy{
 					Type: appsv1.RecreateDeploymentStrategyType,
-				}},
+				},
+			},
 			spec: appsv1.DeploymentSpec{},
 			want: appsv1.DeploymentSpec{
 				Strategy: appsv1.DeploymentStrategy{
@@ -323,7 +323,6 @@ func TestDeploymentBaseOverride(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestStatefulsetBaseOverride(t *testing.T) {
@@ -365,7 +364,8 @@ func TestStatefulsetBaseOverride(t *testing.T) {
 					RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
 						Partition: new(int32(33)),
 					},
-				}},
+				},
+			},
 			spec: appsv1.StatefulSetSpec{},
 			want: appsv1.StatefulSetSpec{
 				UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
@@ -544,13 +544,13 @@ func TestStatefulSetOverride(t *testing.T) {
 					"old":      "old-value",
 				},
 			}},
-			spec: appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{
+			spec: appsv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					"override": "ooo",
 					"new":      "new-value",
 				},
 			}},
-			want: appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{
+			want: appsv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					"override": "winning",
 					"old":      "old-value",

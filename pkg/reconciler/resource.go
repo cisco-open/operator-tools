@@ -257,7 +257,7 @@ func WithRecreateRequeueDelay(delay int32) ResourceReconcilerOption {
 	}
 }
 
-// Use this option for the legacy behaviour
+// Use this option for the legacy behavior
 func WithRecreateEnabledForAll() ResourceReconcilerOption {
 	return func(o *ReconcilerOpts) {
 		o.RecreateEnabledResourceCondition = func(_ schema.GroupVersionKind, _ metav1.Status) bool {
@@ -266,7 +266,7 @@ func WithRecreateEnabledForAll() ResourceReconcilerOption {
 	}
 }
 
-// Use this option for the legacy behaviour
+// Use this option for the legacy behavior
 func WithRecreateEnabledFor(condition RecreateResourceCondition) ResourceReconcilerOption {
 	return func(o *ReconcilerOpts) {
 		o.RecreateEnabledResourceCondition = condition
@@ -373,6 +373,11 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 		}
 		if err != nil {
 			return nil, errors.WrapIfWithDetails(err, "failed to create resource", resourceDetails...)
+		}
+	case StateAbsent:
+		_, err := r.delete(desired, desiredState)
+		if err != nil {
+			return nil, errors.WrapIfWithDetails(err, "failed to delete resource", resourceDetails...)
 		}
 	default:
 		created, current, err := r.CreateIfNotExist(desired, desiredState)
@@ -494,15 +499,13 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 						}
 						return nil, errors.WrapIfWithDetails(err, "failed to recreate resource", resourceDetails...)
 					}
-					err := r.Client.Delete(context.TODO(), current.(client.Object),
+					if err := r.Client.Delete(context.TODO(), current.(client.Object),
 						// wait until all dependent resources get cleared up
 						client.PropagationPolicy(metav1.DeletePropagationForeground),
-					)
-					if err != nil {
+					); err != nil {
 						return nil, errors.WrapIfWithDetails(err, "failed to delete current resource", resourceDetails...)
 					}
 					return &reconcile.Result{
-						Requeue:      true,
 						RequeueAfter: time.Second * time.Duration(utils.DerefOrZero(r.Options.RecreateRequeueDelay)),
 					}, nil
 				} else {
@@ -512,22 +515,16 @@ func (r *GenericResourceReconciler) ReconcileResource(desired runtime.Object, de
 			return nil, errors.WrapIfWithDetails(err, "updating resource failed", resourceDetails...)
 		}
 		debugLog.Info("resource updated")
-
-	case StateAbsent:
-		_, err := r.delete(desired, desiredState)
-		if err != nil {
-			return nil, errors.WrapIfWithDetails(err, "failed to delete resource", resourceDetails...)
-		}
 	}
 	return nil, nil
 }
 
-func (r *GenericResourceReconciler) fromDesired(desired runtime.Object) (runtime.Object, error) {
+func (r *GenericResourceReconciler) fromDesired(desired runtime.Object) runtime.Object {
 	if _, ok := desired.(*unstructured.Unstructured); ok {
 		if r.Options.Scheme != nil {
 			object, err := r.Options.Scheme.New(desired.GetObjectKind().GroupVersionKind())
 			if err == nil {
-				return object, nil
+				return object
 			}
 			r.Log.V(2).Info("unable to detect correct type for the resource, falling back to unstructured")
 		}
@@ -535,16 +532,13 @@ func (r *GenericResourceReconciler) fromDesired(desired runtime.Object) (runtime
 		desiredGVK := desired.GetObjectKind()
 		current.SetKind(desiredGVK.GroupVersionKind().Kind)
 		current.SetAPIVersion(desiredGVK.GroupVersionKind().GroupVersion().String())
-		return current, nil
+		return current
 	}
-	return reflect.New(reflect.Indirect(reflect.ValueOf(desired)).Type()).Interface().(runtime.Object), nil
+	return reflect.New(reflect.Indirect(reflect.ValueOf(desired)).Type()).Interface().(runtime.Object)
 }
 
 func (r *GenericResourceReconciler) CreateIfNotExist(desired runtime.Object, desiredState DesiredState) (bool, runtime.Object, error) {
-	current, err := r.fromDesired(desired)
-	if err != nil {
-		return false, nil, errors.WrapIf(err, "failed to create new object based on desired")
-	}
+	current := r.fromDesired(desired)
 	m, err := meta.Accessor(desired)
 	if err != nil {
 		return false, nil, errors.WrapIf(err, "failed to get object key")
@@ -619,10 +613,7 @@ func (r *GenericResourceReconciler) CreateIfNotExist(desired runtime.Object, des
 }
 
 func (r *GenericResourceReconciler) delete(desired runtime.Object, desiredState DesiredState) (bool, error) {
-	current, err := r.fromDesired(desired)
-	if err != nil {
-		return false, errors.WrapIf(err, "failed to create new object based on desired")
-	}
+	current := r.fromDesired(desired)
 	m, err := meta.Accessor(desired)
 	if err != nil {
 		return false, errors.WrapIf(err, "failed to get object key")

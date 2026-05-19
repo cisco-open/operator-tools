@@ -17,6 +17,7 @@ package reconciler_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -155,7 +156,7 @@ func TestRecreateObjectFailIfNotAllowed(t *testing.T) {
 			},
 			wantResult: func(result *reconcile.Result) {
 				require.NotNil(t, result)
-				require.True(t, result.Requeue)
+				require.Greater(t, result.RequeueAfter, time.Duration(0))
 			},
 		},
 		{

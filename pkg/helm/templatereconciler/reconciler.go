@@ -184,7 +184,6 @@ func (rec *HelmReconciler) Reconcile(object runtime.Object, component Component)
 			return &reconcile.Result{
 				RequeueAfter: time.Second * 5,
 			}, nil
-
 		}
 	}
 

@@ -178,9 +178,10 @@ func (d *Doc) visitNode(n ast.Node) bool {
 					}
 
 					required_string := ""
-					if required == "No" {
+					switch required {
+					case "No":
 						required_string = ", optional"
-					} else if required == "Yes" {
+					case "Yes":
 						required_string = ", required"
 					}
 

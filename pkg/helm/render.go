@@ -24,11 +24,10 @@ import (
 	"emperror.dev/errors"
 	"github.com/ghodss/yaml"
 	"helm.sh/helm/v3/pkg/chart"
-	"helm.sh/helm/v3/pkg/releaseutil"
-
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/engine"
+	"helm.sh/helm/v3/pkg/releaseutil"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/cisco-open/operator-tools/pkg/resources"
@@ -51,7 +50,7 @@ func GetDefaultValues(fs http.FileSystem) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	buf := new(bytes.Buffer)
 	_, err = buf.ReadFrom(file)
@@ -237,7 +236,7 @@ func readIntoBytes(fs http.FileSystem, filename string) ([]byte, error) {
 	if err != nil {
 		return nil, errors.WrapIf(err, "could not open file")
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	buf := new(bytes.Buffer)
 	_, err = buf.ReadFrom(file)

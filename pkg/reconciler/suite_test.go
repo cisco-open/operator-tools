@@ -33,12 +33,14 @@ import (
 	"github.com/cisco-open/operator-tools/pkg/utils"
 )
 
-var cfg *rest.Config
-var k8sClient client.Client
-var testEnv *envtest.Environment
-var testNamespace = "test-" + uuid.New()[:8]
-var controlNamespace = "control"
-var log logr.Logger
+var (
+	cfg              *rest.Config
+	k8sClient        client.Client
+	testEnv          *envtest.Environment
+	testNamespace    = "test-" + uuid.New()[:8]
+	controlNamespace = "control"
+	log              logr.Logger
+)
 
 func TestMain(m *testing.M) {
 	log = utils.Log
@@ -116,5 +118,3 @@ func assertSecretList(t *testing.T, a func(l *corev1.SecretList)) {
 
 	a(l)
 }
-
-

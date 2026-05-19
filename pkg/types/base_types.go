@@ -89,7 +89,7 @@ func AggregatedState(componentStatuses []ReconcileStatus) ReconcileStatus {
 		if cs != "" {
 			statusMap[cs] = true
 		}
-		if !(cs == "" || cs.Stable()) {
+		if cs != "" && !cs.Stable() {
 			hasUnstable = true
 		}
 	}
@@ -310,7 +310,7 @@ func (base *DeploymentBase) Override(deployment appsv1.Deployment) appsv1.Deploy
 		return deployment
 	}
 	if base.MetaBase != nil {
-		deployment.ObjectMeta = base.MetaBase.Merge(deployment.ObjectMeta)
+		deployment.ObjectMeta = base.Merge(deployment.ObjectMeta)
 	}
 	if base.Spec != nil {
 		deployment.Spec = base.Spec.Override(deployment.Spec)
@@ -360,7 +360,7 @@ func (base *StatefulSetBase) Override(statefulSet appsv1.StatefulSet) appsv1.Sta
 		return statefulSet
 	}
 	if base.MetaBase != nil {
-		statefulSet.ObjectMeta = base.MetaBase.Merge(statefulSet.ObjectMeta)
+		statefulSet.ObjectMeta = base.Merge(statefulSet.ObjectMeta)
 	}
 	if base.Spec != nil {
 		statefulSet.Spec = base.Spec.Override(statefulSet.Spec)
@@ -414,7 +414,7 @@ func (base *DaemonSetBase) Override(daemonset appsv1.DaemonSet) appsv1.DaemonSet
 		return daemonset
 	}
 	if base.MetaBase != nil {
-		daemonset.ObjectMeta = base.MetaBase.Merge(daemonset.ObjectMeta)
+		daemonset.ObjectMeta = base.Merge(daemonset.ObjectMeta)
 	}
 	if base.Spec != nil {
 		daemonset.Spec = base.Spec.Override(daemonset.Spec)

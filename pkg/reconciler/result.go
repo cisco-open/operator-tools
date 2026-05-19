@@ -22,15 +22,12 @@ import (
 // Collects results and errors of all subcomponents instead of failing and bailing out immediately
 type CombinedResult struct {
 	Result reconcile.Result
-	Err error
+	Err    error
 }
 
 func (c *CombinedResult) Combine(sub *reconcile.Result, err error) {
 	c.CombineErr(err)
 	if sub != nil {
-		if sub.Requeue {
-			c.Result.Requeue = true
-		}
 		// combined should be requeued at the minimum of all subresults
 		if sub.RequeueAfter > 0 {
 			if c.Result.RequeueAfter == 0 || sub.RequeueAfter < c.Result.RequeueAfter {

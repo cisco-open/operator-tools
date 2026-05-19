@@ -87,7 +87,6 @@ func (log *SpinnerLogSink) Init(_ logr.RuntimeInfo) {}
 
 // Info implements logr.LogSink interface
 func (log *SpinnerLogSink) Info(level int, msg string, keysAndValues ...any) {
-
 	colorPrinter := log.getColorPrinter(log.colors.Info)
 
 	if !log.Enabled(level) {
