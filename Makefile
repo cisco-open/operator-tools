@@ -1,5 +1,28 @@
-LICENSEI_VERSION = 0.9.0
-GOLANGCI_VERSION = 1.59.0
+####
+##  Dependency versions
+####
+
+CONTROLLER_TOOLS_VERSION := 0.21.0
+
+GOLANGCI_LINT_VERSION := 2.12.2
+
+LICENSEI_VERSION := 0.9.0
+
+ENVTEST_K8S_VERSION := 1.35.0
+
+BIN := ${PWD}/bin
+
+export PATH := $(BIN):$(PATH)
+
+GOVERSION := $(shell go env GOVERSION)
+
+GOLANGCI_LINT  := $(BIN)/golangci-lint
+CONTROLLER_GEN ?= $(BIN)/controller-gen
+ENVTEST        ?= $(BIN)/setup-envtest
+LICENSEI       := $(BIN)/licensei
+
+ENVTEST_BIN_DIR       := $(BIN)/envtest
+ENVTEST_BINARY_ASSETS := $(ENVTEST_BIN_DIR)/bin
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -8,22 +31,25 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-BIN := ${PWD}/bin
-export PATH := ${BIN}:${PATH}
+# Setting SHELL to bash allows bash commands to be executed by recipes.
+# Options are set to exit when a recipe line exits non-zero or a piped command fails.
+SHELL = /usr/bin/env bash -o pipefail
+.SHELLFLAGS = -ec
 
-CONTROLLER_GEN_VERSION = v0.15.0
-CONTROLLER_GEN = $(PWD)/bin/controller-gen
+##@ General
 
-OS = $(shell uname | tr A-Z a-z)
+.DEFAULT_GOAL = help
+.PHONY: help
+help: ## Display this help.
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-ENVTEST_BIN_DIR := ${BIN}/envtest
-ENVTEST_K8S_VERSION := 1.24.1
-ENVTEST_BINARY_ASSETS := ${ENVTEST_BIN_DIR}/bin
+##@ Development
 
-SETUP_ENVTEST := ${BIN}/setup-envtest
+.PHONY: generate
+generate: codegen docs fmt ## Generate code, documentation, etc.
 
-# Generate code
-generate: bin/controller-gen
+.PHONY: codegen
+codegen: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/secret/...
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/volume/...
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/prometheus/...
@@ -31,74 +57,96 @@ generate: bin/controller-gen
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/typeoverride/...
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths=./pkg/helm/...
 
-bin/controller-gen:
-	@ if ! test -x bin/controller-gen; then \
-		set -ex ;\
-		GOBIN=$(PWD)/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@${CONTROLLER_GEN_VERSION} ;\
-	fi
+.PHONY: docs
+docs: ## Generate type documentation.
+	go run cmd/docs.go
 
+.PHONY: fmt
+fmt: ## Run go fmt against code.
+	go fmt ./...
 
-bin/licensei: bin/licensei-${LICENSEI_VERSION}
-	@ln -sf licensei-${LICENSEI_VERSION} bin/licensei
-bin/licensei-${LICENSEI_VERSION}:
-	@mkdir -p bin
-	curl -sfL https://git.io/licensei | bash -s v${LICENSEI_VERSION}
-	@mv bin/licensei $@
+.PHONY: vet
+vet: ## Run go vet against code.
+	go vet ./...
 
-.PHONY: license-cache
-license-cache: bin/licensei ## Generate license cache
-	bin/licensei cache
-
-.PHONY: license-check
-license-check: bin/licensei ## Run license check
-	bin/licensei check
-	bin/licensei header
+.PHONY: tidy
+tidy: ## Tidy Go modules.
+	find . -iname "go.mod" -not -path "./.devcontainer/*" | xargs -L1 sh -c 'cd $$(dirname $$0); go mod tidy'
 
 .PHONY: test
-test: ${ENVTEST_BINARY_ASSETS}
-	KUBEBUILDER_ASSETS=${ENVTEST_BINARY_ASSETS} go test ./...
-
-.PHONY: check
-check: test lint check-diff ## Run tests and linters
-
-bin/golangci-lint: bin/golangci-lint-${GOLANGCI_VERSION}
-	@ln -sf golangci-lint-${GOLANGCI_VERSION} bin/golangci-lint
-bin/golangci-lint-${GOLANGCI_VERSION}:
-	@mkdir -p bin
-	curl -sfL curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | bash -s -- -b ./bin/ v${GOLANGCI_VERSION}
-	@mv bin/golangci-lint $@
+test: fmt vet envtest ## Run verifications and tests.
+	KUBEBUILDER_ASSETS="$(ENVTEST_BINARY_ASSETS)" go test -v ./... -coverprofile cover.out
 
 .PHONY: lint
 lint: export CGO_ENABLED = 1
-lint: bin/golangci-lint ## Run linter
-	bin/golangci-lint run ${LINTER_FLAGS}
+lint: ${GOLANGCI_LINT} ## Run golangci-lint.
+	${GOLANGCI_LINT} run ${LINTER_FLAGS}
 
-.PHONY: fix
-fix: export CGO_ENABLED = 1
-fix: bin/golangci-lint ## Fix lint violations
-	bin/golangci-lint run --fix
+.PHONY: lint-fix
+lint-fix: export CGO_ENABLED = 1
+lint-fix: ${GOLANGCI_LINT} ## Run golangci-lint and perform fixes.
+	${GOLANGCI_LINT} run --fix
 
-check-diff: generate-type-docs
-	go mod tidy
-	$(MAKE) generate docs
+.PHONY: check
+check: test lint check-diff ## Run tests and linters.
+
+.PHONY: check-diff
+check-diff: tidy generate ## Verify that generated files are up to date.
 	git diff --exit-code
 
-generate-type-docs:
-	go run cmd/docs.go
+.PHONY: license-cache
+license-cache: ${LICENSEI} ## Generate license cache.
+	${LICENSEI} cache
 
-${ENVTEST_BINARY_ASSETS}: ${ENVTEST_BINARY_ASSETS}_${ENVTEST_K8S_VERSION}
-	ln -sf $(notdir $<) $@
+.PHONY: license-check
+license-check: ${LICENSEI} .licensei.cache ## Run license check.
+	${LICENSEI} check
+	${LICENSEI} header
 
-${ENVTEST_BINARY_ASSETS}_${ENVTEST_K8S_VERSION}: | ${SETUP_ENVTEST} ${ENVTEST_BIN_DIR}
-	ln -sf $$(${SETUP_ENVTEST} --bin-dir ${ENVTEST_BIN_DIR} use ${ENVTEST_K8S_VERSION} -p path) $@
+##@ Build Dependencies
 
-${SETUP_ENVTEST}: IMPORT_PATH := sigs.k8s.io/controller-runtime/tools/setup-envtest
-${SETUP_ENVTEST}: VERSION := latest
-${SETUP_ENVTEST}: | ${BIN}
-	GOBIN=${BIN} go install ${IMPORT_PATH}@${VERSION}
+${GOLANGCI_LINT}: ${GOLANGCI_LINT}_${GOLANGCI_LINT_VERSION}_${GOVERSION} | ${BIN}
+	ln -snf $(notdir $<) $@
 
-${ENVTEST_BIN_DIR}: | ${BIN}
+${GOLANGCI_LINT}_${GOLANGCI_LINT_VERSION}_${GOVERSION}: IMPORT_PATH := github.com/golangci/golangci-lint/v2/cmd/golangci-lint
+${GOLANGCI_LINT}_${GOLANGCI_LINT_VERSION}_${GOVERSION}: VERSION := v${GOLANGCI_LINT_VERSION}
+${GOLANGCI_LINT}_${GOLANGCI_LINT_VERSION}_${GOVERSION}: | ${BIN}
+	${go_install_binary}
+
+.PHONY: controller-gen
+controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
+$(CONTROLLER_GEN): | $(BIN)
+	test -s $(BIN)/controller-gen && $(BIN)/controller-gen --version | grep -q v$(CONTROLLER_TOOLS_VERSION) || \
+	GOBIN=$(BIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@v$(CONTROLLER_TOOLS_VERSION)
+
+.PHONY: envtest
+envtest: $(ENVTEST_BINARY_ASSETS) ## Download envtest-setup and Kubernetes binary assets locally if necessary.
+$(ENVTEST): | $(BIN)
+	test -s $(BIN)/setup-envtest || GOBIN=$(BIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+
+$(ENVTEST_BINARY_ASSETS): $(ENVTEST_BINARY_ASSETS)_$(ENVTEST_K8S_VERSION)
+	ln -snf $(notdir $<) $@
+
+$(ENVTEST_BINARY_ASSETS)_$(ENVTEST_K8S_VERSION): | $(ENVTEST) $(ENVTEST_BIN_DIR)
+	ln -snf $$($(ENVTEST) --bin-dir $(ENVTEST_BIN_DIR) use $(ENVTEST_K8S_VERSION) -p path) $@
+
+$(ENVTEST_BIN_DIR): | $(BIN)
 	mkdir -p $@
+
+${LICENSEI}: ${LICENSEI}_${LICENSEI_VERSION}_${GOVERSION} | ${BIN}
+	ln -snf $(notdir $<) $@
+
+${LICENSEI}_${LICENSEI_VERSION}_${GOVERSION}: IMPORT_PATH := github.com/goph/licensei/cmd/licensei
+${LICENSEI}_${LICENSEI_VERSION}_${GOVERSION}: VERSION := v${LICENSEI_VERSION}
+${LICENSEI}_${LICENSEI_VERSION}_${GOVERSION}: | ${BIN}
+	${go_install_binary}
+
+.licensei.cache: ${LICENSEI}
+ifndef GITHUB_TOKEN
+	@>&2 echo "WARNING: building licensei cache without Github token, rate limiting might occur."
+	@>&2 echo "(Hint: If too many licenses are missing, try specifying a Github token via the environment variable GITHUB_TOKEN.)"
+endif
+	${LICENSEI} cache
 
 ${BIN}:
 	mkdir -p $@
@@ -106,5 +154,5 @@ ${BIN}:
 define go_install_binary
 find ${BIN} -name '$(notdir ${IMPORT_PATH})_*' -exec rm {} +
 GOBIN=${BIN} go install ${IMPORT_PATH}@${VERSION}
-mv ${BIN}/$(notdir ${IMPORT_PATH}) ${BIN}/$(notdir ${IMPORT_PATH})_${VERSION}
+mv ${BIN}/$(notdir ${IMPORT_PATH}) $@
 endef
