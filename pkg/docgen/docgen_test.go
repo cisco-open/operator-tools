@@ -78,6 +78,23 @@ func TestGenParse(t *testing.T) {
 		},
 		{
 			docItem: docgen.DocItem{
+				Name:       "sample-comment",
+				SourcePath: filepath.Join(currentDir, "testdata", "sample_comment.go"),
+				DestPath:   filepath.Join(currentDir, "../../build/_test/docgen"),
+			},
+			expected: heredoc.Doc(`
+				## SampleComment
+
+				### field1 (string, optional) {#samplecomment-field1}
+
+				Field1 is a good field.
+
+
+
+			`),
+		},
+		{
+			docItem: docgen.DocItem{
 				Name:       "sample-default-comment",
 				SourcePath: filepath.Join(currentDir, "testdata", "sample_default_comment.go"),
 				DestPath:   filepath.Join(currentDir, "../../build/_test/docgen"),

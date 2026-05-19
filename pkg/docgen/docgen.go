@@ -318,6 +318,7 @@ func (d *Doc) getValuesFromItem(item *ast.Field) (name, comment, def, required s
 			}
 		}
 	}
+	commentWithDefault = strings.TrimSuffix(commentWithDefault, " ")
 	if item.Tag == nil {
 		return "", "", "", "", errors.Errorf("field has no tag defined: %+v", item)
 	}
