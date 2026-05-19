@@ -135,7 +135,7 @@ func (d *Doc) visitNode(n ast.Node) bool {
 	if ok {
 		typeName, ok := generic.Specs[0].(*ast.TypeSpec)
 		if ok {
-			_, ok := typeName.Type.(*ast.InterfaceType)
+			ok := isInterfaceLike(typeName.Type)
 			if ok && strings.HasPrefix(typeName.Name.Name, "_hugo") {
 				d.Append("---")
 				d.Append(fmt.Sprintf("title: %s", GetPrefixedValue(getTypeDocs(generic, true), `\+name:\"(.*)\"`)))
@@ -203,6 +203,19 @@ func (d *Doc) visitNode(n ast.Node) bool {
 	}
 
 	return true
+}
+
+// isInterfaceLike reports whether the given type expression is an empty
+// interface — either the explicit `interface{}` form or the predeclared
+// `any` alias (which appears as an *ast.Ident in the AST).
+func isInterfaceLike(expr ast.Expr) bool {
+	if _, ok := expr.(*ast.InterfaceType); ok {
+		return true
+	}
+	if ident, ok := expr.(*ast.Ident); ok && ident.Name == "any" {
+		return true
+	}
+	return false
 }
 
 func (d *Doc) normaliseType(fieldType ast.Expr) string {
