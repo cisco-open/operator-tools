@@ -25,7 +25,6 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 
 	"github.com/cisco-open/operator-tools/pkg/types"
-	"github.com/cisco-open/operator-tools/pkg/utils"
 )
 
 func TestPatchYAMLModifier(t *testing.T) {
@@ -93,17 +92,17 @@ func TestPatchYAMLModifier(t *testing.T) {
 				Patches: []K8SResourceOverlayPatch{
 					{
 						Type:  ReplaceOverlayPatchType,
-						Path:  utils.StringPointer("/spec/loadBalancerIP"),
-						Value: utils.StringPointer("5.6.7.8"),
+						Path:  new("/spec/loadBalancerIP"),
+						Value: new("5.6.7.8"),
 					},
 					{
 						Type:  ReplaceOverlayPatchType,
-						Path:  utils.StringPointer("/spec/ports/0/name"),
-						Value: utils.StringPointer("port2"),
+						Path:  new("/spec/ports/0/name"),
+						Value: new("port2"),
 					},
 					{
 						Type: DeleteOverlayPatchType,
-						Path: utils.StringPointer("/spec/ports/1"),
+						Path: new("/spec/ports/1"),
 					},
 				},
 			},
@@ -115,17 +114,17 @@ func TestPatchYAMLModifier(t *testing.T) {
 				Patches: []K8SResourceOverlayPatch{
 					{
 						Type:  ReplaceOverlayPatchType,
-						Path:  utils.StringPointer("/spec/loadBalancerIP"),
-						Value: utils.StringPointer("5.6.7.8"),
+						Path:  new("/spec/loadBalancerIP"),
+						Value: new("5.6.7.8"),
 					},
 					{
 						Type:  ReplaceOverlayPatchType,
-						Path:  utils.StringPointer("/spec/ports/0/name"),
-						Value: utils.StringPointer("port2"),
+						Path:  new("/spec/ports/0/name"),
+						Value: new("port2"),
 					},
 					{
 						Type: DeleteOverlayPatchType,
-						Path: utils.StringPointer("/spec/ports/1"),
+						Path: new("/spec/ports/1"),
 					},
 				},
 			},
@@ -140,17 +139,17 @@ func TestPatchYAMLModifier(t *testing.T) {
 				Patches: []K8SResourceOverlayPatch{
 					{
 						Type:  ReplaceOverlayPatchType,
-						Path:  utils.StringPointer("/spec/loadBalancerIP"),
-						Value: utils.StringPointer("5.6.7.8"),
+						Path:  new("/spec/loadBalancerIP"),
+						Value: new("5.6.7.8"),
 					},
 					{
 						Type:  ReplaceOverlayPatchType,
-						Path:  utils.StringPointer("/spec/ports/0/name"),
-						Value: utils.StringPointer("port2"),
+						Path:  new("/spec/ports/0/name"),
+						Value: new("port2"),
 					},
 					{
 						Type: DeleteOverlayPatchType,
-						Path: utils.StringPointer("/spec/ports/1"),
+						Path: new("/spec/ports/1"),
 					},
 				},
 			},
@@ -165,17 +164,17 @@ func TestPatchYAMLModifier(t *testing.T) {
 				Patches: []K8SResourceOverlayPatch{
 					{
 						Type:  ReplaceOverlayPatchType,
-						Path:  utils.StringPointer("/spec/loadBalancerIP"),
-						Value: utils.StringPointer("5.6.7.8"),
+						Path:  new("/spec/loadBalancerIP"),
+						Value: new("5.6.7.8"),
 					},
 					{
 						Type:  ReplaceOverlayPatchType,
-						Path:  utils.StringPointer("/spec/ports/0/name"),
-						Value: utils.StringPointer("port2"),
+						Path:  new("/spec/ports/0/name"),
+						Value: new("port2"),
 					},
 					{
 						Type: DeleteOverlayPatchType,
-						Path: utils.StringPointer("/spec/ports/1"),
+						Path: new("/spec/ports/1"),
 					},
 				},
 			},

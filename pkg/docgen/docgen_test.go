@@ -38,7 +38,7 @@ func TestGenParse(t *testing.T) {
 	_, filename, _, _ := runtime.Caller(0)
 	currentDir := filepath.Dir(filename)
 
-	var testData = []struct {
+	testData := []struct {
 		docItem  docgen.DocItem
 		expected string
 	}{

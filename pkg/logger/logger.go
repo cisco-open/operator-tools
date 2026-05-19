@@ -32,10 +32,10 @@ type GroupedLogger interface {
 
 type Logger interface {
 	Enabled() bool
-	Info(msg string, keysAndValues ...interface{})
-	Error(err error, msg string, keysAndValues ...interface{})
+	Info(msg string, keysAndValues ...any)
+	Error(err error, msg string, keysAndValues ...any)
 	V(level int) Logger
-	WithValues(keysAndValues ...interface{}) Logger
+	WithValues(keysAndValues ...any) Logger
 	WithName(name string) Logger
 
 	GetLogrLogger() logr.Logger
@@ -54,7 +54,7 @@ func New(options ...Option) Logger {
 	}
 }
 
-func (log *logger) Info(msg string, keysAndValues ...interface{}) {
+func (log *logger) Info(msg string, keysAndValues ...any) {
 	log.sink.Info(log.level, msg, keysAndValues)
 }
 
@@ -62,7 +62,7 @@ func (log *logger) Enabled() bool {
 	return log.sink.Enabled(log.level)
 }
 
-func (log *logger) Error(e error, msg string, keysAndValues ...interface{}) {
+func (log *logger) Error(e error, msg string, keysAndValues ...any) {
 	log.sink.Error(e, msg, keysAndValues)
 }
 
@@ -83,7 +83,7 @@ func (log *logger) WithName(name string) Logger {
 	}
 }
 
-func (log *logger) WithValues(keysAndValues ...interface{}) Logger {
+func (log *logger) WithValues(keysAndValues ...any) Logger {
 	sink := log.sink.copyLogger()
 
 	sink.values = keysAndValues
@@ -105,7 +105,7 @@ func (log *logger) Plain(msg string) {
 	}
 }
 
-func (log *logger) Plainf(format string, args ...interface{}) {
+func (log *logger) Plainf(format string, args ...any) {
 	if GlobalLogLevel >= log.level {
 		fmt.Println(fmt.Sprintf(format, args...))
 	}
@@ -139,8 +139,8 @@ func (log *logger) Grouped(state bool) {
 	log.sink.grouped = state
 }
 
-func EnableGroupSession(logger interface{}) func() {
-	var l interface{}
+func EnableGroupSession(logger any) func() {
+	var l any
 
 	if lwrap, ok := logger.(interface{ GetSink() logr.LogSink }); ok {
 		l = lwrap.GetSink()

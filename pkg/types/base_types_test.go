@@ -22,14 +22,12 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cisco-open/operator-tools/pkg/types"
-	"github.com/cisco-open/operator-tools/pkg/utils"
 )
 
 func TestMetaBaseEmptyOverrideOnEmptyObject(t *testing.T) {
-	original := v1.ObjectMeta{}
+	original := metav1.ObjectMeta{}
 	overrides := types.MetaBase{}
 
 	result := overrides.Merge(original)
@@ -44,7 +42,7 @@ func TestMetaBaseEmptyOverrideOnEmptyObject(t *testing.T) {
 }
 
 func TestMetaBaseOverrideOnEmptyObject(t *testing.T) {
-	original := v1.ObjectMeta{}
+	original := metav1.ObjectMeta{}
 	overrides := types.MetaBase{
 		Annotations: map[string]string{
 			"annotation": "a",
@@ -66,7 +64,7 @@ func TestMetaBaseOverrideOnEmptyObject(t *testing.T) {
 }
 
 func TestMetaBaseOverrideOnExistingObject(t *testing.T) {
-	original := v1.ObjectMeta{
+	original := metav1.ObjectMeta{
 		Annotations: map[string]string{
 			"annotation": "a",
 		},
@@ -108,7 +106,7 @@ func TestDeploymentBaseOverrideOnExistingObject(t *testing.T) {
 		},
 	}
 	overrides := types.DeploymentSpecBase{
-		Replicas: utils.IntPointer(3),
+		Replicas: new(int32(3)),
 		Selector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{"foo": "bar", "bar": "baz"},
 			MatchExpressions: []metav1.LabelSelectorRequirement{
@@ -126,7 +124,7 @@ func TestDeploymentBaseOverrideOnExistingObject(t *testing.T) {
 	result := overrides.Override(original)
 
 	require.NotNil(t, result)
-	require.Equal(t, utils.IntPointer(3), result.Replicas)
+	require.Equal(t, new(int32(3)), result.Replicas)
 	require.Equal(t,
 		&metav1.LabelSelector{
 			MatchLabels: map[string]string{"tik": "tak", "foo": "bar", "bar": "baz"},
@@ -157,8 +155,8 @@ func TestDeploymentBaseOverride(t *testing.T) {
 		{
 			name: "nil",
 			base: nil,
-			spec: appsv1.DeploymentSpec{Replicas: utils.IntPointer(77)},
-			want: appsv1.DeploymentSpec{Replicas: utils.IntPointer(77)},
+			spec: appsv1.DeploymentSpec{Replicas: new(int32(77))},
+			want: appsv1.DeploymentSpec{Replicas: new(int32(77))},
 		},
 		{
 			name: "empty",
@@ -168,16 +166,17 @@ func TestDeploymentBaseOverride(t *testing.T) {
 		},
 		{
 			name: "override replicates",
-			base: &types.DeploymentSpecBase{Replicas: utils.IntPointer(3)},
+			base: &types.DeploymentSpecBase{Replicas: new(int32(3))},
 			spec: appsv1.DeploymentSpec{},
-			want: appsv1.DeploymentSpec{Replicas: utils.IntPointer(3)},
+			want: appsv1.DeploymentSpec{Replicas: new(int32(3))},
 		},
 		{
 			name: "override deploymentStrategy",
 			base: &types.DeploymentSpecBase{
 				Strategy: &appsv1.DeploymentStrategy{
 					Type: appsv1.RecreateDeploymentStrategyType,
-				}},
+				},
+			},
 			spec: appsv1.DeploymentSpec{},
 			want: appsv1.DeploymentSpec{
 				Strategy: appsv1.DeploymentStrategy{
@@ -248,7 +247,7 @@ func TestDeploymentBaseOverride(t *testing.T) {
 			name: "merge empty base",
 			base: &types.DeploymentSpecBase{},
 			spec: appsv1.DeploymentSpec{
-				Replicas: utils.IntPointer(77),
+				Replicas: new(int32(77)),
 				Selector: &metav1.LabelSelector{
 					MatchExpressions: []metav1.LabelSelectorRequirement{
 						{
@@ -264,7 +263,7 @@ func TestDeploymentBaseOverride(t *testing.T) {
 				},
 			},
 			want: appsv1.DeploymentSpec{
-				Replicas: utils.IntPointer(77),
+				Replicas: new(int32(77)),
 				Selector: &metav1.LabelSelector{
 					MatchExpressions: []metav1.LabelSelectorRequirement{
 						{
@@ -283,7 +282,7 @@ func TestDeploymentBaseOverride(t *testing.T) {
 		{
 			name: "merge base to empty spec",
 			base: &types.DeploymentSpecBase{
-				Replicas: utils.IntPointer(3),
+				Replicas: new(int32(3)),
 				Selector: &metav1.LabelSelector{
 					MatchExpressions: []metav1.LabelSelectorRequirement{
 						{
@@ -300,7 +299,7 @@ func TestDeploymentBaseOverride(t *testing.T) {
 			},
 			spec: appsv1.DeploymentSpec{},
 			want: appsv1.DeploymentSpec{
-				Replicas: utils.IntPointer(3),
+				Replicas: new(int32(3)),
 				Selector: &metav1.LabelSelector{
 					MatchExpressions: []metav1.LabelSelectorRequirement{
 						{
@@ -318,14 +317,12 @@ func TestDeploymentBaseOverride(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.base.Override(tt.spec); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("base.Override() = \n%#v\nwant\n%#v\n", got, tt.want)
 			}
 		})
 	}
-
 }
 
 func TestStatefulsetBaseOverride(t *testing.T) {
@@ -338,8 +335,8 @@ func TestStatefulsetBaseOverride(t *testing.T) {
 		{
 			name: "nil",
 			base: nil,
-			spec: appsv1.StatefulSetSpec{Replicas: utils.IntPointer(77)},
-			want: appsv1.StatefulSetSpec{Replicas: utils.IntPointer(77)},
+			spec: appsv1.StatefulSetSpec{Replicas: new(int32(77))},
+			want: appsv1.StatefulSetSpec{Replicas: new(int32(77))},
 		},
 		{
 			name: "empty",
@@ -349,9 +346,9 @@ func TestStatefulsetBaseOverride(t *testing.T) {
 		},
 		{
 			name: "override replicates",
-			base: &types.StatefulsetSpecBase{Replicas: utils.IntPointer(3)},
+			base: &types.StatefulsetSpecBase{Replicas: new(int32(3))},
 			spec: appsv1.StatefulSetSpec{},
-			want: appsv1.StatefulSetSpec{Replicas: utils.IntPointer(3)},
+			want: appsv1.StatefulSetSpec{Replicas: new(int32(3))},
 		},
 		{
 			name: "override podManagementPolicy",
@@ -365,15 +362,16 @@ func TestStatefulsetBaseOverride(t *testing.T) {
 				UpdateStrategy: &appsv1.StatefulSetUpdateStrategy{
 					Type: appsv1.OnDeleteStatefulSetStrategyType,
 					RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
-						Partition: utils.IntPointer(33),
+						Partition: new(int32(33)),
 					},
-				}},
+				},
+			},
 			spec: appsv1.StatefulSetSpec{},
 			want: appsv1.StatefulSetSpec{
 				UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
 					Type: appsv1.OnDeleteStatefulSetStrategyType,
 					RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
-						Partition: utils.IntPointer(33),
+						Partition: new(int32(33)),
 					},
 				},
 			},
@@ -441,7 +439,7 @@ func TestStatefulsetBaseOverride(t *testing.T) {
 			name: "merge empty base",
 			base: &types.StatefulsetSpecBase{},
 			spec: appsv1.StatefulSetSpec{
-				Replicas: utils.IntPointer(77),
+				Replicas: new(int32(77)),
 				Selector: &metav1.LabelSelector{
 					MatchExpressions: []metav1.LabelSelectorRequirement{
 						{
@@ -455,12 +453,12 @@ func TestStatefulsetBaseOverride(t *testing.T) {
 				UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
 					Type: appsv1.OnDeleteStatefulSetStrategyType,
 					RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
-						Partition: utils.IntPointer(33),
+						Partition: new(int32(33)),
 					},
 				},
 			},
 			want: appsv1.StatefulSetSpec{
-				Replicas: utils.IntPointer(77),
+				Replicas: new(int32(77)),
 				Selector: &metav1.LabelSelector{
 					MatchExpressions: []metav1.LabelSelectorRequirement{
 						{
@@ -474,7 +472,7 @@ func TestStatefulsetBaseOverride(t *testing.T) {
 				UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
 					Type: appsv1.OnDeleteStatefulSetStrategyType,
 					RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
-						Partition: utils.IntPointer(33),
+						Partition: new(int32(33)),
 					},
 				},
 			},
@@ -482,7 +480,7 @@ func TestStatefulsetBaseOverride(t *testing.T) {
 		{
 			name: "merge base to empty spec",
 			base: &types.StatefulsetSpecBase{
-				Replicas: utils.IntPointer(3),
+				Replicas: new(int32(3)),
 				Selector: &metav1.LabelSelector{
 					MatchExpressions: []metav1.LabelSelectorRequirement{
 						{
@@ -496,13 +494,13 @@ func TestStatefulsetBaseOverride(t *testing.T) {
 				UpdateStrategy: &appsv1.StatefulSetUpdateStrategy{
 					Type: appsv1.OnDeleteStatefulSetStrategyType,
 					RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
-						Partition: utils.IntPointer(33),
+						Partition: new(int32(33)),
 					},
 				},
 			},
 			spec: appsv1.StatefulSetSpec{},
 			want: appsv1.StatefulSetSpec{
-				Replicas: utils.IntPointer(3),
+				Replicas: new(int32(3)),
 				Selector: &metav1.LabelSelector{
 					MatchExpressions: []metav1.LabelSelectorRequirement{
 						{
@@ -516,14 +514,13 @@ func TestStatefulsetBaseOverride(t *testing.T) {
 				UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
 					Type: appsv1.OnDeleteStatefulSetStrategyType,
 					RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
-						Partition: utils.IntPointer(33),
+						Partition: new(int32(33)),
 					},
 				},
 			},
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.base.Override(tt.spec); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("base.Override() = \n%#v\nwant\n%#v\n", got, tt.want)
@@ -547,13 +544,13 @@ func TestStatefulSetOverride(t *testing.T) {
 					"old":      "old-value",
 				},
 			}},
-			spec: appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{
+			spec: appsv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					"override": "ooo",
 					"new":      "new-value",
 				},
 			}},
-			want: appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{
+			want: appsv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					"override": "winning",
 					"old":      "old-value",
@@ -565,23 +562,22 @@ func TestStatefulSetOverride(t *testing.T) {
 			name: "spec gets merged",
 			base: &types.StatefulSetBase{
 				Spec: &types.StatefulsetSpecBase{
-					Replicas: utils.IntPointer(12),
+					Replicas: new(int32(12)),
 				},
 			},
 			spec: appsv1.StatefulSet{
 				Spec: appsv1.StatefulSetSpec{
-					Replicas: utils.IntPointer(1),
+					Replicas: new(int32(1)),
 				},
 			},
 			want: appsv1.StatefulSet{
 				Spec: appsv1.StatefulSetSpec{
-					Replicas: utils.IntPointer(12),
+					Replicas: new(int32(12)),
 				},
 			},
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.base.Override(tt.spec); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("base.Override() = \n%#v\nwant\n%#v\n", got, tt.want)
@@ -677,7 +673,6 @@ func TestPodSpecOverride(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.base.Override(tt.spec); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("base.Override() = \n%#v\nwant\n%#v\n", got, tt.want)
@@ -716,7 +711,6 @@ func TestPodTemplateOverride(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.base.Override(tt.spec); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("base.Override() = \n%#v\nwant\n%#v\n", got, tt.want)

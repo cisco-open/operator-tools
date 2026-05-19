@@ -41,7 +41,7 @@ import (
 
 type ReleaseData struct {
 	Chart       http.FileSystem
-	Values      map[string]interface{}
+	Values      map[string]any
 	Namespace   string
 	ChartName   string
 	ReleaseName string
@@ -184,7 +184,6 @@ func (rec *HelmReconciler) Reconcile(object runtime.Object, component Component)
 			return &reconcile.Result{
 				RequeueAfter: time.Second * 5,
 			}, nil
-
 		}
 	}
 
@@ -316,13 +315,13 @@ func (rec *HelmReconciler) reconcile(parent reconciler.ResourceOwner, component 
 		).(*reconciler.GenericResourceReconciler),
 		rec.client,
 		reconciler.NewReconciledComponent(
-			func(_ reconciler.ResourceOwner, _ interface{}) []reconciler.ResourceBuilder {
+			func(_ reconciler.ResourceOwner, _ any) []reconciler.ResourceBuilder {
 				return resourceBuilders
 			},
 			nil,
 			rec.inventory.TypesToPurge,
 		),
-		func(_ runtime.Object) (reconciler.ResourceOwner, interface{}) {
+		func(_ runtime.Object) (reconciler.ResourceOwner, any) {
 			return nil, nil
 		},
 		append(rec.nativeReconcilerOpts, reconciler.NativeReconcilerWithScheme(rec.scheme))...,
@@ -353,7 +352,6 @@ func (rec *HelmReconciler) setDesiredStateOverrides(resourceBuilders []reconcile
 	resources := []reconciler.ResourceBuilder{}
 
 	for _, rb := range resourceBuilders {
-		rb := rb
 		resources = append(resources, func() (runtime.Object, reconciler.DesiredState, error) {
 			o, state, err := rb()
 			if err != nil {

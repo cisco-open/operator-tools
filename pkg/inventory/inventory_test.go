@@ -25,8 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/diff"
-
-	"github.com/cisco-open/operator-tools/pkg/utils"
 )
 
 func TestCreateObjectsInventory(t *testing.T) {
@@ -64,7 +62,7 @@ func TestCreateObjectsInventory(t *testing.T) {
 			Namespace: "test-ns",
 			Name:      "test-inv",
 		},
-		Immutable: utils.BoolPointer(false),
+		Immutable: new(false),
 		Data: map[string]string{
 			referencesKey: "/v1/Service/test-ns/test-svc,apps/v1/Deployment/test-ns/test-deployment",
 		},
@@ -85,7 +83,7 @@ func TestGetObjectsFromInventory(t *testing.T) {
 			Namespace: "test-ns",
 			Name:      "test-inv",
 		},
-		Immutable: utils.BoolPointer(false),
+		Immutable: new(false),
 		Data: map[string]string{
 			referencesKey: "/v1/Service/test-ns/test-svc,apps/v1/Deployment/test-ns/test-deployment",
 		},

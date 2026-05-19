@@ -25,7 +25,7 @@ import (
 // Merge merges `overrides` into `base` using the SMP (structural merge patch) approach.
 // - It intentionally does not remove fields present in base but missing from overrides
 // - It merges slices only if the `patchStrategy:"merge"` tag is present and the `patchMergeKey` identifies the unique field
-func Merge(base, overrides interface{}) error {
+func Merge(base, overrides any) error {
 	baseBytes, err := json.Marshal(base)
 	if err != nil {
 		return errors.Wrap(err, "failed to convert current object to byte sequence")

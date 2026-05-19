@@ -21,13 +21,14 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-type ObjectModifierFunc func(o runtime.Object) (runtime.Object, error)
-type ObjectModifierWithParentFunc func(o, p runtime.Object) (runtime.Object, error)
+type (
+	ObjectModifierFunc           func(o runtime.Object) (runtime.Object, error)
+	ObjectModifierWithParentFunc func(o, p runtime.Object) (runtime.Object, error)
+)
 
 var DefaultModifiers = []ObjectModifierFunc{
 	ClearCRDStatusModifier,

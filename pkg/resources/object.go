@@ -151,15 +151,15 @@ func (p *ObjectParser) ParseYAMLToK8sObject(yaml []byte, yamlModifiers ...YAMLMo
 }
 
 func (p *ObjectParser) removeNonYAMLLines(yms string) string {
-	out := ""
-	for _, s := range strings.Split(yms, "\n") {
+	var out strings.Builder
+	for s := range strings.SplitSeq(yms, "\n") {
 		if strings.HasPrefix(s, "#") {
 			continue
 		}
-		out += s + "\n"
+		out.WriteString(s + "\n")
 	}
 
-	return strings.TrimSpace(out)
+	return strings.TrimSpace(out.String())
 }
 
 // IsObjectBeingDeleted returns true, if the given object is being deleted with finalizers still

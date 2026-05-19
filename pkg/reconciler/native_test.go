@@ -52,12 +52,12 @@ func TestNativeReconcilerKeepsTheSecret(t *testing.T) {
 		reconciler.NewGenericReconciler(k8sClient, log, reconciler.ReconcilerOpts{}),
 		k8sClient,
 		reconciler.NewReconciledComponent(
-			func(parent reconciler.ResourceOwner, object interface{}) []reconciler.ResourceBuilder {
+			func(parent reconciler.ResourceOwner, object any) []reconciler.ResourceBuilder {
 				parentWithControlNamespace := parent.(reconciler.ResourceOwnerWithControlNamespace)
 				rb := []reconciler.ResourceBuilder{}
 				// depending on the incoming config we return 0 or more items
 				count := cast.ToInt(object)
-				for i := 0; i < count; i++ {
+				for i := range count {
 					name := fmt.Sprintf("asd-%d", i)
 					rb = append(rb, func() (object runtime.Object, state reconciler.DesiredState, e error) {
 						return &corev1.ConfigMap{
@@ -90,7 +90,7 @@ func TestNativeReconcilerKeepsTheSecret(t *testing.T) {
 				}
 			},
 		),
-		func(object runtime.Object) (reconciler.ResourceOwner, interface{}) {
+		func(object runtime.Object) (reconciler.ResourceOwner, any) {
 			return &FakeResourceOwner{ConfigMap: object.(*corev1.ConfigMap)}, object.(*corev1.ConfigMap).Data["count"]
 		},
 	)
@@ -279,7 +279,7 @@ func TestNativeReconcilerSetControllerRefMultipleTimes(t *testing.T) {
 		},
 	}
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		_, err := nativeReconciler.Reconcile(fakeOwnerObject)
 		if err != nil {
 			t.Fatalf("%+v", err)
@@ -335,7 +335,7 @@ func TestCreatedDesiredStateAnnotationWithStaticStatePresent(t *testing.T) {
 	desiredMutated := desired.DeepCopy()
 	desiredMutated.Data["a"] = "c"
 
-	nr := reconciler.NewNativeReconcilerWithDefaults("test", k8sClient, clientgoscheme.Scheme, logr.Discard(), func(parent reconciler.ResourceOwner, object interface{}) []reconciler.ResourceBuilder {
+	nr := reconciler.NewNativeReconcilerWithDefaults("test", k8sClient, clientgoscheme.Scheme, logr.Discard(), func(parent reconciler.ResourceOwner, object any) []reconciler.ResourceBuilder {
 		return []reconciler.ResourceBuilder{
 			func() (runtime.Object, reconciler.DesiredState, error) {
 				return desiredMutated, reconciler.StatePresent, nil
@@ -343,7 +343,7 @@ func TestCreatedDesiredStateAnnotationWithStaticStatePresent(t *testing.T) {
 		}
 	}, func() []schema.GroupVersionKind {
 		return nil
-	}, func(_ runtime.Object) (reconciler.ResourceOwner, interface{}) {
+	}, func(_ runtime.Object) (reconciler.ResourceOwner, any) {
 		return nil, nil
 	})
 
@@ -388,7 +388,7 @@ func TestCreatedDesiredStateAnnotationWithDynamicStatePresent(t *testing.T) {
 	desiredMutated := desired.DeepCopy()
 	desiredMutated.Data["a"] = "c"
 
-	nr := reconciler.NewNativeReconcilerWithDefaults("test", k8sClient, clientgoscheme.Scheme, logr.Discard(), func(parent reconciler.ResourceOwner, object interface{}) []reconciler.ResourceBuilder {
+	nr := reconciler.NewNativeReconcilerWithDefaults("test", k8sClient, clientgoscheme.Scheme, logr.Discard(), func(parent reconciler.ResourceOwner, object any) []reconciler.ResourceBuilder {
 		return []reconciler.ResourceBuilder{
 			func() (runtime.Object, reconciler.DesiredState, error) {
 				return desiredMutated, reconciler.DynamicDesiredState{
@@ -398,7 +398,7 @@ func TestCreatedDesiredStateAnnotationWithDynamicStatePresent(t *testing.T) {
 		}
 	}, func() []schema.GroupVersionKind {
 		return nil
-	}, func(_ runtime.Object) (reconciler.ResourceOwner, interface{}) {
+	}, func(_ runtime.Object) (reconciler.ResourceOwner, any) {
 		return nil, nil
 	})
 
@@ -423,7 +423,7 @@ func createReconcilerForRefTests(opts ...reconciler.NativeReconcilerOpt) *reconc
 		reconciler.NewGenericReconciler(k8sClient, log, reconciler.ReconcilerOpts{}),
 		k8sClient,
 		reconciler.NewReconciledComponent(
-			func(parent reconciler.ResourceOwner, object interface{}) []reconciler.ResourceBuilder {
+			func(parent reconciler.ResourceOwner, object any) []reconciler.ResourceBuilder {
 				parentWithControlNamespace := parent.(reconciler.ResourceOwnerWithControlNamespace)
 				var rb []reconciler.ResourceBuilder
 				rb = append(rb, func() (object runtime.Object, state reconciler.DesiredState, e error) {
@@ -439,7 +439,7 @@ func createReconcilerForRefTests(opts ...reconciler.NativeReconcilerOpt) *reconc
 			func(b *builder.Builder) {},
 			func() []schema.GroupVersionKind { return []schema.GroupVersionKind{} },
 		),
-		func(object runtime.Object) (reconciler.ResourceOwner, interface{}) {
+		func(object runtime.Object) (reconciler.ResourceOwner, any) {
 			return &FakeResourceOwner{ConfigMap: object.(*corev1.ConfigMap)}, nil
 		},
 		opts...,

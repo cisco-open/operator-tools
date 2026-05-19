@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/cisco-open/operator-tools/pkg/typeoverride"
-	"github.com/cisco-open/operator-tools/pkg/utils"
 )
 
 func TestMerge(t *testing.T) {
@@ -286,12 +285,12 @@ func TestMergeWithEmbeddedType(t *testing.T) {
 func TestMergeStatefulSetReplicas(t *testing.T) {
 	base := &v1.StatefulSet{
 		Spec: v1.StatefulSetSpec{
-			Replicas: utils.IntPointer(1),
+			Replicas: new(int32(1)),
 		},
 	}
 	overrides := v1.StatefulSet{
 		Spec: v1.StatefulSetSpec{
-			Replicas: utils.IntPointer(0),
+			Replicas: new(int32(0)),
 		},
 	}
 	err := Merge(base, overrides)
@@ -347,7 +346,7 @@ func TestMergeMap(t *testing.T) {
 		"a": "1",
 		"b": "3",
 		"c": "4",
-	}, base.ObjectMeta.Labels)
+	}, base.Labels)
 }
 
 func TestMergeMapWithEmbeddedType(t *testing.T) {
@@ -375,7 +374,7 @@ func TestMergeMapWithEmbeddedType(t *testing.T) {
 		"a": "1",
 		"b": "3",
 		"c": "4",
-	}, base.ObjectMeta.Labels)
+	}, base.Labels)
 }
 
 func TestMergeService(t *testing.T) {
@@ -435,7 +434,7 @@ func TestMergeService(t *testing.T) {
 		"a": "1",
 		"b": "3",
 		"c": "4",
-	}, base.ObjectMeta.Labels)
+	}, base.Labels)
 
 	require.Equal(t, base.Spec, corev1.ServiceSpec{
 		Ports: []corev1.ServicePort{

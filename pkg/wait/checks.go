@@ -23,8 +23,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-type ResourceConditionCheck func(runtime.Object, error) bool
-type CustomResourceConditionCheck func() (bool, error)
+type (
+	ResourceConditionCheck       func(runtime.Object, error) bool
+	CustomResourceConditionCheck func() (bool, error)
+)
 
 func ExistsConditionCheck(obj runtime.Object, k8serror error) bool {
 	return k8serror == nil

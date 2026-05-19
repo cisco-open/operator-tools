@@ -22,8 +22,10 @@ import (
 	"k8s.io/client-go/discovery"
 )
 
-var staticResourceScope map[string]bool
-var dynamicResourceScope map[string]bool
+var (
+	staticResourceScope  map[string]bool
+	dynamicResourceScope map[string]bool
+)
 
 var mutex = sync.RWMutex{}
 

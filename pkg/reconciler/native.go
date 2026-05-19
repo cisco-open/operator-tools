@@ -25,7 +25,6 @@ import (
 	crdv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -58,9 +57,9 @@ type ResourceOwnerWithControlNamespace interface {
 }
 
 type (
-	ResourceBuilders  func(parent ResourceOwner, object interface{}) []ResourceBuilder
+	ResourceBuilders  func(parent ResourceOwner, object any) []ResourceBuilder
 	ResourceBuilder   func() (runtime.Object, DesiredState, error)
-	ResourceTranslate func(runtime.Object) (parent ResourceOwner, config interface{})
+	ResourceTranslate func(runtime.Object) (parent ResourceOwner, config any)
 	PurgeTypesFunc    func() []schema.GroupVersionKind
 )
 
@@ -70,7 +69,6 @@ func GetResourceBuildersFromObjects(objects []runtime.Object, state DesiredState
 	utils.RuntimeObjects(objects).Sort(utils.InstallResourceOrder)
 
 	for _, o := range objects {
-		o := o
 		for _, modifierFunc := range modifierFuncs {
 			var err error
 			o, err = modifierFunc(o)
@@ -104,7 +102,7 @@ func GetResourceBuildersFromObjects(objects []runtime.Object, state DesiredState
 }
 
 type NativeReconciledComponent interface {
-	ResourceBuilders(parent ResourceOwner, object interface{}) []ResourceBuilder
+	ResourceBuilders(parent ResourceOwner, object any) []ResourceBuilder
 	RegisterWatches(*builder.Builder)
 	PurgeTypes() []schema.GroupVersionKind
 }
@@ -131,7 +129,7 @@ func NewReconciledComponent(b ResourceBuilders, w func(b *builder.Builder), p fu
 	}
 }
 
-func (d *DefaultReconciledComponent) ResourceBuilders(parent ResourceOwner, object interface{}) []ResourceBuilder {
+func (d *DefaultReconciledComponent) ResourceBuilders(parent ResourceOwner, object any) []ResourceBuilder {
 	return d.builders(parent, object)
 }
 
@@ -243,8 +241,9 @@ func NewNativeReconciler(
 	rec *GenericResourceReconciler,
 	client client.Client,
 	reconciledComponent NativeReconciledComponent,
-	resourceTranslate func(runtime.Object) (parent ResourceOwner, config interface{}),
-	opts ...NativeReconcilerOpt) *NativeReconciler {
+	resourceTranslate func(runtime.Object) (parent ResourceOwner, config any),
+	opts ...NativeReconcilerOpt,
+) *NativeReconciler {
 	reconciler := &NativeReconciler{
 		GenericResourceReconciler: rec,
 		Client:                    client,
@@ -330,7 +329,7 @@ LOOP:
 				}
 			}
 
-			// desired state can be overriden to create-only by an annotation
+			// desired state can be overridden to create-only by an annotation
 			if _, ok := objectMeta.GetAnnotations()[types.BanzaiCloudDesiredStateCreated]; ok {
 				if ds, ok := state.(DynamicDesiredState); ok && ds.DesiredState == StatePresent || state == StatePresent {
 					state = StateCreated
@@ -439,7 +438,7 @@ func (rec *NativeReconciler) gvkExists(gvk schema.GroupVersionKind) bool {
 	}
 
 	mappings, err := rec.restMapper.RESTMappings(gvk.GroupKind(), gvk.Version)
-	if apimeta.IsNoMatchError(err) {
+	if meta.IsNoMatchError(err) {
 		return false
 	}
 	if err != nil {
@@ -466,7 +465,7 @@ func (rec *NativeReconciler) purge(excluded map[string]bool, componentId string)
 		objects := &unstructured.UnstructuredList{}
 		objects.SetGroupVersionKind(gvk)
 		err := rec.List(context.TODO(), objects)
-		if apimeta.IsNoMatchError(err) {
+		if meta.IsNoMatchError(err) {
 			// skip unknown GVKs
 			continue
 		}
@@ -504,7 +503,7 @@ func (rec *NativeReconciler) purge(excluded map[string]bool, componentId string)
 
 	utils.RuntimeObjects(purgeObjects).Sort(utils.UninstallResourceOrder)
 	for _, o := range purgeObjects {
-		if err := rec.Client.Delete(context.TODO(), o.(client.Object)); err != nil && !k8serrors.IsNotFound(err) {
+		if err := rec.Delete(context.TODO(), o.(client.Object)); err != nil && !k8serrors.IsNotFound(err) {
 			allErr = errors.Combine(allErr, err)
 		} else {
 			rec.addReconciledObjectState(ReconciledObjectStatePurged, o.DeepCopyObject())

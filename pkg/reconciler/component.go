@@ -157,7 +157,7 @@ func (r *Dispatcher) Handle(object runtime.Object) (ctrl.Result, error) {
 					combinedResult.CombineErr(errors.WrapIf(uerr, "unable to update status for component"))
 				}
 			} else {
-				if result == nil || (!result.Requeue && result.RequeueAfter == 0) {
+				if result == nil || result.RequeueAfter == 0 {
 					status := types.ReconcileStatusRemoved
 					if cr.IsEnabled(object) {
 						status = types.ReconcileStatusAvailable
